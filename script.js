@@ -1,5 +1,5 @@
-        // COLOQUE SEU LINK DO GOOGLE SHEETS (CSV) AQUI
-        const csvUrl = 'SUA_URL_AQUI';
+// COLOQUE SEU LINK DO GOOGLE SHEETS (CSV) AQUI
+        const csvUrl = 'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
 
         async function atualizarCotacoes() {
             try {
