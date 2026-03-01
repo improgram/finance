@@ -1,7 +1,7 @@
 // COLOQUE SEU LINK DO GOOGLE SHEETS (CSV) AQUI
-        const csvUrl = 'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
+const csvUrl = 'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
 
-        async function atualizarCotacoes() {
+async function atualizarCotacoes() {
             try {
                 const response = await fetch(csvUrl);
                 const data = await response.text();
@@ -31,7 +31,7 @@
             } catch (error) {
                 console.error("Erro ao carregar dados:", error);
             }
-        }
+}
 
         // Executa ao carregar e define intervalo de 2 minutos
         atualizarCotacoes();

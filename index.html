@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <title>Dashboard B3 - Google Finance</title>
+        <link rel="stylesheet" href="style.css">
     </head>
     <body>
         <h2>📊 Monitor de Ativos B3</h2>
@@ -15,17 +16,17 @@
                     <th>Variação (%)</th>
                 </tr>
             </thead>
-            <tbody id="corpo-tabela">
-            </tbody>
+            <tbody id="corpo-tabela"></tbody>
         </table>
-
+        <footer>&copy; Todos os direitos reservados</footer>
+        <script src="script.js" defer></script>
     </body>
 </html>
 
 
 
 
-<!-- 
+<!--
 
 usar a função =GOOGLEFINANCE("TICKER", "price") dentro de uma planilha e depois exportar esses dados
 como um arquivo JSON ou CSV que seu HTML consiga ler.
