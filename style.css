@@ -1,21 +1,59 @@
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #1a1a1a;
+    padding: 20px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+h2 {
+  margin-bottom: 20px;
+  color: white;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #fff;
+}
+
+th, td {
+    padding: 1px;
+    border: 0.5px solid #ddd;
+    text-align: left;
+}
+
+th {
+    background-color: #004a99;
     color: white;
-    padding: 40px;
 }
 
-.ticker-card {
-    background: white;
-    padding: 15px;
-    margin: 10px;
-    border-radius: 8px;
-    display: inline-block;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+tr:nth-child(even) {
+    background-color: #f2f2f2;
 }
 
-.price {
+.positive {
+    color: green;
     font-weight: bold;
-    color: #2c3e50;
+}
+
+.negative {
+    color: red;
+    font-weight: bold;
+}
+
+/* Erro ao carregar arquivo */
+#loader {
+    font-style: italic;
+    color: white;
+}
+
+footer {
+    color: #662;
 }

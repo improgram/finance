@@ -2,44 +2,29 @@
 <html lang="pt-br">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Dashboard B3 - Google Finance</title>
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
         <h2>📊 Monitor de Ativos B3</h2>
 
-        <div id="cotacoes">Carregando dados...</div>
+        <div id="loader">Carregando dados...</div>
+        
+        <table id="table-cotacoes" style="display:none;">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Preço (R$)</th>
+                <th>Variação (%)</th>
+            </tr>
+        </thead>
+        <tbody id="body-table">
+            <!-- Dados inseridos pelo JS -->
+        </tbody>
+    </table>
 
         <footer>&copy; Todos os direitos reservados</footer>
         <script src="script.js" defer></script>
     </body>
 </html>
-
-
-
-
-<!--
-
-usar a função =GOOGLEFINANCE("TICKER", "price") dentro de uma planilha e depois exportar esses dados
-como um arquivo JSON ou CSV que seu HTML consiga ler.
-
-1. Prepare o Google Sheets
-Crie uma planilha e liste os tickers da B3 na coluna A (ex: BVMF:PETR4, BVMF:VALE3).
-Na coluna B, use a fórmula: =GOOGLEFINANCE(A1; "price").
-Vá em Arquivo > Compartilhar > Publicar na Web.
-Escolha a página específica e mude o formato de "Página da Web" para Valores separados por vírgula (.csv).
-Copie o link gerado.
-
-2.
-Ajuste na Planilha (Google Sheets)
-Para que o código funcione, sua planilha precisa ter 3 colunas específicas:
-Coluna A: Ticker (ex: BVMF:PETR4)
-Coluna B: Preço Atual (=GOOGLEFINANCE(A1; "price"))
-Coluna C: Variação % (=GOOGLEFINANCE(A1; "changepct") / 100) —
-Dica: Formate esta coluna como número comum na planilha para o JS ler o valor puro.
-Delay: O Google Finance pode ter um atraso de até 20 minutos em relação ao mercado em tempo real.
-Limites: Para uso pessoal ou pequenas ferramentas de monitoramento, esse método funciona muito bem.
-Formatação: No Google Sheets, certifique-se de que o ponto decimal e a vírgula não quebrem o seu código JavaScript
- na hora de separar as colunas.
-
--->
