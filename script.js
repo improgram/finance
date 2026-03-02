@@ -1,56 +1,33 @@
-// COLOQUE SEU LINK DO GOOGLE SHEETS (CSV) AQUI
-const csvUrl = 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing';
+const url = 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing';
 
-//'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
+async function fetchStocks() {
+            const response = await fetch(url);
+            const data = await response.text();
+            const rows = data.split('\n').slice(1); // Remove o cabeçalho
 
-async function atualizarCotacoes() {
-            try {
-                const response = await fetch(csvUrl);
-                const data = await response.text();
-                const rows = data.split('\n').slice(1);
+            let html = '';
+            rows.forEach(row => {
+                const [ticker, preco] = row.split(',');
+                if(ticker) {
+                    html += `<div class="ticker-card">
+                                <strong>${ticker}:</strong>
+                                <span class="price">R$ ${preco}</span>
+                             </div>`;
+                }
+            });
+            document.getElementById('cotacoes').innerHTML = html;
+        }
 
-                let html = '';
-                rows.forEach(row => {
-                    const columns = row.split(',');
-                    if (columns.length >= 3) {
-                        const ticker = columns[0].replace(/"/g, '').replace('BVMF:', '');
-                        const preco = parseFloat(columns[1]).toFixed(2);
-                        const variacao = parseFloat(columns[2].replace('%', ''));
+        fetchStocks();
+        // Atualiza a cada 5 minutos
+        setInterval(fetchStocks, 300000);
 
-                        const classeCor = variacao >= 0 ? 'pos' : 'neg';
-                        const sinal = variacao >= 0 ? '+' : '';
+/*
+Se notar que os números estão vindo com vírgula da planilha (ex: 34,50)
+    e o JavaScript não está calculando,
+    mude a configuração da sua planilha para Estados Unidos
+    (Arquivo > Configurações > Localidade).
 
-                        html += `
-                            <tr>
-                                <td><strong>${ticker}</strong></td>
-                                <td class="price">R$ ${preco}</td>
-                                <td class="${classeCor}">${sinal}${variacao.toFixed(2)}%</td>
-                            </tr>
-                        `;
-                    }
-                });
-                document.getElementById('corpo-tabela').innerHTML = html;
-            } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-            }
-}
-
-        // Executa ao carregar e define intervalo de 2 minutos
-        atualizarCotacoes();
-        setInterval(atualizarCotacoes, 120000);
-
-
-        /*
-        Se notar que os números estão vindo com vírgula da planilha (ex: 34,50)
-        e o JavaScript não está calculando,
-        mude a configuração da sua planilha para Estados Unidos
-        (Arquivo > Configurações > Localidade).
-
-        Isso faz com que o Google Finance gere o CSV com pontos (34.50),
-        que é o padrão que o JavaScript entende nativamente.
-
-
-        17;59
-
-
-        */
+    Isso faz com que o Google Finance gere o CSV com pontos (34.50),
+    que é o padrão que o JavaScript entende nativamente.
+*/
