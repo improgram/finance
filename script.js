@@ -1,5 +1,7 @@
 // COLOQUE SEU LINK DO GOOGLE SHEETS (CSV) AQUI
-const csvUrl = 'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
+const csvUrl = 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing';
+
+//'https://1drv.ms/x/c/3fdf2a2a5b0bd620/IQD0fvhgk60rQqdh_wwGjOp7AYwPbRjDq_a2NoWBlDDOGPk?e=driIKo';
 
 async function atualizarCotacoes() {
             try {
@@ -46,5 +48,9 @@ async function atualizarCotacoes() {
 
         Isso faz com que o Google Finance gere o CSV com pontos (34.50),
         que é o padrão que o JavaScript entende nativamente.
+
+
+        17;59
+
 
         */
