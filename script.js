@@ -1,46 +1,59 @@
 // https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing
+// =IMPORTXML("https://www.infomoney.com.br/cotacoes/b3/etf/etf-wrld11/", "//div[@class='line-info']/div[1]/p")
+// 'dados.csv';
 
-const csvUrl = 'dados.csv';
+const csvUrl = 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/export?format=csv';
 
-        async function carregarCotacoes() {
+async function carregarCotacoes() {
             try {
                 const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error('Falha na requisição');
+
                 const data = await response.text();
                 processarCSV(data);
             } catch (error) {
-                document.getElementById('loader').innerText = 'Erro ao carregar o arquivo CSV.';
-                console.error(error);
+                const loader = document.getElementById('loader');
+                if (loader) loader.innerText = 'Erro ao carregar os dados.';
+                console.error("Erro detalhado:", error);
             }
-        }
+}
 
-        function processarCSV(csvText) {
-            const lines = csvText.split('\n');
-            const tableBody = document.getElementById('body-table');
-            const loader = document.getElementById('loader');
-            const table = document.getElementById('table-cotacoes');
+function processarCSV(csvText) {
+    const lines = csvText.split('\n');
+    const tableBody = document.getElementById('body-table');
+    const loader = document.getElementById('loader');
+    const table = document.getElementById('table-cotacoes');
 
-            // Ignora o cabeçalho (i=1) e pula linhas vazias
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',');
-                if (cols.length < 3) continue;
+    let rowsHtml = ''; // Construir a string primeiro é mais performático
 
-                const ticker = cols[0].trim();
-                const preco = parseFloat(cols[1].trim()).toFixed(2);
-                const variacao = parseFloat(cols[2].trim()).toFixed(2);
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
 
-                const cssClass = variacao >= 0 ? 'positive' : 'negative';
+        // Tenta separar por vírgula, se falhar, tenta ponto e vírgula
+        const cols = line.includes(';') ? line.split(';') : line.split(',');
 
-                const row = `<tr>
-                    <td>${ticker}</td>
-                    <td>${preco}</td>
-                    <td class="${cssClass}">${variacao}%</td>
-                </tr>`;
-                tableBody.innerHTML += row;
-            }
+        if (cols.length < 3) continue;
 
-            loader.style.display = 'none';
-            table.style.display = 'table';
-        }
+        const ticker = cols[0].trim();
+        // Converte vírgula decimal em ponto antes de transformar em número
+        const precoNum = parseFloat(cols[1].trim().replace(',', '.'));
+        const variacaoNum = parseFloat(cols[2].trim().replace(',', '.'));
 
-        // Inicia
-        carregarCotacoes();
+        if (isNaN(precoNum) || isNaN(variacaoNum)) continue;
+
+        const cssClass = variacaoNum >= 0 ? 'positive' : 'negative';
+
+        rowsHtml += `<tr>
+            <td>${ticker}</td>
+            <td>R$ ${precoNum.toFixed(2)}</td>
+            <td class="${cssClass}">${variacaoNum.toFixed(2)}%</td>
+        </tr>`;
+    }
+
+    tableBody.innerHTML = rowsHtml;
+    loader.style.display = 'none';
+    table.style.display = 'table';
+}
+
+carregarCotacoes();

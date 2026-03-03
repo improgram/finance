@@ -2,6 +2,7 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #1a1a1a;
+    color: #f2f2f2;
     padding: 20px;
 }
 
@@ -16,11 +17,60 @@ h2 {
   color: white;
 }
 
-table {
+/* Estilo básico da tabela */
+#table-cotacoes {
     width: 100%;
     border-collapse: collapse;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin-top: 20px;
-    background-color: #fff;
+    display: none;
+    /*background-color: #fff;*/
+}
+
+#table-cotacoes th, #table-cotacoes td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+}
+
+#table-cotacoes th {
+    background-color: #f8f9fa;
+    color: #333;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+/* Cores de indicação de performance */
+.positive {
+    color: #27ae60; /* Verde */
+    font-weight: bold;
+}
+
+.positive::before {
+    content: "▲ "; /* Adiciona uma setinha para cima */
+    font-size: 0.8rem;
+}
+
+.negative {
+    color: #e74c3c; /* Vermelho */
+    font-weight: bold;
+}
+
+.negative::before {
+    content: "▼ "; /* Adiciona uma setinha para baixo */
+    font-size: 0.8rem;
+}
+
+/* Efeito de hover para facilitar a leitura */
+#table-cotacoes tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Loader simples */
+#loader {
+    font-style: italic;
+    color: #666;
+    padding: 20px;
 }
 
 th, td {
@@ -54,16 +104,15 @@ tr:nth-child(even) {
     color: white;
 }
 
-.copyright {
-    font-size: x-small;
-    text-align: left;
-    color: orange;
-    padding: 5px 0 1px 5px;
+#tablejson {
+    /*display: none;*/
+    color: #f2f2f2;
 }
 
 #rodape {
     background: radial-gradient( rgb(99, 99, 99) 0%, rgb(13, 21, 92) 100%, rgb(134, 96, 132));
-    height: 70px;
+    height: 50px;
+    margin-top: 20px;
 }
 
 #rodape img {
@@ -80,4 +129,11 @@ tr:nth-child(even) {
     border-radius: 30%;
     animation: icones 10s linear infinite;
     margin: 1%;
+}
+
+.copyright {
+    font-size: x-small;
+    text-align: left;
+    color: orange;
+    padding: 5px 0 1px 5px;
 }
