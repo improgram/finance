@@ -1,6 +1,6 @@
 const SHEET_ID = '14F2zQOSElTVkS2xZnfT7CrRYB0zgaKcE92mpYzElpc4';
 const SHEET_TITLE = 'Página1'; // Nome da aba na planilha
-const SHEET_RANGE1 = 'A4:F12'; // Intervalo de dados
+const SHEET_RANGE1 = 'A4:G12'; // Intervalo de dados
 
 const FULL_URL1 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_TITLE}&range=${SHEET_RANGE1}`;
 
@@ -47,7 +47,7 @@ function carregarETF() {
 }
 
 
-const SHEET_RANGE2 = 'A21:D25'; // Intervalo de dados
+const SHEET_RANGE2 = 'A21:E31'; // Intervalo de dados
 const FULL_URL2 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_TITLE}&range=${SHEET_RANGE2}`;
 
 google.charts.setOnLoadCallback(carregarGoogle);
@@ -93,11 +93,8 @@ function carregarGoogle() {
 
 
 
-
 const csvUrl = 'dados.csv';
-// 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/export?format=csv';
-// https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing
-// =IMPORTXML("https://www.infomoney.com.br/cotacoes/b3/etf/etf-wrld11/", "//div[@class='line-info']/div[1]/p")
+
 async function carregarCotacoes() {
             try {
                 const response = await fetch(csvUrl);
