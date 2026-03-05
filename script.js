@@ -1,9 +1,103 @@
+const SHEET_ID = '14F2zQOSElTVkS2xZnfT7CrRYB0zgaKcE92mpYzElpc4';
+const SHEET_TITLE = 'Página1'; // Nome da aba na planilha
+const SHEET_RANGE1 = 'A4:F12'; // Intervalo de dados
+
+const FULL_URL1 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_TITLE}&range=${SHEET_RANGE1}`;
+
+google.charts.load('current', {packages:['corechart']});
+google.charts.setOnLoadCallback(carregarETF);
+
+function carregarETF() {
+    Promise.all([ fetch(FULL_URL1).then(res => res.text()) ])
+    .then(([rep1]) => {
+
+        // Limpando o retorno da Google API
+        const data1 = JSON.parse(rep1.substr(47).slice(0, -2));
+        const cols = data1.table.cols;
+        const rows = data1.table.rows;
+
+                // Criar Cabeçalho
+                let headerHtml = '<tr>';
+                    cols.forEach(col => {
+                        headerHtml += `<th>${col.label}</th>`;
+                    });
+                    headerHtml += '</tr>';
+                document.querySelector('#tabelaTickers1 thead').innerHTML = headerHtml;
+
+                // Criar Linhas
+                let bodyHtml = '';
+                    rows.forEach(row => {
+                        bodyHtml += '<tr>';
+                        row.c.forEach(cell => {
+                            let value = cell ? (cell.v || '') : '';
+                            bodyHtml += `<td>${value}</td>`;
+                        });
+                        bodyHtml += '</tr>';
+                    });
+                document.getElementById('corpoTabela1').innerHTML = bodyHtml;
+
+                // Inicializar DataTables para permitir busca e ordenação
+                $('#tabelaTickers1').DataTable({
+                        language: {
+                            url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json',
+                            emptyTable: "Nenhum registro encontrado",
+                        }
+                });
+    });
+}
+
+
+const SHEET_RANGE2 = 'A21:D25'; // Intervalo de dados
+const FULL_URL2 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_TITLE}&range=${SHEET_RANGE2}`;
+
+google.charts.setOnLoadCallback(carregarGoogle);
+
+function carregarGoogle() {
+    Promise.all([ fetch(FULL_URL2).then(res => res.text() ) ])
+    .then(([rep2]) => {
+
+        // Limpando o retorno da Google API
+        const data2 = JSON.parse(rep2.substr(47).slice(0, -2));
+        const cols = data2.table.cols;
+        const rows = data2.table.rows;
+
+                // Criar Cabeçalho
+                let headerHtml = '<tr>';
+                    cols.forEach(col => {
+                        headerHtml += `<th>${col.label}</th>`;
+                    });
+                    headerHtml += '</tr>';
+                document.querySelector('#tabelaTickers2 thead').innerHTML = headerHtml;
+
+                // Criar Linhas
+                let bodyHtml = '';
+                    rows.forEach(row => {
+                        bodyHtml += '<tr>';
+                        row.c.forEach(cell => {
+                            let value = cell ? (cell.v || '') : '';
+                            bodyHtml += `<td>${value}</td>`;
+                        });
+                        bodyHtml += '</tr>';
+                    });
+                document.getElementById('corpoTabela2').innerHTML = bodyHtml;
+
+                // Inicializar DataTables para permitir busca e ordenação
+                $('#tabelaTickers2').DataTable({
+                        language: {
+                            url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json',
+                            emptyTable: "Nenhum registro encontrado",
+                        }
+                });
+    });
+}
+
+
+
+
+const csvUrl = 'dados.csv';
+// 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/export?format=csv';
 // https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/edit?usp=sharing
 // =IMPORTXML("https://www.infomoney.com.br/cotacoes/b3/etf/etf-wrld11/", "//div[@class='line-info']/div[1]/p")
-// 'dados.csv';
-
-const csvUrl = 'https://docs.google.com/spreadsheets/d/1Bdo-yu3y2bwJ_5ZQI4A0RJMrOVEOHUfuFbKp0L305v0/export?format=csv';
-
 async function carregarCotacoes() {
             try {
                 const response = await fetch(csvUrl);
