@@ -1,6 +1,7 @@
 
-// Este código rodará no lado do servidor (Node.js), onde o token está seguro:
-// netlify/functions/get-brapi-data.js
+// Este código rodará no lado do servidor ou serverless
+// onde o token está seguro:
+// netlify/functions/get-quotes.js
 
 exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
