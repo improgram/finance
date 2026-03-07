@@ -6,82 +6,71 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: sans-serif;
+    min-height: 100vh;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-image: radial-gradient(
+        circle, rgb(199, 192, 192) 1%, rgb(169, 169, 169) 5%,rgb(79, 79, 79) 80%
+        );
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: white;
 }
 
-#tabelaTickers1, #tabelaTickers2 {
-    text-align: center;
+h1 {
+    color: #333;
 }
 
-.linhaTabela {
-    border: 1px solid #e74c;
-}
-
-/* Erro ao carregar arquivo */
-#loader {
-    font-style: italic;
-    color: #666;
-    padding: 20px;
-}
-
-/* Estilo básico da tabela */
-#table-cotacoes {
-    width: 100%;
+table {
     border-collapse: collapse;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin-top: 10px;
+    width: 80%;
+    max-width: 600px;
+    background: white;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#stock-table {
     display: none;
 }
 
-#table-cotacoes th, #table-cotacoes td {
-    padding: 1px 1px;
-    border-bottom: 1px solid #e74c;
+th, td {
+    adding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
 }
-
-#table-cotacoes th {
-    text-transform: uppercase;
-    font-size: 0.8rem;
-}
-
-/* Efeito de hover para facilitar a leitura */
-#table-cotacoes tr:hover {
-    background-color: #004a90;
-}
-
 
 th {
-    background-color: #004a99;
+    background-color: #007bff; color: white;
 }
 
-tr:nth-child(even) {
-    background-color: #34495e;
-    /* linhas intercaladas da planilha*/
+tr:hover {
+    background-color: #f1f1f1;
 }
 
-/* Cores de indicação de performance */
-.positive {
-    color: #27ae60;
-    font-weight: bold;
+.price {
+    font-weight: bold; color: #28a745;
 }
 
-.positive::before {
-    content: "▲ ";
-    font-size: 0.6rem;
+.loading {
+    margin-top: 20px;
+    font-style: italic;
+    color: white;
 }
 
-.negative {
-    color: #e74c3c;
-    font-weight: bold;
-}
 
-.negative::before {
-    content: "▼ ";
-    font-size: 0.6rem;
-}
+
+
+
+
+
 
 #rodape {
-    background: radial-gradient( rgb(99, 99, 99) 0%, rgb(13, 21, 92) 100%, rgb(134, 96, 132));
-    height: 50px;
+    background: radial-gradient( rgb(99, 99, 99) 0%, rgb(192, 192, 192) 50%, rgb(97, 128, 128));
+    height: 50px;   /* 25, 25, 112 */
     margin-top: 20px;
 }
 
@@ -104,6 +93,6 @@ tr:nth-child(even) {
 .copyright {
     font-size: x-small;
     text-align: left;
-    color: rgb(99, 99, 99);
+    color: rgb(47, 121, 128);
     padding: 5px 0 1px 5px;
 }

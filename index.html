@@ -2,75 +2,49 @@
 <html lang="pt-br" data-bs-theme="dark">
     <head>
         <meta charset="UTF-8">
-        <meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+        <META NAME="author" CONTENT="Isaac">
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Dashboard B3 - Google Finance</title>
         <link rel="stylesheet" href="style.css">
+        <!-- Bootstrap
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
         <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
-
+        -->
+        <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox=%220 0 100 100%22>
+            <text y=%22.9em%22 font-size=%2290%22>&#x1F609;</text></svg>">
+	    <meta name="google-site-verification" content="b_qbrITvW9GqYZ0YIiu5jEDsFYA5fVrLJVam3uO-ysU" />
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
     </head>
     <body>
-        <h3>📊 Monitor de Ativos B3</h3>
+        <h2>📊 Monitor de ETF</h2>
 
-        <div class="container mt-2">
-            <h4 class="mb-2 text-center">📊 Lista de ETF´s não estão no Google Finance</h4>
-            <div class="card shadow p-4">
-                <table id="tabelaTickers1" class="table table-striped table-hover w-100">
-                    <thead>
-                    </thead>
-                    <tr class="linhaTabela">
-                        <td>Ticker</td>
-                        <td>Preço Atual</td>
-                        <td>Composicao</td>
-                        <td>03/Mar/26</td>
-                        <td>04/Mar/26</td>
-                        <td>05/Mar/26</td>
-                        <td>06/Mar/26</td>
-                    </tr>
-                    <tbody id="corpoTabela1">
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <div id="status">Carregando...</div>
+        <div id="quotes-container"></div>
 
-
-        <div class="container mt-2">
-            <h4 class="mt-md-5 text-center">Tabela Google Finance</h4>
-            <div class="card shadow p-4">
-                <table id="tabelaTickers2" class="table table-striped table-hover w-100">
-                    <thead class="table-dark">
-                    </thead>
-                    <tr class="linhaTabela">
-                        <td>Empresa</td>
-                        <td>Preço Atual</td>
-                        <td>Ticker</td>
-                        <td>Minima 2026</td>
-                        <td>Alvo</td>
-                    </tr>
-                    <tbody id="corpoTabela2">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-
-
-        <div id="loader">Carregando dados...</div>
-        <h4 class="mt-md-5 text-center">Tabela da planilha</h4>
-        <table id="table-cotacoes">
+        <table>
             <thead>
-                <tr class="trLocal">
+                <tr>
                     <th>Ticker</th>
-                    <th>Preço (R$)</th>
-                    <th>Variação (%)</th>
+                    <th>Nome</th>
+                    <th>Preço</th>
                 </tr>
             </thead>
+            <tbody id="table-body">
+                </tbody>
+        </table>
 
-        <tbody id="body-table">
-            <!-- Dados inseridos pelo JS -->
-        </tbody>
-    </table>
+
+
+
+
+
+
+
+
+
+
+
 
     <footer id="rodape">&copy;
         <a target="_blank" title="About.Me"><img src="https://live.staticflickr.com/65535/51926937998_29e0570239_w.jpg" alt="about"> </a>

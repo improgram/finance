@@ -1,4 +1,26 @@
+
+
+
+// Docs on request and context https://docs.netlify.com/functions/build/#code-your-function-2
+export default (request, context) => {
+  try {
+    const url = new URL(request.url)
+    const subject = url.searchParams.get('name') || 'World'
+
+    return new Response(`Hello ${subject}`)
+  } catch (error) {
+    return new Response(error.toString(), {
+      status: 500,
+    })
+  }
+}
+
+
+/*
+
+// Este código rodará no lado do servidor (Node.js), onde o token está seguro:
 // netlify/functions/get-brapi-data.js
+
 const axios = require('axios'); //  poderia usar o fetch
 
 exports.handler = async (event, context) => {
@@ -19,3 +41,5 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+*/
