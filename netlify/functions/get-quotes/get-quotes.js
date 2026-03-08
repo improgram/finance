@@ -1,12 +1,10 @@
 
-// Este código rodará no lado do servidor ou serverless
-// onde o token está seguro:
-// netlify/functions/get-quotes.js
+// Este código rodará no lado do servidor ou serverless (netlify)
 
 exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
+  const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3,ITUB4';
 
   try {
     const response = await fetch(
@@ -17,7 +15,8 @@ exports.handler = async (event) => {
     if (!data.results) {
         return {
             statusCode: 400,
-            body: JSON.stringify({ error: "Tickers não encontrados ou erro na API" }),
+            body: JSON.stringify(
+              { error: "Tickers não encontrados ou erro na API" }),
         };
     }
     return {

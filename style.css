@@ -15,13 +15,15 @@ body {
         );
     display: flex;
     flex-direction: column;
+    gap: 20px; /* Cria 20px de espaço entre os itens */
     align-items: center;
     color: white;
 }
 
 table {
-    border-collapse: collapse;
     width: 80%;
+    border-collapse: collapse;
+    margin-top: 20px;
     max-width: 600px;
     background: white;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -29,12 +31,9 @@ table {
     overflow: hidden;
 }
 
-#stock-table {
-    display: none;
-}
-
 th, td {
     adding: 12px 15px;
+    padding: 12px
     text-align: left;
     border-bottom: 1px solid #ddd;
 }
