@@ -5,9 +5,9 @@
 export default (request, context) => {
   try {
     const url = new URL(request.url)
-    const subject = url.searchParams.get('name') || 'World'
+    const subject = url.searchParams.get('name') || 'Teste 08/03 '
 
-    return new Response(`Hello ${subject}`)
+    return new Response(`Domingo ${subject}`)
   } catch (error) {
     return new Response(error.toString(), {
       status: 500,

@@ -14,8 +14,15 @@ exports.handler = async (event) => {
     );
     const data = await response.json();
 
+    if (!data.results) {
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ error: "Tickers não encontrados ou erro na API" }),
+        };
+    }
     return {
       statusCode: 200,
+      headers: { "Content-Type": "application/json" }, // Boa prática
       body: JSON.stringify(data.results),
     };
   } catch (error) {

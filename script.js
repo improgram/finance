@@ -1,31 +1,35 @@
+
 const updateQuotes = async () => {
-            const tickers = 'PETR4,VALE3,ITUB4';
-            try {
-                // Chamamos o endpoint relativo do Netlify
-                const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);
-                const quotes = await response.json();         
+    const tickers = 'PETR4,VALE3,ITUB4';
+    try {
+        // Chamamos o endpoint relativo do Netlify
+        const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);
+        const quotes = await response.json();
 
-                const container = document.getElementById('quotes-container');
-                container.innerHTML = '';
+        const container = document.getElementById('quotes-container');
+        container.innerHTML = '';
 
-                quotes.forEach(quote => {
-                    container.innerHTML += `
-                        <div class="ticker-card">
-                            <span>${quote.symbol}</span>
-                            <span class="price">R$ ${quote.regularMarketPrice.toFixed(2)}</span>
-                        </div>
-                    `;
-                });
-                document.getElementById('status').style.display = 'none';
-            } catch (err) {
-                document.getElementById('status').innerText = "Erro ao carregar dados.";
-            }
-        };
+        if (Array.isArray(quotes)) {
+            quotes.forEach(quote => {
+                container.innerHTML += `
+                <div class="ticker-card">
+                    <span>${quote.symbol}</span>
+                    <span class="price">R$ ${quote.regularMarketPrice.toFixed(2)}</span>
+                </div>
+                `;
+            });
+        }
+        document.getElementById('status').style.display = 'none';
+        } catch (err) {
+            document.getElementById('status').innerText = "Erro ao carregar dados.";
+        }
+};
 
-        updateQuotes();
+updateQuotes();
 
 
 
+// https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
 
 
 /* Codigo antigo
