@@ -5,7 +5,7 @@
 export default (request, context) => {
   try {
     const url = new URL(request.url)
-    const subject = url.searchParams.get('name') || 'Teste 08/03 '
+    const subject = url.searchParams.get('name') || 'Teste 15:08 '
 
     return new Response(`Domingo ${subject}`)
   } catch (error) {
