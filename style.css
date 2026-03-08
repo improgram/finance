@@ -19,10 +19,6 @@ body {
     color: white;
 }
 
-h2 {
-    color: #333;
-}
-
 table {
     border-collapse: collapse;
     width: 80%;
@@ -52,7 +48,7 @@ tr:hover {
 }
 
 .price {
-    font-weight: bold; color: #28a745;
+    font-weight: bold; color: #00FF7F;
 }
 
 .loading {
