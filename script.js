@@ -30,6 +30,8 @@ const updateQuotes = async () => {
 updateQuotes();
 
 
+
+
 // não será possivel ver os registros das funções netlify no console do navegador
 // quando simulada no localhost http://127.0.0.1:5500
 //  porque suas funções não estão sendo executadas no navegador

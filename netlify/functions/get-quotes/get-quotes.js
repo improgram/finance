@@ -1,5 +1,6 @@
 
 // Este código rodará no lado do servidor ou serverless (netlify)
+// não roda no navegador. Ele é acionado apenas quando o Frontend faz o pedido
 
 exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
