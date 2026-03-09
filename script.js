@@ -1,5 +1,5 @@
 const updateQuotes = async () => {
-    const tickers = 'PETR4,VALE3,ITUB4,IMAB11';
+    const tickers = 'PETR4,VALE3,ITUB4';
     try {
         // Chamamos o endpoint relativo do Netlify
         const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);
