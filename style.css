@@ -20,8 +20,15 @@ body {
     color: white;
 }
 
+#status {
+    font-size: 18px;
+    color: red;
+    padding: 5px;
+    background: radial-gradient( rgb(127, 255, 212) 0%, rgb(102, 205, 170) 50%, rgb(97, 128, 128) 90%);
+}
+
 table {
-    width: 80%;
+    width: 90%;
     border-collapse: collapse;
     margin-top: 20px;
     max-width: 600px;
@@ -32,14 +39,13 @@ table {
 }
 
 th, td {
-    adding: 12px 15px;
-    padding: 12px
+    padding: 12px 15px;
     text-align: left;
-    border-bottom: 1px solid rgb(47, 79, 79);
+    border-bottom: 1px inset rgb(127, 719, 79);
 }
 
 th {
-    background-color: #007bff; color: rgb(47, 121, 128);
+    background-color: #BFF; color: black;
 }
 
 tr:hover {
@@ -48,7 +54,7 @@ tr:hover {
 }
 
 .price {
-    font-weight: bold; color: #00FA9A;
+    font-weight: bold; color: #3CB371;
 }
 
 .loading {
