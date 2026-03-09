@@ -21,9 +21,9 @@ body {
 }
 
 #status {
-    font-size: 18px;
+    font-size: 16px;
     color: red;
-    padding: 5px;
+    padding: 10px;
     background: radial-gradient( rgb(127, 255, 212) 0%, rgb(102, 205, 170) 50%, rgb(97, 128, 128) 90%);
 }
 
@@ -36,19 +36,21 @@ table {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     border-radius: 8px;
     overflow: hidden;
+    color: MidnightBlue;
 }
 
 th, td {
     padding: 12px 15px;
     text-align: left;
-    border-bottom: 1px inset rgb(127, 719, 79);
+    border-bottom: 1px inset #008080;
 }
 
 th {
-    background-color: #BFF; color: black;
+    background-color: #BFF;
+    color: MidnightBlue;
 }
 
-tr:hover {
+tr:hover {      /* quando passa o mouse */
     background-color: #f1f1f1;
     font-size: 16px;
 }
