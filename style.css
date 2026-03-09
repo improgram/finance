@@ -35,19 +35,20 @@ th, td {
     adding: 12px 15px;
     padding: 12px
     text-align: left;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid rgb(47, 79, 79);
 }
 
 th {
-    background-color: #007bff; color: white;
+    background-color: #007bff; color: rgb(47, 121, 128);
 }
 
 tr:hover {
     background-color: #f1f1f1;
+    font-size: 16px;
 }
 
 .price {
-    font-weight: bold; color: #00FF7F;
+    font-weight: bold; color: #00FA9A;
 }
 
 .loading {
