@@ -1,10 +1,9 @@
 const updateQuotes = async () => {
-    const tickers = 'PETR4,VALE3,ITUB4';
+    const tickers = 'PETR4,VALE3,ITUB4,IMAB11';
     try {
         // Chamamos o endpoint relativo do Netlify
         const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);
         const quotes = await response.json();
-
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
 
