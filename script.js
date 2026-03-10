@@ -1,5 +1,6 @@
 const updateQuotes = async () => {
-    const tickers = 'PETR4,VALE3,B5P211';
+    const tickers = 'PETR4,VALE3';
+    // nao reconheceu ETF na const
     try {
         // Chamamos o endpoint relativo do Netlify
         const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);

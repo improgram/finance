@@ -6,7 +6,7 @@ exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
-
+  // quando adicionei ETF na const deu erro
   try {
     const response = await fetch(
       `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
