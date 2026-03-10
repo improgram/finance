@@ -1,9 +1,9 @@
 const updateQuotes = async () => {
-    const tickers = 'PETR4,VALE3';
+    const ticker = 'PETR4,VALE3';
     // nao reconheceu ETF na const
     try {
         // Chamamos o endpoint relativo do Netlify
-        const response = await fetch(`/.netlify/functions/get-quotes?tickers=${tickers}`);
+        const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
         const quotes = await response.json();
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
@@ -14,16 +14,16 @@ const updateQuotes = async () => {
                 container.innerHTML += `
                     <tr>
                         <td><strong>${quote.symbol}</strong></td>
-                        <td>${quote.shortName || 'Empresa'}</td>
+                        <td>${quote.shortName || 'Ativo'}</td>
                         <td class="price">R$ ${quote.regularMarketPrice?.toFixed(2)}</td>
                     </tr>
                 `;
             });
         }
-        document.getElementById('status').style.display = 'none';
-        } catch (err) {
-            document.getElementById('status').innerText = "Erro ao carregar dados.";
-        }
+    document.getElementById('status').style.display = 'none';
+    } catch (err) {
+        document.getElementById('status').innerText = "Erro ao carregar dados.";
+    }
 };
 
 updateQuotes();
@@ -33,11 +33,3 @@ updateQuotes();
 //  porque suas funções não estão sendo executadas no navegador
 // Test function https://www.netlify.com/blog/intro-to-serverless-functions/
 // Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
-/*
-container.innerHTML += `
-            <div class="ticker-card">
-                <span>${quote.symbol}</span>
-                <span class="price">R$ ${quote.regularMarketPrice.toFixed(2)}</span>
-            </div>
-            `;
-*/
