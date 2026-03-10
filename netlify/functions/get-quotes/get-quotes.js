@@ -5,7 +5,7 @@
 exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3,IRFM11';
+  const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
 
   try {
     const response = await fetch(
