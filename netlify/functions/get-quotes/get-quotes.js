@@ -8,11 +8,11 @@ exports.handler = async (event) => {
   // quando adicionei ETF na const deu erro
   const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
   // Use encodeURIComponent para garantir que a URL não quebre com caracteres especiais
-  const encodedTickers = encodeURIComponent(tickers);
+  //const encodedTickers = encodeURLComponent(tickers);
 
   try {
     const response = await fetch(
-      `https://brapi.dev/api/quote/${encodedTickers}?token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
     );
     const data = await response.json();
 
