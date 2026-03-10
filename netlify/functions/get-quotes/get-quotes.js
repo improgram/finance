@@ -25,10 +25,11 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: { "Content-Type": "application/json" }, // Boa prática
         // O 'null, 2' adiciona espaços e quebras de linha no texto do JSON
-        body: JSON.stringify (
-          { message: "Sucesso" } data.results, null, 2),
-          console.log( "Sucesso na function netlify" )
+        body: JSON.stringify ({
+          message: "Sucesso",
+          results: data.results}, null, 2),
     };
+    console.log("Sucesso na function netlify");
   } catch (error) {
       return {
         statusCode: 500,
