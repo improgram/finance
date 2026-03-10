@@ -12,12 +12,12 @@ exports.handler = async (event) => {
 
 
   // 2. Limpeza: divide por vírgula, remove espaços em cada item e filtra vazios
-  const cleanedTickers = rawTickers
-    .split(',')
-    .map(t => t.trim())
-    .filter(t => t !== '')
-    .join(',');
-  console.log(`Buscando tickers: ${cleanedTickers}`);
+  //const cleanedTickers = rawTickers
+ //   .split(',')
+  //  .map(t => t.trim())
+  //  .filter(t => t !== '')
+  //  .join(',');
+  //console.log(`Buscando tickers: ${cleanedTickers}`);
 
   try {
     const response = await fetch(
