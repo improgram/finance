@@ -1,6 +1,6 @@
 const updateQuotes = async () => {
-    const ticker = 'PETR4,VALE3';
-    // nao reconheceu ETF na const
+    const ticker = 'PETR4,VALE3';  // nao reconheceu ETF na const
+
     try {
         // Chamamos o endpoint relativo do Netlify
         const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
@@ -20,7 +20,7 @@ const updateQuotes = async () => {
                 `;
             });
         }
-    document.getElementById('status').style.display = 'none';
+        document.getElementById('status').style.display = 'none';
     } catch (err) {
         document.getElementById('status').innerText = "Erro ao carregar dados.";
     }
