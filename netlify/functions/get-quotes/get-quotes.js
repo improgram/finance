@@ -7,18 +7,12 @@ exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
   // quando adicionei ETF na const deu erro
-  //const rawTickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
+
   const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
 
-
-  // 2. Limpeza: divide por vírgula, remove espaços em cada item e filtra vazios
-  //const cleanedTickers = rawTickers
- //   .split(',')
-  //  .map(t => t.trim())
-  //  .filter(t => t !== '')
-  //  .join(',');
-  //console.log(`Buscando tickers: ${cleanedTickers}`);
-
+  // --- DEPURAÇÃO: Log para inspecionar o que está chegando ---
+  console.log("Evento recebido:", event.queryStringParameters);
+  
   try {
     const response = await fetch(
       `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
