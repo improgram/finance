@@ -8,11 +8,10 @@ exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   // quando adicionei ETF na const deu erro
   const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
-  const tickersParam = tickers.join(',');
 
   try {
     const response = await fetch(
-      `https://brapi.dev/api/quote/${tickersParam}?token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
     );
     const data = await response.json();
 
