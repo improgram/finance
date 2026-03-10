@@ -7,11 +7,20 @@ exports.handler = async (event) => {
   // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
   // quando adicionei ETF na const deu erro
-  const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
+  //const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
+  const rawTickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
+
+  // 2. Limpeza: divide por vírgula, remove espaços em cada item e filtra vazios
+  const cleanedTickers = rawTickers
+    .split(',')
+    .map(t => t.trim())
+    .filter(t => t !== '')
+    .join(',');
+  console.log(`Buscando tickers: ${cleanedTickers}`);
 
   try {
     const response = await fetch(
-      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${encodeURIComponent(cleanedTickers)}?token=${API_TOKEN}`
     );
     const data = await response.json();
 
@@ -30,7 +39,10 @@ exports.handler = async (event) => {
   } catch (error) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Falha ao buscar dados" }),
+        body: JSON.stringify({
+          error: "Falha ao buscar dados",
+          details: error.message
+        }),
       };
   }
 };
