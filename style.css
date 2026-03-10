@@ -30,8 +30,8 @@ body {
 table {
     width: 90%;
     border-collapse: collapse;
-    margin-top: 20px;
-    max-width: 600px;
+    /*margin-top: 20px; */
+    /*max-width: 600px; */
     background: white;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     border-radius: 8px;
@@ -40,9 +40,9 @@ table {
 }
 
 th, td {
-    padding: 12px 15px;
+    padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px inset #008080;
+    border-bottom: 0.7px inset #008080;
 }
 
 th {
@@ -52,7 +52,7 @@ th {
 
 tr:hover {      /* quando passa o mouse */
     background-color: #f1f1f1;
-    font-size: 16px;
+    font-size: 14px;
 }
 
 .price {
@@ -93,6 +93,6 @@ tr:hover {      /* quando passa o mouse */
 
 .copyright {
     font-size: x-small;
-    color: rgb(47, 121, 128);
+    color: rgb(47, 121, 12);
     padding: 5px 0 1px 5px;
 }
