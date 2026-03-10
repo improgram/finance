@@ -14,7 +14,7 @@ const updateQuotes = async () => {
                 container.innerHTML += `
                     <tr>
                         <td><strong>${quote.symbol}</strong></td>
-                        <td>${quote.shortName || 'Ativo'}</td>
+                        <td>${quote.shortName || 'Ativo'}   </td>
                         <td class="price">R$ ${quote.regularMarketPrice?.toFixed(2)}</td>
                     </tr>
                 `;

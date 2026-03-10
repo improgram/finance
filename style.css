@@ -87,14 +87,12 @@ tr:hover {      /* quando passa o mouse */
     height: 30px;
     width: 24px;
     border-radius: 20%;
-    animation: icones 10s linear infinite;
 }
 
 #rodape svg {
     height: 27px;
     width: 27px;
     border-radius: 30%;
-    animation: icones 10s linear infinite;
 }
 
 .copyright {
