@@ -25,8 +25,7 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: { "Content-Type": "application/json" }, // Boa prática
         // O 'null, 2' adiciona espaços e quebras de linha no texto do JSON
-        body: JSON.stringify ({
-          results: data.results}, null, 2),
+        body: JSON.stringify (data.results, null, 2),
     };
   } catch (error) {
       return {
