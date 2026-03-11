@@ -20,10 +20,11 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                 // Criamos uma linha (tr) com as células (td) correspondentes
                 container.innerHTML += `
                     <tr>
-                        <td>${quote.longName || 'Ativo'}   </td>
+                        <td>${quote.longName}               </td>
                         <td><strong>${quote.symbol}</strong></td>
                         <td class="price">R$ ${quote.regularMarketPrice?.toFixed(2)}</td>
-                        <td>${quote.logourl}                </td>
+                        <td>${quote.fiftyTwoWeekLow}        </td>
+                        <td>${quote.fiftyTwoWeekHigh}       </td>
                     </tr>
                 `;
             });
