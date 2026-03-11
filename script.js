@@ -3,7 +3,6 @@ const updateQuotes = async () => {
 
     try {
         // Chamamos o endpoint relativo do Netlify
-        //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
         const paramsResponse = new URLSearchParams({
             tickers: ticker,
             limit: 20,    // Defina o valor desejado
@@ -21,9 +20,10 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                 // Criamos uma linha (tr) com as células (td) correspondentes
                 container.innerHTML += `
                     <tr>
+                        <td>${quote.longName || 'Ativo'}   </td>
                         <td><strong>${quote.symbol}</strong></td>
-                        <td>${quote.shortName || 'Ativo'}   </td>
                         <td class="price">R$ ${quote.regularMarketPrice?.toFixed(2)}</td>
+                        <td>${quote.logourl}                </td>
                     </tr>
                 `;
             });
