@@ -5,7 +5,7 @@ const updateQuotes = async () => {
         // Chama endpoint relativo do Netlify
         const paramsResponse = new URLSearchParams({
             limit: 1,               // Defina o valor limit por pagina
-            page: ,                 // Defina a página desejada
+            page: 1,                 // Defina a página desejada
             sortBy: name,
             //sortOrder: asc,            // sortOrder (asc/desc)
             tickers: ticker,
