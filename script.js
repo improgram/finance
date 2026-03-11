@@ -1,5 +1,5 @@
 const updateQuotes = async () => {
-    const ticker = '';
+    //const ticker = '';
 
     try {
         // Chama endpoint relativo do Netlify
@@ -7,8 +7,8 @@ const updateQuotes = async () => {
             limit: 1,               // Defina o valor limit por pagina
             page: 1,                 // Defina a página desejada
             sortBy: "name",
-            //sortOrder: asc,            // sortOrder (asc/desc)
-            tickers: ticker,
+            sortOrder: "asc",            // sortOrder (asc/desc)
+            //tickers: ticker,
             type: "bdr"
         });
 
