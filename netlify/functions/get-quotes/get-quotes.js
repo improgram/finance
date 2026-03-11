@@ -1,17 +1,11 @@
 
-// Este código rodará no lado do servidor ou serverless (netlify)
-// não roda no navegador.
-// Ele é acionado apenas quando o Frontend faz o pedido
-
+// Código rodará no lado do servidor ou serverless (netlify) navegador NAO
+// Acionado apenas quando o Frontend faz o pedido
+// A chave será lida das variáveis de ambiente do Netlify
+// quando adicionei ETF na const deu erro
 exports.handler = async (event) => {
-  // A chave será lida das variáveis de ambiente do Netlify
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  
-  // quando adicionei ETF na const deu erro
   const tickers = event.queryStringParameters.tickers || 'PETR4,VALE3';
-
-  // --- DEPURAÇÃO: Log para inspecionar o que está chegando ---
-  console.log("Evento recebido:", event.queryStringParameters);
 
   try {
     const response = await fetch(
@@ -41,3 +35,5 @@ exports.handler = async (event) => {
       };
   }
 };
+
+// https://brapi.dev/docs/acoes.mdx

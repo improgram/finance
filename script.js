@@ -1,12 +1,13 @@
 const updateQuotes = async () => {
-    const ticker = '';                     // nao reconheceu ETF na const
+    const ticker = '';
 
     try {
         // Chamamos o endpoint relativo do Netlify
         const paramsResponse = new URLSearchParams({
+            limit: 1,               // Defina o valor limit por pagina
+            page: 2,                 // Defina a página desejada
+            sortOrder: asc,            // sortOrder (asc/desc)
             tickers: ticker,
-            limit: 20,    // Defina o valor desejado
-            page: 2       // Defina a página desejada
         });
 
         //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
