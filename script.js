@@ -10,8 +10,8 @@ const updateQuotes = async () => {
             page: 2       // Defina a página desejada
         });
 
-        //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
-const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+        const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
+//const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
         const quotes = await response.json();
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
