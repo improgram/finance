@@ -2,17 +2,18 @@ const updateQuotes = async () => {
     const ticker = '';
 
     try {
-        // Chamamos o endpoint relativo do Netlify
+        // Chama endpoint relativo do Netlify
         const paramsResponse = new URLSearchParams({
             limit: 1,               // Defina o valor limit por pagina
-            page: 2,                 // Defina a página desejada
+            page: ,                 // Defina a página desejada
             sortBy: name,
             //sortOrder: asc,            // sortOrder (asc/desc)
             tickers: ticker,
+            type: bdr
         });
 
-        //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
-const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+    // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
+    const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
         const quotes = await response.json();
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
