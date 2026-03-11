@@ -1,5 +1,5 @@
 const updateQuotes = async () => {
-    const ticker = 'PETR4,VALE3';  // nao reconheceu ETF na const
+    const ticker = '';  // PETR4,VALE3 e nao reconheceu ETF na const
 
     try {
         // Chamamos o endpoint relativo do Netlify
