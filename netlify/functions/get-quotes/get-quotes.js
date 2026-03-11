@@ -5,12 +5,22 @@
 // quando adicionei ETF na const deu erro
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const tickers = event.queryStringParameters.tickers || 'VALE3,PETR4';
+  // const tickers = event.queryStringParameters.tickers || 'VALE3,PETR4';
+  const query = event.queryStringParameters;
+
+  // Constrói a URL dinamicamente com os parâmetros recebidos
+  // Supondo que a API use o endpoint /list para filtros
+  const baseUrl = "https://brapi.dev/api/quote/list";
+  const params = new URLSearchParams({
+    ...query,
+    token: API_TOKEN
+  });
 
   try {
-    const response = await fetch(
-      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`
-    );
+    //  const response = await fetch(
+    //  `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}` );
+
+    const response = await fetch(`${baseUrl}?${params.toString()}`)
     const data = await response.json();
 
     if (!data.results) {

@@ -1,17 +1,16 @@
 const updateQuotes = async () => {
     //const ticker = '';
-
     try {
         // Chama endpoint relativo do Netlify
         const paramsResponse = new URLSearchParams({
-            limit: 1,               // Defina o valor limit por pagina
-            page: 1,                 // Defina a página desejada
-            sortBy: "name",
-            sortOrder: "asc",            // sortOrder (asc/desc)
+            // parâmetros de consulta
             //tickers: ticker,
-            type: "bdr"
+            limit: 1,                   // valor limit por pagina
+            page: 1,                    // página desejada
+            sortBy: "name",             // organiza por nome
+            sortOrder: "asc",           // sortOrder (asc/desc)
+            type: "etf"                 // "bdr"
         });
-
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
     const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
         const quotes = await response.json();
@@ -37,7 +36,6 @@ const updateQuotes = async () => {
         document.getElementById('status').innerText = "Erro ao carregar dados.";
     }
 };
-
 updateQuotes();
 
 // não será possivel ver os registros das funções netlify no console do navegador
