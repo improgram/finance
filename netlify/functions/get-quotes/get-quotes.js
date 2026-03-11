@@ -6,21 +6,17 @@
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   // const tickers = event.queryStringParameters.tickers || 'VALE3,PETR4';
-  const query = event.queryStringParameters;
+  const queryParams = event.queryStringParameters;
 
   // Constrói a URL dinamicamente com os parâmetros recebidos
-  // Supondo que a API use o endpoint /list para filtros
-  const baseUrl = "https://brapi.dev/api/quote/list";
-  const params = new URLSearchParams({
-    ...query,
-    token: API_TOKEN
-  });
+  const params = new URLSearchParams(queryParams);
+        params.append('token', API_TOKEN);
 
   try {
     //  const response = await fetch(
-    //  `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}` );
+    //      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`);
 
-    const response = await fetch(`${baseUrl}?${params.toString()}`)
+    const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
     const data = await response.json();
 
     if (!data.results) {
@@ -29,7 +25,8 @@ exports.handler = async (event) => {
         body: JSON.stringify(
           { error: "Tickers não encontrados ou erro na API" }),
       };
-    } return {
+    }
+    return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" }, // Boa prática
         // O 'null, 2' adiciona espaços e quebras de linha no texto do JSON
@@ -38,8 +35,7 @@ exports.handler = async (event) => {
   } catch (error) {
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          error: "Falha ao buscar dados",
+        body: JSON.stringify({ error: "Falha ao buscar dados",
           details: error.message
         }),
       };
