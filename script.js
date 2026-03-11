@@ -1,9 +1,17 @@
 const updateQuotes = async () => {
-    const ticker = '';  // PETR4,VALE3 e nao reconheceu ETF na const
+    const ticker = 'ITUB4';                     // nao reconheceu ETF na const
 
     try {
         // Chamamos o endpoint relativo do Netlify
-        const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
+        //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
+        const paramsResponse = new URLSearchParams({
+            tickers: ticker,
+            limit: 20,    // Defina o valor desejado
+            page: 2       // Defina a página desejada
+        });
+
+        //const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
+const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
         const quotes = await response.json();
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
