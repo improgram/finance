@@ -9,10 +9,10 @@ const updateQuotes = async () => {
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
             sortOrder: "asc",          // sortOrder (asc/desc)
-            type: "etf"                    // "bdr"
+            type: "bdr"                    // "etf"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
-    const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
         const quotes = await response.json();
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
