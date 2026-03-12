@@ -5,11 +5,11 @@ const updateQuotes = async () => {
         const paramsResponse = new URLSearchParams({
             // parâmetros de consulta
             //tickers: ticker,
-            limit: 3,                   // valor limit por pagina
+            limit: 4,                   // valor limit por pagina
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
-            sortOrder: "desc",           // sortOrder (asc/desc)
-            // type: "bdr"                 // "etf"
+            sortOrder: "asc",          // sortOrder (asc/desc)
+            type: "etf"                    // "bdr"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
     const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
@@ -22,15 +22,15 @@ const updateQuotes = async () => {
                 // Criamos uma linha (tr) com as células (td) correspondentes
                 container.innerHTML += `
                     <tr>
-                        <td>${quote.name}               </td>
+                        <td>${quote.name}                   </td>
                         <td><strong>${quote.symbol}</strong></td>
+                        <td class="price">R$ ${Number(price).toFixed(2)}</td>
                         <td class="price">R$ ${quote.price?.toFixed(2)}</td>
-                        <td>${quote.fiftyTwoWeekLow}        </td>
-                        <td>${quote.fiftyTwoWeekHigh}       </td>
+                        <td>${quote.stock}                  </td>
                     </tr>
                 `;
-            });
-        }
+            });     /* <td>${quote.fiftyTwoWeekLow}        </td> */
+        }           /* <td>${quote.fiftyTwoWeekHigh}       </td> */
         document.getElementById('status').style.display = 'none';
     } catch (err) {
         document.getElementById('status').innerText = "Erro ao carregar dados.";
