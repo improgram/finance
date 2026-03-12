@@ -24,7 +24,6 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                     <tr>
                         <td><strong>${quote.symbol}</strong></td>
                         <td>${quote.name}                   </td>
-                        <td class="price">R$ ${Number(price).toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -43,7 +42,7 @@ updateQuotes();
 // Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
 
 /*
-<td class="price">R$ ${Number(price).toFixed(2)}</td>
+<td class="price">R$ ${Number(price).toFixed(2)}</td> ERRO
 <td class="price">R$ ${quote.price?.toFixed(2)}</td>
 <td>${quote.stock}                  </td>
 <td>${quote.fiftyTwoWeekHigh}       </td>
