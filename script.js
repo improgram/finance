@@ -9,7 +9,7 @@ const updateQuotes = async () => {
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
             sortOrder: "asc",          // sortOrder (asc/desc)
-            //type: "dr"                    // "etf"
+            //ERRO type: "dr"               // "etf"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
 const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
@@ -22,8 +22,8 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                 // Criamos uma linha (tr) com as células (td) correspondentes
                 container.innerHTML += `
                     <tr>
-                        <td><strong>${quote.symbol}</strong></td>
-                        <td>${quote.name}                   </td>
+                        <td><strong>${quote.name}</strong>      </td>
+                        <td>${quote.stock}                      </td>
                     <td class="price">R$ ${quote.close?.toFixed(2)}</td>
                     </tr>
                 `;
