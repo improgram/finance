@@ -19,7 +19,8 @@ exports.handler = async (event) => {
   const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
     const data = await response.json();
 
-  // O endpoint /list retorna 'stocks', o endpoint /quote/{ticker} retorna 'results'
+  // O endpoint /list retorna 'stocks'
+  // O endpoint /quote/{ticker} retorna 'results'
   const finalData = data.stocks || data.results;
 
     if (!finalData) {          // if (!data.results) {
