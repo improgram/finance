@@ -9,7 +9,7 @@ const updateQuotes = async () => {
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
             sortOrder: "asc",          // sortOrder (asc/desc)
-            type: "dr"                    // "etf"
+            //type: "dr"                    // "etf"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
 const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
