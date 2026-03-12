@@ -25,6 +25,7 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                         <td><strong>${quote.symbol}</strong></td>
                         <td>${quote.name}                   </td>
                         <td class="price">R$ ${quote.price?.toFixed(2)}</td>
+                        <td class="price">R$ ${quote.Number(price).toFixed(2)}</td>
                     </tr>
                 `;
             });
