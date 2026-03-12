@@ -5,7 +5,7 @@ const updateQuotes = async () => {
         const paramsResponse = new URLSearchParams({
             // parâmetros de consulta
             //tickers: ticker,
-            limit: 1,                   // valor limit por pagina
+            limit: 2,                   // valor limit por pagina
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
             sortOrder: "asc",           // sortOrder (asc/desc)

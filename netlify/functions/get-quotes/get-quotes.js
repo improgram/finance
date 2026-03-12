@@ -16,21 +16,26 @@ exports.handler = async (event) => {
     //  const response = await fetch(
     //      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`);
 
-    const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
+  const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
     const data = await response.json();
 
-    if (!data.results) {
+  // O endpoint /list retorna 'stocks', o endpoint /quote/{ticker} retorna 'results'
+  const finalData = data.stocks || data.results;
+
+    if (!finalData) {          // if (!data.results) {
       return {
         statusCode: 400,
-        body: JSON.stringify(
-          { error: "Tickers não encontrados ou erro na API" }),
+        body: JSON.stringify({
+          error: "Tickers não encontrados ou erro na API",
+          message: data.message || "Verifique os parâmetros"
+        }),
       };
     }
     return {
         statusCode: 200,
         headers: { "Content-Type": "application/json" }, // Boa prática
         // O 'null, 2' adiciona espaços e quebras de linha no texto do JSON
-        body: JSON.stringify (data.results, null, 2),
+        body: JSON.stringify (finalData), // data.results, null, 2
     };
   } catch (error) {
       return {
