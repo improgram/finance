@@ -24,13 +24,11 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                     <tr>
                         <td>${quote.name}                   </td>
                         <td><strong>${quote.symbol}</strong></td>
-                        <td class="price">R$ ${Number(price).toFixed(2)}</td>
-                        <td class="price">R$ ${quote.price?.toFixed(2)}</td>
-                        <td>${quote.stock}                  </td>
+
                     </tr>
                 `;
-            });     /* <td>${quote.fiftyTwoWeekLow}        </td> */
-        }           /* <td>${quote.fiftyTwoWeekHigh}       </td> */
+            });
+        }
         document.getElementById('status').style.display = 'none';
     } catch (err) {
         document.getElementById('status').innerText = "Erro ao carregar dados.";
@@ -43,3 +41,11 @@ updateQuotes();
 //  porque suas funções não estão sendo executadas no navegador
 // Test function https://www.netlify.com/blog/intro-to-serverless-functions/
 // Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
+
+/*
+<td class="price">R$ ${Number(price).toFixed(2)}</td>
+<td class="price">R$ ${quote.price?.toFixed(2)}</td>
+<td>${quote.stock}                  </td>
+<td>${quote.fiftyTwoWeekHigh}       </td>
+<td>${quote.fiftyTwoWeekLow}        </td>
+*/
