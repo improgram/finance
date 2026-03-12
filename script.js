@@ -22,9 +22,9 @@ const updateQuotes = async () => {
                 // Criamos uma linha (tr) com as células (td) correspondentes
                 container.innerHTML += `
                     <tr>
-                        <td>${quote.longName}               </td>
+                        <td>${quote.name}               </td>
                         <td><strong>${quote.symbol}</strong></td>
-                        <td class="price">R$ ${quote.regularMarketPrice?.toFixed(2)}</td>
+                        <td class="price">R$ ${quote.price?.toFixed(2)}</td>
                         <td>${quote.fiftyTwoWeekLow}        </td>
                         <td>${quote.fiftyTwoWeekHigh}       </td>
                     </tr>
