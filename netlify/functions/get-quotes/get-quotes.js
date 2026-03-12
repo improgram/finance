@@ -16,8 +16,7 @@ exports.handler = async (event) => {
     //  const response = await fetch(
     //      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`);
 
-  //const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
-  const response = await fetch(`https://brapi.dev/api/quote?${params.toString()}`);
+  const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
   const data = await response.json();
 
   // O endpoint /list retorna 'stocks'
