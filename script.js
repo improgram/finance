@@ -5,15 +5,17 @@ const renderTable = (data) => {
 
     data.forEach(quote => {
         const logoUrl = quote.logo || 'https://via.placeholder.com/30?text=$';
+        // Garante que o preço seja um número antes de usar toFixed
+        const price = typeof quote.close === 'number' ? quote.close.toFixed(2) : '---';
 
         container.innerHTML += `
             <tr>
                 <td style="text-align:center">
-                    <img src="${logoUrl}" width="30">
+        <img src="${logoUrl}" width="30" onerror="this.src='https://via.placeholder.com/30?text=?'">
                 </td>
                 <td><strong>${quote.name || 'N/A'}</strong></td>
                 <td>${quote.stock}</td>
-                <td class="price">R$ ${quote.close ? quote.close.toFixed(2) : '0.00'}</td>
+                <td class="price">R$ ${price}</td>
             </tr>
         `;
     });
@@ -23,14 +25,19 @@ const renderTable = (data) => {
 
 const updateQuotes = async () => {
     try {
+        const statusEl = document.getElementById('status');
+            statusEl.style.display = 'block';
+            statusEl.innerText = "Carregando...";
+
         const paramsResponse = new URLSearchParams({
             //sortBy: "stock",
             //sortOrder: "asc",
-            limit: 10,
+            limit: 100,
             type: "etf"
         });
-        // paramsResponde.toString()
-        const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse}`);
+
+        const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
@@ -43,15 +50,24 @@ const updateQuotes = async () => {
             allEtfs = data.results.filter(etf =>
                 etf.stock && etf.stock.endsWith("11")
             );
-            renderTable(allEtfs);
+
+            if (allEtfs.length === 0) {
+                statusEl.innerText = "Nenhum ETF (final 11) encontrado na lista.";
             } else {
-                document.getElementById('status').innerText = "Nenhum ETF encontrado.";
+                renderTable(allEtfs);
             }
 
-        } catch (err) {
-            console.error("Erro no Fetch:", err);
-    document.getElementById('status').innerText = "Erro ao carregar dados: " + err.message;
+        } else {
+            document.getElementById('status').innerText = "Nenhum ETF encontrado.";
+        } else {
+            statusEl.innerText = "Formato de dados inválido recebido.";
         }
+
+    } catch (err) {
+        console.error("Erro no Fetch:", err);
+        document.getElementById('status').innerText =
+            "Erro ao carregar dados: " + err.message;
+    }
 };
 
 // Lógica da Barra de Busca em Tempo Real

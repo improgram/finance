@@ -5,7 +5,7 @@
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const queryParams = event.queryStringParameters;
+  const queryParams = event.queryStringParameters || {};
 
   // Constrói a URL dinamicamente com os parâmetros recebidos
   const params = new URLSearchParams(queryParams);
@@ -18,20 +18,22 @@ exports.handler = async (event) => {
 
   try {
   const response = await fetch(apiUrl);
-  const data = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok) {    // Lê o corpo apenas uma vez
       const errorText = await response.text();
       return {
         statusCode: response.status,
+        headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
           error: "Erro na API",
-          details: errorText,
-          message: "Verifique os parâmetros"
+          details: errorText
         }),
       };
     }
 
+    const data = await response.json();
+
+    // A Brapi no endpoint /list retorna objeto com chave 'stocks'
     // Garantimos que 'results' seja sempre um array
     const results = data.stocks || data.results || [];
 
@@ -42,11 +44,12 @@ exports.handler = async (event) => {
           "Access-Control-Allow-Origin": "*" // Evita problemas de CORS
         },
         body: JSON.stringify ({ results }, null, 2),
-        // 'null, 2' adiciona espaços e quebras de linha no texto do JSON
+    // 'null, 2' adiciona espaços e quebras de linha no texto do JSON
     };
   } catch (error) {
       return {
         statusCode: 500,
+        headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
           error: "Falha ao buscar dados",
           details: error.message
@@ -61,3 +64,11 @@ exports.handler = async (event) => {
 // netlify dev
 // http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
 
+/*
+Nao podemos ler o corpo da resposta da API Brapi duas vezes:
+Primeiro em const data = await response.json();
+Depois, se houver um erro, em :
+const errorText = await response.text();
+No JavaScript, o "stream" do corpo de uma requisição fetch
+só pode ser lido uma única vez
+*/
