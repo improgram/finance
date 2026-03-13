@@ -26,8 +26,8 @@ exports.handler = async (event) => {
         statusCode: response.status,
         body: JSON.stringify({
           error: "Erro na API",
-          //details: errorText,
-          message: data.message || "Verifique os parâmetros"
+          details: errorText,
+          message: "Verifique os parâmetros"
         }),
       };
     }
@@ -38,7 +38,7 @@ exports.handler = async (event) => {
     return {
         statusCode: 200,
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*" // Evita problemas de CORS
         },
         body: JSON.stringify ({ results }, null, 2),
@@ -56,3 +56,8 @@ exports.handler = async (event) => {
 };
 
 // https://brapi.dev/docs/acoes.mdx
+
+// Testar essa function no navegador:
+// netlify dev
+// http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
+

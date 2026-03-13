@@ -29,8 +29,8 @@ const updateQuotes = async () => {
             limit: 10,
             type: "etf"
         });
-
-        const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+        // paramsResponde.toString()
+        const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse}`);
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
