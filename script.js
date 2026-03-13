@@ -32,7 +32,7 @@ const updateQuotes = async () => {
             //sortBy: "stock",
             //sortOrder: "asc",
             limit: 100,
-            type: "etf"
+            type: "fund"    //No endpoint list "etf" é fund
         });
 
         const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
