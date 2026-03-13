@@ -1,36 +1,37 @@
 const updateQuotes = async () => {
-    //const ticker = '';
     try {
-        // Chama endpoint relativo do Netlify
         const paramsResponse = new URLSearchParams({
-            // parâmetros de consulta
-            //tickers: ticker,
-            limit: 3,                   // valor limit por pagina
+            limit: 10,                  // valor limit por pagina
             page: 1,                    // página desejada
             sortBy: "name",             // organiza por nome
-            sortOrder: "asc",          // sortOrder (asc/desc)
-            //ERRO type: "dr"               // "etf"   //dr"
+            sortOrder: "asc",           // sortOrder (asc/desc)
+            type: "etf"                 // "etf"   //dr"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
 const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
-        const quotes = await response.json();
+        const data = await response.json();
+
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
 
-        if (Array.isArray(quotes)) {
-            quotes.forEach(quote => {
-                // Criamos uma linha (tr) com as células (td) correspondentes
+        // Acessamos data.results conforme a normalização feita no backend
+        if (data.results && Array.isArray(data.results)) {
+            data.results.forEach(quote => {
                 container.innerHTML += `
                     <tr>
-                        <td><strong>${quote.name}</strong>      </td>
-                        <td>        ${quote.stock}              </td>
-                    <td class="price">R$ ${quote.close?.toFixed(2)}</td>
+                        <td><strong>${quote.name || 'N/A'}</strong></td>
+                        <td>${quote.stock}</td>
+                        <td class="price">R$ ${quote.close ? quote.close.toFixed(2) : '0.00'}</td>
                     </tr>
                 `;
             });
+        } else {
+            document.getElementById('status').innerText = "Nenhum ETF encontrado.";
         }
+
         document.getElementById('status').style.display = 'none';
     } catch (err) {
+        console.error(err);
         document.getElementById('status').innerText = "Erro ao carregar dados.";
     }
 };
