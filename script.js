@@ -48,10 +48,9 @@ const updateQuotes = async () => {
                 document.getElementById('status').innerText = "Nenhum ETF encontrado.";
             }
 
-        } catch ("Erro no Fetch:", err) {
-            console.error(err);
-        document.getElementById('status').innerText = "Erro ao carregar dados: "
-            + err.message;
+        } catch (err) {
+            console.error("Erro no Fetch:", err);
+    document.getElementById('status').innerText = "Erro ao carregar dados: " + err.message;
         }
 };
 
