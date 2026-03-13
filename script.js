@@ -31,6 +31,11 @@ const updateQuotes = async () => {
         });
 
         const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+        }
+
         const data = await response.json();
 
         if (data.results && Array.isArray(data.results)) {
@@ -38,19 +43,17 @@ const updateQuotes = async () => {
             allEtfs = data.results.filter(etf =>
                 etf.stock && etf.stock.endsWith("11")
             );
-
             renderTable(allEtfs);
+            } else {
+                document.getElementById('status').innerText = "Nenhum ETF encontrado.";
+            }
 
-        } else {
-            document.getElementById('status').innerText = "Nenhum ETF encontrado.";
+        } catch ("Erro no Fetch:", err) {
+            console.error(err);
+        document.getElementById('status').innerText = "Erro ao carregar dados: "
+            + err.message;
         }
-        } catch (err) {
-        console.error(err);
-        document.getElementById('status').innerText = "Erro ao carregar dados.";
-    }
 };
-
-
 
 // Lógica da Barra de Busca em Tempo Real
 document.getElementById('etf-search').addEventListener('input', (e) => {
@@ -72,7 +75,7 @@ updateQuotes();
 // Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
 
 /*
-Fluxo do sistema: 
+Fluxo do sistema:
 Brapi API
    ↓
 Netlify Serverless Function

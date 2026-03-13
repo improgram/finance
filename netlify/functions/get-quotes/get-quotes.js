@@ -18,20 +18,20 @@ exports.handler = async (event) => {
 
   try {
   const response = await fetch(apiUrl);
+  const data = await response.json();
 
     if (!response.ok) {
       const errorText = await response.text();
       return {
         statusCode: response.status,
         body: JSON.stringify({
-          error: "Tickers não encontrados ou erro na API",
-          details: errorText,
+          error: "Erro na API",
+          //details: errorText,
           message: data.message || "Verifique os parâmetros"
         }),
       };
     }
 
-    const data = await response.json();
     // Garantimos que 'results' seja sempre um array
     const results = data.stocks || data.results || [];
 
