@@ -13,9 +13,10 @@ exports.handler = async (event) => {
         params.append('token', API_TOKEN);
 
   try {
+    // Usamos o endpoint /list conforme sua necessidade de filtros
     //  const response = await fetch(
     //      `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`);
-
+    // 12/03 => retirei o endpoint de listagem (list) deu erro 500
   const response = await fetch(`https://brapi.dev/api/quote/list?${params.toString()}`);
   const data = await response.json();
 
@@ -34,9 +35,10 @@ exports.handler = async (event) => {
     }
     return {
         statusCode: 200,
-        headers: { "Content-Type": "application/json" }, // Boa prática
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify ({ results:finalData}, null, 2),
         // O 'null, 2' adiciona espaços e quebras de linha no texto do JSON
-        body: JSON.stringify (finalData, null, 2), // data.results, null, 2
+        //body: JSON.stringify (finalData, null, 2), // data.results, null, 2
     };
   } catch (error) {
       return {
