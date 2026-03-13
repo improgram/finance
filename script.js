@@ -1,22 +1,25 @@
 const updateQuotes = async () => {
     try {
+        document.getElementById('status').innerText = "Carregando ETFs...";
         const paramsResponse = new URLSearchParams({
-            limit: 10,                  // valor limit por pagina
+            limit: 20,                  // valor limit por pagina
             page: 1,                    // página desejada
-            sortBy: "name",             // organiza por nome
+            sortBy: "stock",            // name: organiza por nome
             sortOrder: "asc",           // sortOrder (asc/desc)
-            //type: "etf"                 // "etf"   //dr"
+            type: "etf"                 // "etf"   //dr"
         });
     // Igual const response = await fetch(`/.netlify/functions/get-quotes?tickers=${ticker}`);
 const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+        if (!response.ok) throw new Error("Erro na requisição do servidor");
         const data = await response.json();
 
         const container = document.getElementById('quotes-container');
         container.innerHTML = '';                   // Limpa a tabela antes de atualizar
 
-        // Acessamos data.results conforme a normalização feita no backend
-        if (data.results && Array.isArray(data.results)) {
+        // Verificamos se data.results existe e tem itens
+     if (data.results && data.results.length > 0) {
             data.results.forEach(quote => {
+                // No endpoint /list, os campos são: stock, name, close, logo
                 container.innerHTML += `
                     <tr>
                         <td><strong>${quote.name || 'N/A'}</strong></td>
@@ -25,16 +28,17 @@ const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.to
                     </tr>
                 `;
             });
+            document.getElementById('status').style.display = 'none';
         } else {
             document.getElementById('status').innerText = "Nenhum ETF encontrado.";
         }
 
-        document.getElementById('status').style.display = 'none';
     } catch (err) {
-        console.error(err);
-        document.getElementById('status').innerText = "Erro ao carregar dados.";
+        console.error("Erro no processamento:", err);
+        document.getElementById('status').innerText = "Erro ao carregar dados. Verifique o console.";
     }
 };
+
 updateQuotes();
 
 // não será possivel ver os registros das funções netlify no console do navegador
