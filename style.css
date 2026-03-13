@@ -42,8 +42,8 @@ table {
     color: MidnightBlue;
 }
 
-th, td {
-    padding: 6px 8px;
+td, th {
+    padding: 12px; /* 6px 8px;*/
     text-align: left;
     border-bottom: 0.6px inset #008080;
 }
@@ -59,11 +59,35 @@ tr:hover {      /* quando passa o mouse */
 }
 
 .price {
-    font-weight: bold; color: #3CB371;
+    font-weight: bold;
+    color: #3CB371;
 }
 
+.badge {
+    background: #f0f2f5;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+}
 
+.search-container {
+    margin-bottom: 20px;
+}
 
+#etf-search {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+#etf-search:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0,123,255,0.25);
+}
 
 
 
