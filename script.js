@@ -19,7 +19,6 @@ const renderTable = (data) => {
             </tr>
         `;
     });
-
     document.getElementById('status').style.display = 'none';
 };
 
@@ -56,9 +55,6 @@ const updateQuotes = async () => {
             } else {
                 renderTable(allEtfs);
             }
-
-        } else {
-            document.getElementById('status').innerText = "Nenhum ETF encontrado.";
         } else {
             statusEl.innerText = "Formato de dados inválido recebido.";
         }
