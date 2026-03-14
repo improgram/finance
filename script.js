@@ -42,9 +42,6 @@ const renderTable = (data) => {
     document.getElementById('status').style.display = 'none';
 };
 
-//<img src="${logoUrl}" width="26"
-// onerror="this.src='https://via.placeholder.com/30?text=?'">
-
 const updateQuotes = async () => {
     try {
         const statusEl = document.getElementById('status');
@@ -55,9 +52,6 @@ const updateQuotes = async () => {
 
         const paramsResponse = new URLSearchParams({
             tickers: tickers.join(",")
-            //sortOrder: "asc",
-            //limit: 99,
-            //type: "fund"    //No endpoint list "etf" é fund
         });
 
         const response = await fetch(
@@ -100,7 +94,7 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 
     const filteredEtfs = allEtfs.filter(quote =>
         (quote.name || "").toLowerCase().includes(searchTerm) ||
-        (quote.stock || "").toLowerCase().includes(searchTerm)
+        (quote.stock || "").toLowerCase().includes(searchTerm) ||
         (quote.shortName || quote.longName || "").toLowerCase().includes(searchTerm) ||
         (quote.symbol || "").toLowerCase().includes(searchTerm)
     );

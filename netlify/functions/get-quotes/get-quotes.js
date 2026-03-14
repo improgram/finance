@@ -3,51 +3,66 @@
 // Acionado apenas quando o Frontend faz o pedido
 // A chave será lida das variáveis de ambiente do Netlify
 
+let cache = {
+  data: null,
+  timestamp: 0
+};
+
+const CACHE_TIME = 60 * 1000; // 60 segundos
+
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const queryParams = event.queryStringParameters || {};
-
-  // Constrói a URL dinamicamente com os parâmetros recebidos
-  const params = new URLSearchParams(queryParams);
-        params.append('token', API_TOKEN);
-
   const { tickers } = event.queryStringParameters;
-  const apiUrl = `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`;
-  //const apiUrl = `https://brapi.dev/api/quote/list?${params.toString()}`;
+
+  const now = Date.now();
+
+  // const tickerList = tickers.split(",");
   // O endpoint /list é o correto para filtros como 'type'
   // A brapi retorna 'stocks' no endpoint /list
   // O endpoint /quote/{ticker} retorna 'results'
 
+    // se cache ainda válido retorna
+  if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "X-Cache": "HIT"
+      },
+      body: JSON.stringify(cache.data)
+    };
+  }
+
   try {
-  const response = await fetch(apiUrl);
 
-    if (!response.ok) {    // Lê o corpo apenas uma vez
-      const errorText = await response.text();
-      return {
-        statusCode: response.status,
-        headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({
-          error: "Erro na API",
-          details: errorText
-        }),
-      };
-    }
+    const tickerList = tickers.split(",");
 
-    const data = await response.json();
+    const requests = tickerList.map(ticker =>
+       fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
+        .then(res => res.json())
+    );
 
-    // A Brapi no endpoint /list retorna objeto com chave 'stocks'
-    // Garantimos que 'results' seja sempre um array
-    const results = data.stocks || data.results || [];
+    const responses = await Promise.all(requests);
+    const results = responses.flatMap(r => r.results || []);
+
+    const payload = { results };
+
+    // salva no cache
+    cache = {
+      data: payload,
+      timestamp: now
+    };
 
     return {
         statusCode: 200,
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*" // Evita problemas de CORS
-        },
+        }, // 'null, 2' adiciona espaços e quebras de linha no texto do JSON
         body: JSON.stringify ({ results }, null, 2),
-    // 'null, 2' adiciona espaços e quebras de linha no texto do JSON
     };
+
   } catch (error) {
       return {
         statusCode: 500,
