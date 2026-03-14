@@ -8,19 +8,21 @@ const renderTable = (data) => {
         const logoUrl = quote.logourl || quote.logo || 'https://via.placeholder.com/30?text=$';;
 
         // Garante que o preço seja um número antes de usar toFixed
+        const br = new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+            });
+
         // Para o Preço Atual
         const formattedPrice = typeof quote.regularMarketPrice === 'number'
-            ? quote.regularMarketPrice.toFixed(2).replace('.', ',')
-            : '---';
+            ? br.format(quote.regularMarketPrice) : '---';
 
         // Para as 52 Semanas
         const formattedLow = typeof quote.fiftyTwoWeekLow === 'number'
-            ? quote.fiftyTwoWeekLow.toFixed(2).replace('.', ',')
-            : '---';
+            ? br.format(quote.fiftyTwoWeekLow) : '---';
 
         const formattedHigh = typeof quote.fiftyTwoWeekHigh === 'number'
-            ? quote.fiftyTwoWeekHigh.toFixed(2).replace('.', ',')
-            : '---';
+            ? br.format(quote.fiftyTwoWeekHigh) : '---';
 
         container.innerHTML += `
             <tr>
