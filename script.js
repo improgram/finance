@@ -18,10 +18,10 @@ const renderTable = (data) => {
                     onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
                         style="border-radius: 4px;">
                 </td>
-                <td><strong>${quote.shortName || 'N/A'}</strong></td>
-                <td>${quote.symbol}</td>
-                <td class="price">R$ ${quote.regularMarketPrice}</td>
-                <td class="price">R$ ${price}</td>
+                <td><strong>${quote.symbol || 'N/A'}</strong></td>
+                <td class="price">R$ ${price}               </td>
+                <td>${quote.fiftyTwoWeekLow}                </td>
+                <td>${quote.fiftyTwoWeekHigh}               </td>
             </tr>
         `;
     });
