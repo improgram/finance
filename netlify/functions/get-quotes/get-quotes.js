@@ -11,6 +11,7 @@ exports.handler = async (event) => {
   const params = new URLSearchParams(queryParams);
         params.append('token', API_TOKEN);
 
+  //const apiUrl = `https://brapi.dev/api/quote/list?${params.toString()}`;
   const apiUrl = `https://brapi.dev/api/quote/list?${params.toString()}`;
   // O endpoint /list é o correto para filtros como 'type'
   // A brapi retorna 'stocks' no endpoint /list
@@ -63,12 +64,3 @@ exports.handler = async (event) => {
 // Testar essa function no navegador:
 // netlify dev
 // http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
-
-/*
-Nao podemos ler o corpo da resposta da API Brapi duas vezes:
-Primeiro em const data = await response.json();
-Depois, se houver um erro, em :
-const errorText = await response.text();
-No JavaScript, o "stream" do corpo de uma requisição fetch
-só pode ser lido uma única vez
-*/

@@ -11,7 +11,7 @@ const renderTable = (data) => {
         container.innerHTML += `
             <tr>
                 <td style="text-align:center">
-        <img src="${logoUrl}" width="30" onerror="this.src='https://via.placeholder.com/30?text=?'">
+        <img src="${logoUrl}" width="26" onerror="this.src='https://via.placeholder.com/30?text=?'">
                 </td>
                 <td><strong>${quote.name || 'N/A'}</strong></td>
                 <td>${quote.stock}</td>
@@ -29,8 +29,8 @@ const updateQuotes = async () => {
             statusEl.innerText = "Carregando...";
 
         const paramsResponse = new URLSearchParams({
-            //sortBy: "stock",
-            //sortOrder: "asc",
+            sortBy: "stock",
+            sortOrder: "asc",
             limit: 100,
             type: "fund"    //No endpoint list "etf" é fund
         });

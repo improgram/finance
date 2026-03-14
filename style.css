@@ -42,19 +42,23 @@ table {
     color: MidnightBlue;
 }
 
-td, th {
-    padding: 12px; /* 6px 8px;*/
-    text-align: left;
-    border-bottom: 0.6px inset #008080;
-}
-
-th {
+th {        /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
 }
 
+td, th {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 0.6px inset #008080;
+}
+
+tr {
+    margin: 1px;
+}
+
 tr:hover {      /* quando passa o mouse */
-    background-color: #f1f1f1;
+    background-color: #B0E0E6;
     font-size: 14px;
 }
 
