@@ -32,7 +32,7 @@ const updateQuotes = async () => {
             statusEl.style.display = 'block';
             statusEl.innerText = "Carregando...";
 
-        const tickers = ["BOVA11", "SMAL11", "IVVB11", "HASH11"];
+        const tickers = ["BOVA11"];
 
         const paramsResponse = new URLSearchParams({
             tickers: tickers.join(",")
@@ -51,6 +51,9 @@ const updateQuotes = async () => {
         }
 
         const data = await response.json();
+
+        // if (data.stocks && Array.isArray(data.stocks))
+        // Pois o endpoint /quote/list retorna:   { "stocks": [...]  }
 
         if (data.results && Array.isArray(data.results)) {
             // filtra ETFs brasileiros
