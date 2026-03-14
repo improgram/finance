@@ -29,7 +29,7 @@ const updateQuotes = async () => {
             statusEl.innerText = "Carregando...";
 
         const paramsResponse = new URLSearchParams({
-            sortBy: "stock",
+            //sortBy: "stock",
             sortOrder: "asc",
             limit: 100,
             type: "fund"    //No endpoint list "etf" é fund
