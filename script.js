@@ -31,7 +31,7 @@ const updateQuotes = async () => {
         const paramsResponse = new URLSearchParams({
             //sortBy: "stock",
             sortOrder: "asc",
-            limit: 100,
+            limit: 99,
             type: "fund"    //No endpoint list "etf" é fund
         });
 
