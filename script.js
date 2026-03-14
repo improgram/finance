@@ -14,7 +14,7 @@ const renderTable = (data) => {
             <tr>
                 <td><strong>${quote.shortName || 'N/A'}</strong></td>
                 <td>${quote.symbol}</td>
-                <td class="price">R$ ${regularMarketPrice}</td>
+                <td class="price">R$ ${quote.regularMarketPrice}</td>
             </tr>
         `;
     });
