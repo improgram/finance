@@ -29,10 +29,11 @@ const renderTable = (data) => {
                     onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
                         style="border-radius: 4px;">
                 </td>
-                <td><strong>${quote.symbol || 'N/A'}</strong></td>
-                <td class="price">R$ ${price}               </td>
-                <td>${quote.fiftyTwoWeekLow}                </td>
-                <td>${quote.fiftyTwoWeekHigh}               </td>
+                <td><strong>${quote.symbol || 'N/A'}</strong>   </td>
+                <td class="price">R$ ${quote.regularMarketPrice} </td>
+                <td>${quote.regularMarketDayRange}              </td>
+                <td>${quote.fiftyTwoWeekLow}                    </td>
+                <td>${quote.fiftyTwoWeekHigh}                   </td>
             </tr>
         `;
     });
