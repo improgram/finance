@@ -6,7 +6,9 @@ const renderTable = (data) => {
     data.forEach(quote => {
         const logoUrl = quote.logo || 'https://via.placeholder.com/30?text=$';
         // Garante que o preço seja um número antes de usar toFixed
-        const price = typeof quote.close === 'number' ? quote.close.toFixed(2) : '---';
+        const price = typeof quote.regularMarketPrice === 'number'
+            ? quote.regularMarketPrice.toFixed(2) : '---';
+            // close ou regularMarketPrice
 
         container.innerHTML += `
             <tr>
@@ -16,6 +18,8 @@ const renderTable = (data) => {
                 <td><strong>${quote.name || 'N/A'}</strong></td>
                 <td>${quote.stock}</td>
                 <td class="price">R$ ${price}</td>
+                <td><strong>${quote.shortName || quote.longName || 'N/A'}</strong></td>
+                td>${quote.symbol}</td>
             </tr>
         `;
     });
@@ -28,14 +32,18 @@ const updateQuotes = async () => {
             statusEl.style.display = 'block';
             statusEl.innerText = "Carregando...";
 
+        const tickers = ["BOVA11", "SMAL11", "IVVB11", "HASH11"];
+
         const paramsResponse = new URLSearchParams({
-            //sortBy: "stock",
-            sortOrder: "asc",
-            limit: 99,
-            type: "fund"    //No endpoint list "etf" é fund
+            tickers: tickers.join(",")
+            //sortOrder: "asc",
+            //limit: 99,
+            //type: "fund"    //No endpoint list "etf" é fund
         });
 
-        const response = await fetch(`/.netlify/functions/get-quotes?${paramsResponse.toString()}`);
+        const response = await fetch(
+            `/.netlify/functions/get-quotes?${paramsResponse.toString()}`
+        );
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -46,12 +54,10 @@ const updateQuotes = async () => {
 
         if (data.results && Array.isArray(data.results)) {
             // filtra ETFs brasileiros
-            allEtfs = data.results.filter(etf =>
-                etf.stock && etf.stock.endsWith("11")
-            );
+            allEtfs = data.results;
 
             if (allEtfs.length === 0) {
-                statusEl.innerText = "Nenhum ETF (final 11) encontrado na lista.";
+                statusEl.innerText = "Nenhum ETF encontrado";
             } else {
                 renderTable(allEtfs);
             }
@@ -73,6 +79,8 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
     const filteredEtfs = allEtfs.filter(quote =>
         (quote.name || "").toLowerCase().includes(searchTerm) ||
         (quote.stock || "").toLowerCase().includes(searchTerm)
+        (quote.shortName || quote.longName || "").toLowerCase().includes(searchTerm) ||
+        (quote.symbol || "").toLowerCase().includes(searchTerm)
     );
 
     renderTable(filteredEtfs);

@@ -11,8 +11,9 @@ exports.handler = async (event) => {
   const params = new URLSearchParams(queryParams);
         params.append('token', API_TOKEN);
 
+  const { tickers } = event.queryStringParameters;
+  const apiUrl = `https://brapi.dev/api/quote/${tickers}?token=${API_TOKEN}`;
   //const apiUrl = `https://brapi.dev/api/quote/list?${params.toString()}`;
-  const apiUrl = `https://brapi.dev/api/quote/list?${params.toString()}`;
   // O endpoint /list é o correto para filtros como 'type'
   // A brapi retorna 'stocks' no endpoint /list
   // O endpoint /quote/{ticker} retorna 'results'
