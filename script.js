@@ -6,11 +6,21 @@ const renderTable = (data) => {
     data.forEach(quote => {
         // A Brapi no endpoint /quote usa 'logourl' em vez de apenas 'logo'
         const logoUrl = quote.logourl || quote.logo || 'https://via.placeholder.com/30?text=$';;
+
         // Garante que o preço seja um número antes de usar toFixed
-        const price = typeof quote.regularMarketPrice === 'number' &&
-                        typeof quote.fiftyTwoWeekLow === 'number'
-                        ? quote.regularMarketPrice.toFixed(2).replace('.', ',')
-                        : '---';
+        // Para o Preço Atual
+        const formattedPrice = typeof quote.regularMarketPrice === 'number'
+            ? quote.regularMarketPrice.toFixed(2).replace('.', ',')
+            : '---';
+
+        // Para as 52 Semanas
+        const formattedLow = typeof quote.fiftyTwoWeekLow === 'number'
+            ? quote.fiftyTwoWeekLow.toFixed(2).replace('.', ',')
+            : '---';
+
+        const formattedHigh = typeof quote.fiftyTwoWeekHigh === 'number'
+            ? quote.fiftyTwoWeekHigh.toFixed(2).replace('.', ',')
+            : '---';
 
         container.innerHTML += `
             <tr>
