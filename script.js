@@ -4,7 +4,7 @@ const renderTable = (data) => {
     container.innerHTML = '';
 
     data.forEach(quote => {
-        const logoUrl = quote.logo || 'https://via.placeholder.com/30?text=$';
+        const logoUrl = quote.logo || 'https://icons.brapi.dev/icons/BOVA11.svg';
         // Garante que o preço seja um número antes de usar toFixed
         const price = typeof quote.regularMarketPrice === 'number'
             ? quote.regularMarketPrice.toFixed(2) : '---';
@@ -12,19 +12,17 @@ const renderTable = (data) => {
 
         container.innerHTML += `
             <tr>
-                <td style="text-align:center">
-        <img src="${logoUrl}" width="26" onerror="this.src='https://via.placeholder.com/30?text=?'">
-                </td>
-                <td><strong>${quote.name || 'N/A'}</strong></td>
-                <td>${quote.stock}</td>
-                <td class="price">R$ ${price}</td>
-                <td><strong>${quote.shortName || quote.longName || 'N/A'}</strong></td>
-                td>${quote.symbol}</td>
+                <td><strong>${quote.shortName || 'N/A'}</strong></td>
+                <td>${quote.symbol}</td>
+                <td class="price">R$ ${regularMarketPrice}</td>
             </tr>
         `;
     });
     document.getElementById('status').style.display = 'none';
 };
+//<td style="text-align:center">
+//<img src="${logoUrl}" width="26"
+// onerror="this.src='https://via.placeholder.com/30?text=?'"> </td>
 
 const updateQuotes = async () => {
     try {
