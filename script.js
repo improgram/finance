@@ -4,25 +4,32 @@ const renderTable = (data) => {
     container.innerHTML = '';
 
     data.forEach(quote => {
-        const logoUrl = quote.logo || 'https://icons.brapi.dev/icons/BOVA11.svg';
+        // A Brapi no endpoint /quote usa 'logourl' em vez de apenas 'logo'
+        const logoUrl = quote.logourl || quote.logo || 'https://via.placeholder.com/30?text=$';;
         // Garante que o preço seja um número antes de usar toFixed
         const price = typeof quote.regularMarketPrice === 'number'
-            ? quote.regularMarketPrice.toFixed(2) : '---';
-            // close ou regularMarketPrice
+            ? quote.regularMarketPrice.toFixed(2).replace('.', ',')
+            : '---';
 
         container.innerHTML += `
             <tr>
+                <td style="text-align:center">
+                    <img src="${logoUrl}" width="26"
+                    onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
+                        style="border-radius: 4px;">
+                </td>
                 <td><strong>${quote.shortName || 'N/A'}</strong></td>
                 <td>${quote.symbol}</td>
                 <td class="price">R$ ${quote.regularMarketPrice}</td>
+                <td class="price">R$ ${price}</td>
             </tr>
         `;
     });
     document.getElementById('status').style.display = 'none';
 };
-//<td style="text-align:center">
+
 //<img src="${logoUrl}" width="26"
-// onerror="this.src='https://via.placeholder.com/30?text=?'"> </td>
+// onerror="this.src='https://via.placeholder.com/30?text=?'">
 
 const updateQuotes = async () => {
     try {
