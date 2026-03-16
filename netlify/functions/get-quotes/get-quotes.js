@@ -1,7 +1,10 @@
 
-// Código rodará no lado do servidor ou serverless (netlify) navegador NAO
-// Acionado apenas quando o Frontend faz o pedido
-// A chave será lida das variáveis de ambiente do Netlify
+//    Código rodará no lado do servidor ou serverless (netlify) navegador NAO
+//    Acionado apenas quando o Frontend faz o pedido
+//    A chave será lida das variáveis de ambiente do Netlify
+//    O endpoint /list é o correto para filtros como 'type'
+//    A brapi retorna 'stocks' no endpoint /list
+//    O endpoint /quote/{ticker} retorna 'results'
 
 let cache = {
   data: null,
@@ -12,14 +15,9 @@ const CACHE_TIME = 60 * 1000; // 60 segundos
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const { tickers } = event.queryStringParameters;
+  const { tickers } = event.queryStringParameters?.tickers;
 
   const now = Date.now();
-
-  // const tickerList = tickers.split(",");
-  // O endpoint /list é o correto para filtros como 'type'
-  // A brapi retorna 'stocks' no endpoint /list
-  // O endpoint /quote/{ticker} retorna 'results'
 
     // se cache ainda válido retorna
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
@@ -31,6 +29,20 @@ exports.handler = async (event) => {
         "X-Cache": "HIT"
       },
       body: JSON.stringify(cache.data)
+    };
+  }
+  
+  // Validaçao se existe ticker
+  if (!tickers) {
+    return {
+      statusCode: 400,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      },
+      body: JSON.stringify({
+        error: "Parâmetro 'tickers' é obrigatório. Ex: ?tickers=PETR4,VALE3"
+      })
     };
   }
 
