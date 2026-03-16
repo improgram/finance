@@ -54,8 +54,13 @@ const updateQuotes = async () => {
             tickers: tickers.join(",")
         });
 
+/*
         const response = await fetch(
             `/.netlify/functions/get-quotes?${paramsResponse.toString()}`
+        );
+*/
+        const response = await fetch(
+            "/.netlify/functions/get-etfs"
         );
 
         if (!response.ok) {

@@ -10,6 +10,14 @@
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
 //    O endpoint /quote/{ticker} retorna 'results'
 
+const ETF_LIST = [
+"BOVA11",
+"SMAL11",
+"IVVB11",
+"IMAB11",
+"DIVO11",
+"SPXI11"
+];
 
 let cache = {
   data: null,
@@ -53,15 +61,19 @@ exports.handler = async (event) => {
 
   try {
 
-    const tickerList = tickers.split(",");
+    const requests = ETF_LIST.map(async ticker => {
 
-    const requests = tickerList.map(ticker =>
-       fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
-        .then(res => res.json())
-    );
+      const res = await fetch(
+        `https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`
+      );
 
-    const responses = await Promise.all(requests);
-    const results = responses.flatMap(r => r.results || []);
+      const json = await res.json();
+
+      return json.results ? json.results[0] : null;
+
+    });
+
+    const results = (await Promise.all(requests)).filter(Boolean);
 
     const payload = { results };
 
@@ -75,15 +87,19 @@ exports.handler = async (event) => {
         statusCode: 200,
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*" // Evita problemas de CORS
+          "Access-Control-Allow-Origin": "*", // Evita problemas de CORS
+          "Cache-Control": "public, max-age=60",
+          "X-Cache": "MISS"
         },
-        body: JSON.stringify ({ payload }, null, 2),
+        body: JSON.stringify(payload) //{ payload }, null, 2
     };
 
   } catch (error) {
       return {
         statusCode: 500,
-        headers: { "Access-Control-Allow-Origin": "*" },
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        },
         body: JSON.stringify({
           error: "Falha ao buscar dados",
           details: error.message
@@ -97,3 +113,17 @@ exports.handler = async (event) => {
 // Testar essa function no navegador:
 // netlify dev
 // http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
+
+
+/*
+const tickerList = tickers.split(",");
+
+    const requests = tickerList.map(ticker =>
+       fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
+        .then(res => res.json())
+    );
+
+    const responses = await Promise.all(requests);
+    const results = responses.flatMap(r => r.results || []);
+
+*/
