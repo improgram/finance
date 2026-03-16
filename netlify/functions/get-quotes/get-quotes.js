@@ -28,7 +28,7 @@ const CACHE_TIME = 60 * 1000; // 60 segundos
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  const tickers = event.queryStringParameters?.tickers;
+  // const tickers = event.queryStringParameters?.tickers; //20:25
 
   const now = Date.now();
 
@@ -45,6 +45,7 @@ exports.handler = async (event) => {
     };
   }
 
+  /*
   // Validaçao se existe ticker
   if (!tickers) {
     return {
@@ -58,9 +59,9 @@ exports.handler = async (event) => {
       })
     };
   }
+*/
 
   try {
-
 
 /*
 const tickerList = tickers.split(",");
@@ -73,15 +74,11 @@ const results = responses.flatMap(r => r.results || []);
 */
 
     const requests = ETF_LIST.map(async ticker => {
-
       const res = await fetch(
         `https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`
       );
-
       const json = await res.json();
-
       return json.results ? json.results[0] : null;
-
     });
 
     const results = (await Promise.all(requests)).filter(Boolean);
@@ -118,6 +115,8 @@ const results = responses.flatMap(r => r.results || []);
       };
   }
 };
+
+
 
 // https://brapi.dev/docs/acoes.mdx
 
