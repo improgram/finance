@@ -31,11 +31,11 @@ const renderTable = (data) => {
                     onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
                         style="border-radius: 4px;">
                 </td>
-                <td><strong>${quote.symbol || 'N/A'}</strong>   </td>
-                <td class="price">R$ ${quote.regularMarketPrice} </td>
-                <td>${quote.regularMarketDayRange}              </td>
-                <td>${quote.fiftyTwoWeekLow}                    </td>
-                <td>${quote.fiftyTwoWeekHigh}                   </td>
+                <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
+                <td class="price">R$ ${formattedPrice}                  </td>
+                <td>                ${quote.regularMarketDayRange}      </td>
+                <td>                ${formattedLow}                     </td>
+                <td>                ${formattedHigh}                    </td>
             </tr>
         `;
     });
@@ -65,8 +65,6 @@ const updateQuotes = async () => {
 
         const data = await response.json();
 
-        // if (data.stocks && Array.isArray(data.stocks))
-        // Pois o endpoint /quote/list retorna:   { "stocks": [...]  }
 
         if (data.results && Array.isArray(data.results)) {
             // filtra ETFs brasileiros
@@ -108,6 +106,7 @@ updateQuotes();
 
 // Test function https://www.netlify.com/blog/intro-to-serverless-functions/
 // Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
+
 
 /*
 Fluxo do sistema:
