@@ -61,6 +61,17 @@ exports.handler = async (event) => {
 
   try {
 
+
+/*
+const tickerList = tickers.split(",");
+const requests = tickerList.map(ticker =>
+    fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
+      .then(res => res.json())
+    );
+const responses = await Promise.all(requests);
+const results = responses.flatMap(r => r.results || []);
+*/
+
     const requests = ETF_LIST.map(async ticker => {
 
       const res = await fetch(
@@ -114,16 +125,3 @@ exports.handler = async (event) => {
 // netlify dev
 // http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
 
-
-/*
-const tickerList = tickers.split(",");
-
-    const requests = tickerList.map(ticker =>
-       fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
-        .then(res => res.json())
-    );
-
-    const responses = await Promise.all(requests);
-    const results = responses.flatMap(r => r.results || []);
-
-*/

@@ -5,7 +5,10 @@ const renderTable = (data) => {
 
     data.forEach(quote => {
         // A Brapi no endpoint /quote usa 'logourl' em vez de apenas 'logo'
-        const logoUrl = quote.logourl || quote.logo || 'https://via.placeholder.com/30?text=$';;
+        const logoUrl =
+            quote.logourl ||
+            quote.logo ||
+            `https://icons.brapi.dev/icons/${quote.symbol}.svg`;
 
         // Garante que o preço seja um número antes de usar toFixed
         const br = new Intl.NumberFormat('pt-BR', {
@@ -16,6 +19,11 @@ const renderTable = (data) => {
         // Para o Preço Atual
         const formattedPrice = typeof quote.regularMarketPrice === 'number'
             ? br.format(quote.regularMarketPrice) : '---';
+
+        // regularMarket Day Range nem sempre vem preenchido
+        const dayRange =
+            quote.regularMarketDayRange ||
+            `${quote.regularMarketDayLow ?? '-'} - ${quote.regularMarketDayHigh ?? '-'}`;
 
         // Para as 52 Semanas
         const formattedLow = typeof quote.fiftyTwoWeekLow === 'number'
@@ -48,20 +56,18 @@ const updateQuotes = async () => {
             statusEl.style.display = 'block';
             statusEl.innerText = "Carregando...";
 
-        const tickers = ["BOVA11"];
+        //const tickers = ["BOVA11"];           // 20:00 removido
 
-        const paramsResponse = new URLSearchParams({
-            tickers: tickers.join(",")
-        });
+        //  const paramsResponse = new URLSearchParams({    // 20:00 removido
+        //  tickers: tickers.join(",")                      // 20:00 removido
+        //  });                                             // 20:00 removido
 
-/*
+/*       // 20:00 removido
         const response = await fetch(
             `/.netlify/functions/get-quotes?${paramsResponse.toString()}`
         );
 */
-        const response = await fetch(
-            "/.netlify/functions/get-etfs"
-        );
+        const response = await fetch("/.netlify/functions/get-quotes");
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -96,10 +102,9 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
 
     const filteredEtfs = allEtfs.filter(quote =>
+        (quote.symbol || "").toLowerCase().includes(searchTerm) ||
         (quote.name || "").toLowerCase().includes(searchTerm) ||
-        (quote.stock || "").toLowerCase().includes(searchTerm) ||
-        (quote.shortName || quote.longName || "").toLowerCase().includes(searchTerm) ||
-        (quote.symbol || "").toLowerCase().includes(searchTerm)
+        (quote.shortName || quote.longName || "").toLowerCase().includes(searchTerm)
     );
 
     renderTable(filteredEtfs);
