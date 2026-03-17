@@ -29,22 +29,19 @@ const getMinPrice = (data) => {
   if (!data || !data.length) return null;
 
   const prices = data
-    .map(item => item.close)
+    .map(item => typeof item.close === 'number' ? item.close : null)
     .filter(v => typeof v === "number");
-
   return prices.length ? Math.min(...prices) : null;
 };
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-   const now = Date.now();
+  const now = Date.now();
 
   if (!API_TOKEN) {     // Se token não configurado
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: "Token da BRAPI não configurado"
-      })
+      body: JSON.stringify({ error: "Token da BRAPI não configurado" })
     };
   }
 
@@ -80,7 +77,13 @@ exports.handler = async (event) => {
           return {
             symbol: "N/A",
             name: "Não encontrado",
+            logourl: null,
             regularMarketPrice: 0,
+            regularMarketDayRange: null,
+            regularMarketDayLow: null,
+            regularMarketDayHigh: null,
+            fiftyTwoWeekLow: null,
+            fiftyTwoWeekHigh: null,
             min7d: null,
             min30d: null,
             min60d: null,
@@ -89,23 +92,23 @@ exports.handler = async (event) => {
         }
 
         // 🔹 verifica se o histórico existe
-        const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : null;
-        const historicalAvailable = !!hist;
+        const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
+        const historicalAvailable = hist.length > 0;
 
         const last7 = hist?.slice(-7) || [];
         const last30 = hist?.slice(-30) || [];
 
         return {
-          symbol: result.symbol,
-          name: result.longName || result.shortName,
-          logourl: result.logourl,
+          symbol: result.symbol || "N/A",
+          name: result.longName || result.shortName || "Não encontrado",
+          logourl: result.logourl || `https://icons.brapi.dev/icons/${result.symbol}.svg`,
 
-          regularMarketPrice: result.regularMarketPrice,
-          regularMarketDayRange: result.regularMarketDayRange,
-          regularMarketDayLow: result.regularMarketDayLow,
-          regularMarketDayHigh: result.regularMarketDayHigh,
-          fiftyTwoWeekLow: result.fiftyTwoWeekLow,
-          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh,
+          regularMarketPrice: result.regularMarketPrice ?? 0,
+          regularMarketDayRange: result.regularMarketDayRange ?? null,
+          regularMarketDayLow: result.regularMarketDayLow ?? null,
+          regularMarketDayHigh: result.regularMarketDayHigh ?? null,
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? null,
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? null,
 
           min7d: getMinPrice(last7),
           min30d: getMinPrice(last30),
@@ -119,10 +122,7 @@ exports.handler = async (event) => {
     const payload = { results };
 
     // salva no cache
-    cache = {
-      data: payload,
-      timestamp: now
-    };
+    cache = { data: payload, timestamp: now };
 
     return {
         statusCode: 200,
@@ -140,9 +140,7 @@ exports.handler = async (event) => {
     console.error("ERRO:", error);
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         error: "Falha ao buscar dados",
         details: error.message

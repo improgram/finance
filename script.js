@@ -16,7 +16,7 @@ const renderTable = (data) => {
             });
 
         // Para o Preço Atual
-        const formattedPrice = typeof quote.regularMarketPrice === 'number'
+        const formattedPrice = quote.regularMarketPrice != null
             ? br.format(quote.regularMarketPrice) : '---';
 
         const formatNumber = (value) =>
