@@ -38,6 +38,7 @@ const renderTable = (data) => {
         // Fallback é assim: const min7d = quote.min7d ?? null;
         const min30d = formatNumber(quote.min30d);
         const min60d = formatNumber(quote.min60d);
+        const histInfo = quote.historicalAvailable ? '' : '(Histórico indisponível)';
 
         container.innerHTML += `
             <tr>
@@ -48,9 +49,9 @@ const renderTable = (data) => {
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
                 <td>                ${dayRange}                         </td>
-                <td>                ${formatNumber(quote.min7d)}         </td>
-                <td>                ${formatNumber(quote.min30d)}        </td>
-                <td>                ${formatNumber(quote.min60d)}         </td>
+                <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
+                <td>${formatNumber(quote.min30d)} ${!quote.historicalAvailable ? '---' : ''} </td>
+                <td>${formatNumber(quote.min60d)} ${!quote.historicalAvailable ? '---' : ''} </td>
                 <td>                ${formattedLow}                     </td>
                 <td>                ${formattedHigh}                    </td>
             </tr>

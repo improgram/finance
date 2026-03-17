@@ -80,13 +80,17 @@ exports.handler = async (event) => {
         if (!result) {
           return {
           symbol: "N/A",
-          name: "Não encontrado"
+          name: "Não encontrado",
+          historicalAvailable: false
           };
         }
 
-        const hist = result.historicalDataPrice || [];
-        const last7 = hist.slice(-7);
-        const last30 = hist.slice(-30);
+         // 🔹 verifica se o histórico existe
+        const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : null;
+        const historicalAvailable = !!hist;
+
+        const last7 = hist?.slice(-7) || [];
+        const last30 = hist?.slice(-30) || [];
 
         return {
           symbol: result.symbol,
@@ -103,6 +107,9 @@ exports.handler = async (event) => {
           min7d: getMinPrice(last7),
           min30d: getMinPrice(last30),
           min60d: getMinPrice(hist)
+
+          // 🔹 flag indicando se histórico está disponível
+          historicalAvailable
         };
       });
 
