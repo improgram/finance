@@ -1,4 +1,5 @@
 let allEtfs = [];
+
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
     container.innerHTML = '';
@@ -7,7 +8,7 @@ const renderTable = (data) => {
         // A Brapi no endpoint /quote usa 'logourl' em vez de apenas 'logo'
         const logoUrl =
             quote.logourl ||
-            quote.logo ||
+            //quote.logo ||
             `https://icons.brapi.dev/icons/${quote.symbol}.svg`;
 
         // Garante que o preço seja um número antes de usar toFixed
@@ -25,7 +26,7 @@ const renderTable = (data) => {
             quote.regularMarketDayRange ||
             `${quote.regularMarketDayLow ?? '-'} - ${quote.regularMarketDayHigh ?? '-'}`;
 
-        // Para as 52 Semanas
+        // Para 52 Semanas
         const formattedLow = typeof quote.fiftyTwoWeekLow === 'number'
             ? br.format(quote.fiftyTwoWeekLow) : '---';
 
@@ -56,17 +57,6 @@ const updateQuotes = async () => {
             statusEl.style.display = 'block';
             statusEl.innerText = "Carregando...";
 
-        //const tickers = ["BOVA11"];           // 20:00 removido
-
-        //  const paramsResponse = new URLSearchParams({    // 20:00 removido
-        //  tickers: tickers.join(",")                      // 20:00 removido
-        //  });                                             // 20:00 removido
-
-/*       // 20:00 removido
-        const response = await fetch(
-            `/.netlify/functions/get-quotes?${paramsResponse.toString()}`
-        );
-*/
         const response = await fetch("/.netlify/functions/get-quotes");
 
         if (!response.ok) {
@@ -112,10 +102,6 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 
 
 updateQuotes();
-
-
-// Test function https://www.netlify.com/blog/intro-to-serverless-functions/
-// Requisiçoes function https://etfsdobrasil.netlify.app/.netlify/functions/get-quotes
 
 
 /*

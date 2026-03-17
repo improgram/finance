@@ -69,7 +69,8 @@ exports.handler = async (event) => {
           "Cache-Control": "public, max-age=60",
           "X-Cache": "MISS"
         },
-        body: JSON.stringify( { payload }, null, 2 ) //{ payload }, null, 2
+        body: JSON.stringify( payload )
+        // Nao funciona { payload }, null, 2
     };
 
   } catch (error) {
@@ -85,12 +86,3 @@ exports.handler = async (event) => {
       };
   }
 };
-
-
-
-// https://brapi.dev/docs/acoes.mdx
-
-// Testar essa function no navegador:
-// netlify dev
-// http://localhost:8888/.netlify/functions/get-quotes?limit=10&type=etf
-
