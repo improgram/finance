@@ -7,9 +7,7 @@ const renderTable = (data) => {
     data.forEach(quote => {
         // A Brapi no endpoint /quote usa 'logourl' em vez de apenas 'logo'
         const logoUrl =
-            quote.logourl ||
-            //quote.logo ||
-            `https://icons.brapi.dev/icons/${quote.symbol}.svg`;
+            quote.logourl || `https://icons.brapi.dev/icons/${quote.symbol}.svg`;
 
         // Garante que o preço seja um número antes de usar toFixed
         const br = new Intl.NumberFormat('pt-BR', {
@@ -35,11 +33,7 @@ const renderTable = (data) => {
 
         container.innerHTML += `
             <tr>
-                <td style="text-align:center">
-                    <img src="${logoUrl}" width="26"
-                    onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
-                        style="border-radius: 4px;">
-                </td>
+                <td> <img src="${logoUrl}">                             </td>
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
                 <td>                ${quote.regularMarketDayRange}      </td>
@@ -100,8 +94,15 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
     renderTable(filteredEtfs);
 });
 
-
 updateQuotes();
+
+/*
+ <td style="text-align:center">
+                    <img src="${logoUrl}" width="26"
+                    onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
+                        style="border-radius: 4px;">
+                </td>
+*/
 
 
 /*
