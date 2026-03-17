@@ -5,22 +5,29 @@
   font-size: small;
 }
 
+html {
+    height: 100%;
+}
+
 body {
     font-family: sans-serif;
     min-height: 100vh;
+    min-height: 100dvh;
+    background-attachment: fixed;
     background-repeat: no-repeat;
     background-size: cover;
-    background-image: radial-gradient(circle,
-        rgb(199, 192, 192) 1%,
-        rgb(169, 169, 169) 5%,
-        rgb(79, 79, 79) 80%
-        );
     display: flex;
     flex-direction: column;
     gap: 20px; /* Cria 20px de espaço entre os itens */
     align-items: center;
     color: white;
+      background-image: radial-gradient(
+        circle at center,
+        rgb(199, 192, 192) 1%,
+        rgb(169, 169, 169) 20%,
+        rgb(79, 79, 79) 60% );
 }
+
 
 #titulo {
     font-size: 20px;
@@ -33,7 +40,11 @@ body {
     background: radial-gradient(
         rgb(127, 255, 212) 0%,
         rgb(102, 205, 170) 50%,
-        rgb(97, 128, 128) 90%);
+        rgb(97, 128, 128) 90% );
+}
+
+.search-container {
+    color: white;
 }
 
 table {

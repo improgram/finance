@@ -40,8 +40,7 @@ const renderTable = (data) => {
 
         container.innerHTML += `
             <tr>
-                <td style="text-align:center">
-                    <img src="${logoUrl}" width="26"
+                <td style="text-align:center"> <img src="${logoUrl}" width="26"
                     onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
                         style="border-radius: 4px;">
                 </td>
@@ -50,7 +49,7 @@ const renderTable = (data) => {
                 <td>                ${quote.regularMarketDayRange}      </td>
                 <td>                ${formatNumber(quote.min7d)}         </td>
                 <td>                ${formatNumber(quote.min30d)}        </td>
-                <td>                ${formatNumber(quote.min7d)}         </td>
+                <td>                ${formatNumber(quote.min60d)}         </td>
                 <td>                ${formattedLow}                     </td>
                 <td>                ${formattedHigh}                    </td>
             </tr>

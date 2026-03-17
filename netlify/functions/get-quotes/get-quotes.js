@@ -58,13 +58,24 @@ exports.handler = async (event) => {
       const quoteRes = await fetch(
         `https://brapi.dev/api/quote/${ticker}?range=2mo&interval=1d&token=${API_TOKEN}`
       );
-      const json = await res.json();
+
+      const json = await quoteRes.json();
       const result = json.results?.[0];
-      if (!result) return null;
+
+      if (!result || !result.historicalDataPrice) {
+        return {
+          symbol: ticker,
+          name: "Não encontrado",
+          regularMarketPrice: 0,
+          min7d: null, min30d: null, min60d: null
+        };
+      }
+
       const hist = result.historicalDataPrice || [];
       // 🔹 recortes
-      const last7 = hist.slice(-7);
-      const last30 = hist.slice(-30);
+      const last7 = hist.length >= 7 ? hist.slice(-7) : hist;
+      const last30 = hist.length >= 30 ? hist.slice(-30) : hist;
+
       return {
         symbol: result.symbol,
         name: result.longName || result.shortName,
@@ -79,7 +90,7 @@ exports.handler = async (event) => {
         // 🔥 novos campos
         min7d: getMinPrice(last7),
         min30d: getMinPrice(last30),
-        min60d: getMinPrice(hist)
+        min60d: getMinPrice(hist)  // hist completo (2 meses)
       };
     });
 
