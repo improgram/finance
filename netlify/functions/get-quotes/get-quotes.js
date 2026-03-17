@@ -38,11 +38,16 @@ const getMinPrice = (data) => {
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
 
-  if (!API_TOKEN) {     // Se token não configurado
-    throw new Error("Token da BRAPI não configurado");
-  }
+   const now = Date.now();
 
-  const now = Date.now();
+  if (!API_TOKEN) {     // Se token não configurado
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: "Token da BRAPI não configurado"
+      })
+    };
+  }
 
     // se cache ainda válido retorna
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
@@ -59,13 +64,19 @@ exports.handler = async (event) => {
 
   try {
     const tickers = ETF_LIST.join(",");
-    const quoteRes = await fetch(
+
+    const response = await fetch(
       `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&token=${API_TOKEN}`
     );
-    const json = await quoteRes.json();
-    const result = json.results?.[0];
+    const json = await response.json();
 
-    const results = (json.results || []).map(result => {
+    console.log("BRAPI RESPONSE:", json);
+
+    if (!json || !Array.isArray(json.results)) {
+      throw new Error("Resposta inválida da API");
+    }
+
+    const results = json.results.map(result => {
         if (!result || !result.historicalDataPrice) {
           return {
             symbol: result?.symbol || "N/A",
@@ -77,7 +88,7 @@ exports.handler = async (event) => {
           };
         }
 
-        const hist = result.historicalDataPrice || [];
+        const hist = result.historicalDataPrice;
         const last7 = hist.slice(-7);
         const last30 = hist.slice(-30);
 
@@ -85,6 +96,7 @@ exports.handler = async (event) => {
           symbol: result.symbol,
           name: result.longName || result.shortName,
           logourl: result.logourl,
+
           regularMarketPrice: result.regularMarketPrice,
           regularMarketDayRange: result.regularMarketDayRange,
           regularMarketDayLow: result.regularMarketDayLow,
@@ -97,9 +109,6 @@ exports.handler = async (event) => {
           min60d: getMinPrice(hist)
         };
       });
-  };
-
-    //const results = (await Promise.all(requests)).filter(Boolean);
 
     const payload = { results };
 
@@ -121,7 +130,8 @@ exports.handler = async (event) => {
         // Nao funciona { payload }, null, 2
     };
 
-  catch (error) {
+  } catch (error) {
+    console.error("ERRO:", error);
     return {
       statusCode: 500,
       headers: {
@@ -133,4 +143,4 @@ exports.handler = async (event) => {
       })
     };
   }
-}
+};
