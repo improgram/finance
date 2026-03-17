@@ -6,7 +6,6 @@
 //    O endpoint /list é o correto para filtros como 'type'
 //    A brapi retorna 'stocks' no endpoint /list
 
-//    if (data.stocks && Array.isArray(data.stocks))
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
 //    O endpoint /quote/{ticker} retorna 'results'
 
@@ -28,8 +27,6 @@ const CACHE_TIME = 60 * 1000; // 60 segundos
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  // const tickers = event.queryStringParameters?.tickers; //20:25
-
   const now = Date.now();
 
     // se cache ainda válido retorna
@@ -45,34 +42,7 @@ exports.handler = async (event) => {
     };
   }
 
-  /*
-  // Validaçao se existe ticker
-  if (!tickers) {
-    return {
-      statusCode: 400,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
-      body: JSON.stringify({
-        error: "Parâmetro 'tickers' é obrigatório."
-      })
-    };
-  }
-*/
-
   try {
-
-/*
-const tickerList = tickers.split(",");
-const requests = tickerList.map(ticker =>
-    fetch(`https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`)
-      .then(res => res.json())
-    );
-const responses = await Promise.all(requests);
-const results = responses.flatMap(r => r.results || []);
-*/
-
     const requests = ETF_LIST.map(async ticker => {
       const res = await fetch(
         `https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`
@@ -95,11 +65,11 @@ const results = responses.flatMap(r => r.results || []);
         statusCode: 200,
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*", // Evita problemas de CORS
+          "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=60",
           "X-Cache": "MISS"
         },
-        body: JSON.stringify(payload) //{ payload }, null, 2
+        body: JSON.stringify( { payload }, null, 2 ) //{ payload }, null, 2
     };
 
   } catch (error) {
