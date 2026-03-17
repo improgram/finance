@@ -37,7 +37,6 @@ const getMinPrice = (data) => {
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-
    const now = Date.now();
 
   if (!API_TOKEN) {     // Se token não configurado
@@ -79,13 +78,17 @@ exports.handler = async (event) => {
     const results = json.results.map(result => {
         if (!result) {
           return {
-          symbol: "N/A",
-          name: "Não encontrado",
-          historicalAvailable: false
+            symbol: "N/A",
+            name: "Não encontrado",
+            regularMarketPrice: 0,
+            min7d: null,
+            min30d: null,
+            min60d: null,
+            historicalAvailable: false
           };
         }
 
-         // 🔹 verifica se o histórico existe
+        // 🔹 verifica se o histórico existe
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : null;
         const historicalAvailable = !!hist;
 
