@@ -4,7 +4,7 @@
 //    A chave será lida das variáveis de ambiente do Netlify
 
 //    O endpoint /list é o correto para filtros como 'type'
-//    A brapi retorna 'stocks' no endpoint /list
+//    O endpoint /list retorna 'stocks' da brapi
 
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
 //    O endpoint /quote/{ticker} retorna 'results'

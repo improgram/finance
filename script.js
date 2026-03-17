@@ -33,7 +33,11 @@ const renderTable = (data) => {
 
         container.innerHTML += `
             <tr>
-                <td> <img src="${logoUrl}">                             </td>
+                <td style="text-align:center">
+                    <img src="${logoUrl}" width="26"
+                    onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
+                        style="border-radius: 4px;">
+                </td>
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
                 <td>                ${quote.regularMarketDayRange}      </td>
@@ -95,14 +99,6 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 });
 
 updateQuotes();
-
-/*
- <td style="text-align:center">
-                    <img src="${logoUrl}" width="26"
-                    onerror="this.src='https://icons.brapi.dev/icons/BOVA11.svg'"
-                        style="border-radius: 4px;">
-                </td>
-*/
 
 
 /*
