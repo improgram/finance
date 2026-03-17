@@ -24,6 +24,17 @@ let cache = {
 
 const CACHE_TIME = 60 * 1000; // 60 segundos
 
+// calcula menor preço
+const getMinPrice = (data) => {
+  if (!data || !data.length) return null;
+
+  const prices = data
+    .map(item => item.close)
+    .filter(v => typeof v === "number");
+
+  return prices.length ? Math.min(...prices) : null;
+};
+
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
@@ -42,45 +53,35 @@ exports.handler = async (event) => {
   }
 
   try {
-
-    const getMinPrice = (historicalData) => {
-      if (!historicalData || !historicalData.length) return null;
-      return Math.min(...historicalData.map(item => item.close).filter(Boolean));
-    };
-
     const requests = ETF_LIST.map(async ticker => {
-      // preço atual
+      // preço atual + histórico de 2 meses (uma única chamada)
       const quoteRes = await fetch(
-        `https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`
+        `https://brapi.dev/api/quote/${ticker}?range=2mo&interval=1d&token=${API_TOKEN}`
       );
+      const json = await res.json();
+      const result = json.results?.[0];
+      if (!result) return null;
+      const hist = result.historicalDataPrice || [];
+      // 🔹 recortes
+      const last7 = hist.slice(-7);
+      const last30 = hist.slice(-30);
+      return {
+        symbol: result.symbol,
+        name: result.longName || result.shortName,
+        logourl: result.logourl,
+        regularMarketPrice: result.regularMarketPrice,
+        regularMarketDayRange: result.regularMarketDayRange,
+        regularMarketDayLow: result.regularMarketDayLow,
+        regularMarketDayHigh: result.regularMarketDayHigh,
+        fiftyTwoWeekLow: result.fiftyTwoWeekLow,
+        fiftyTwoWeekHigh: result.fiftyTwoWeekHigh,
 
-      const quoteJson = await quoteRes.json();
-      const quote = quoteJson.results ? quoteJson.results[0] : null;
-
-      if (!quote) return null;
-
-      // histórico
-      const [res7d, res30d, res60d] = await Promise.all([
-        fetch(`https://brapi.dev/api/quote/${ticker}?range=7d&interval=1d&token=${API_TOKEN}`),
-        fetch(`https://brapi.dev/api/quote/${ticker}?range=1mo&interval=1d&token=${API_TOKEN}`),
-        fetch(`https://brapi.dev/api/quote/${ticker}?range=2mo&interval=1d&token=${API_TOKEN}`)
-      ]);
-
-      const json7d = await res7d.json();
-      const json30d = await res30d.json();
-      const json60d = await res60d.json();
-
-      const hist7d = json7d.results?.[0]?.historicalDataPrice || [];
-      const hist30d = json30d.results?.[0]?.historicalDataPrice || [];
-      const hist60d = json60d.results?.[0]?.historicalDataPrice || [];
-
-        return {
-          ...quote,
-          min7d: getMinPrice(hist7d),
-          min30d: getMinPrice(hist30d),
-          min60d: getMinPrice(hist60d)
-        };
-      });
+        // 🔥 novos campos
+        min7d: getMinPrice(last7),
+        min30d: getMinPrice(last30),
+        min60d: getMinPrice(hist)
+      };
+    });
 
     const results = (await Promise.all(requests)).filter(Boolean);
 
