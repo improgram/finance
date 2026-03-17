@@ -37,6 +37,11 @@ const getMinPrice = (data) => {
 
 exports.handler = async (event) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
+
+  if (!API_TOKEN) {     // Se token não configurado
+    throw new Error("Token da BRAPI não configurado");
+  }
+
   const now = Date.now();
 
     // se cache ainda válido retorna
@@ -53,48 +58,48 @@ exports.handler = async (event) => {
   }
 
   try {
-    const requests = ETF_LIST.map(async ticker => {
-      // preço atual + histórico de 2 meses (uma única chamada)
-      const quoteRes = await fetch(
-        `https://brapi.dev/api/quote/${ticker}?range=2mo&interval=1d&token=${API_TOKEN}`
-      );
+    const tickers = ETF_LIST.join(",");
+    const quoteRes = await fetch(
+      `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&token=${API_TOKEN}`
+    );
+    const json = await quoteRes.json();
+    const result = json.results?.[0];
 
-      const json = await quoteRes.json();
-      const result = json.results?.[0];
+    const results = (json.results || []).map(result => {
+        if (!result || !result.historicalDataPrice) {
+          return {
+            symbol: result?.symbol || "N/A",
+            name: "Não encontrado",
+            regularMarketPrice: 0,
+            min7d: null,
+            min30d: null,
+            min60d: null
+          };
+        }
 
-      if (!result || !result.historicalDataPrice) {
+        const hist = result.historicalDataPrice || [];
+        const last7 = hist.slice(-7);
+        const last30 = hist.slice(-30);
+
         return {
-          symbol: ticker,
-          name: "Não encontrado",
-          regularMarketPrice: 0,
-          min7d: null, min30d: null, min60d: null
+          symbol: result.symbol,
+          name: result.longName || result.shortName,
+          logourl: result.logourl,
+          regularMarketPrice: result.regularMarketPrice,
+          regularMarketDayRange: result.regularMarketDayRange,
+          regularMarketDayLow: result.regularMarketDayLow,
+          regularMarketDayHigh: result.regularMarketDayHigh,
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow,
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh,
+
+          min7d: getMinPrice(last7),
+          min30d: getMinPrice(last30),
+          min60d: getMinPrice(hist)
         };
-      }
+      });
+  };
 
-      const hist = result.historicalDataPrice || [];
-      // 🔹 recortes
-      const last7 = hist.length >= 7 ? hist.slice(-7) : hist;
-      const last30 = hist.length >= 30 ? hist.slice(-30) : hist;
-
-      return {
-        symbol: result.symbol,
-        name: result.longName || result.shortName,
-        logourl: result.logourl,
-        regularMarketPrice: result.regularMarketPrice,
-        regularMarketDayRange: result.regularMarketDayRange,
-        regularMarketDayLow: result.regularMarketDayLow,
-        regularMarketDayHigh: result.regularMarketDayHigh,
-        fiftyTwoWeekLow: result.fiftyTwoWeekLow,
-        fiftyTwoWeekHigh: result.fiftyTwoWeekHigh,
-
-        // 🔥 novos campos
-        min7d: getMinPrice(last7),
-        min30d: getMinPrice(last30),
-        min60d: getMinPrice(hist)  // hist completo (2 meses)
-      };
-    });
-
-    const results = (await Promise.all(requests)).filter(Boolean);
+    //const results = (await Promise.all(requests)).filter(Boolean);
 
     const payload = { results };
 
@@ -116,7 +121,6 @@ exports.handler = async (event) => {
         // Nao funciona { payload }, null, 2
     };
 
-  }
   catch (error) {
     return {
       statusCode: 500,
@@ -129,4 +133,4 @@ exports.handler = async (event) => {
       })
     };
   }
-};
+}

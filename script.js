@@ -46,7 +46,7 @@ const renderTable = (data) => {
                 </td>
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
-                <td>                ${quote.regularMarketDayRange}      </td>
+                <td>                ${dayRange}                         </td>
                 <td>                ${formatNumber(quote.min7d)}         </td>
                 <td>                ${formatNumber(quote.min30d)}        </td>
                 <td>                ${formatNumber(quote.min60d)}         </td>
