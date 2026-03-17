@@ -7,7 +7,7 @@
 //    O endpoint /list retorna 'stocks' da brapi
 
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
-//    O endpoint /quote/{ticker} retorna 'results'
+//    O endpoint /quote/{ticker} retorna objeto 'results'
 
 const ETF_LIST = [
 "B5P211",
@@ -42,13 +42,45 @@ exports.handler = async (event) => {
   }
 
   try {
+
+    const getMinPrice = (historicalData) => {
+      if (!historicalData || !historicalData.length) return null;
+      return Math.min(...historicalData.map(item => item.close).filter(Boolean));
+    };
+
     const requests = ETF_LIST.map(async ticker => {
-      const res = await fetch(
+      // preço atual
+      const quoteRes = await fetch(
         `https://brapi.dev/api/quote/${ticker}?token=${API_TOKEN}`
       );
-      const json = await res.json();
-      return json.results ? json.results[0] : null;
-    });
+
+      const quoteJson = await quoteRes.json();
+      const quote = quoteJson.results ? quoteJson.results[0] : null;
+
+      if (!quote) return null;
+
+      // histórico
+      const [res7d, res30d, res60d] = await Promise.all([
+        fetch(`https://brapi.dev/api/quote/${ticker}?range=7d&interval=1d&token=${API_TOKEN}`),
+        fetch(`https://brapi.dev/api/quote/${ticker}?range=1mo&interval=1d&token=${API_TOKEN}`),
+        fetch(`https://brapi.dev/api/quote/${ticker}?range=2mo&interval=1d&token=${API_TOKEN}`)
+      ]);
+
+      const json7d = await res7d.json();
+      const json30d = await res30d.json();
+      const json60d = await res60d.json();
+
+      const hist7d = json7d.results?.[0]?.historicalDataPrice || [];
+      const hist30d = json30d.results?.[0]?.historicalDataPrice || [];
+      const hist60d = json60d.results?.[0]?.historicalDataPrice || [];
+
+        return {
+          ...quote,
+          min7d: getMinPrice(hist7d),
+          min30d: getMinPrice(hist30d),
+          min60d: getMinPrice(hist60d)
+        };
+      });
 
     const results = (await Promise.all(requests)).filter(Boolean);
 
@@ -72,16 +104,17 @@ exports.handler = async (event) => {
         // Nao funciona { payload }, null, 2
     };
 
-  } catch (error) {
-      return {
-        statusCode: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*"
-        },
-        body: JSON.stringify({
-          error: "Falha ao buscar dados",
-          details: error.message
-        })
-      };
+  }
+  catch (error) {
+    return {
+      statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*"
+      },
+      body: JSON.stringify({
+        error: "Falha ao buscar dados",
+        details: error.message
+      })
+    };
   }
 };

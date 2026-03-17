@@ -19,6 +19,9 @@ const renderTable = (data) => {
         const formattedPrice = typeof quote.regularMarketPrice === 'number'
             ? br.format(quote.regularMarketPrice) : '---';
 
+        const formatNumber = (value) =>
+            typeof value === 'number' ? br.format(value) : '---';
+
         // regularMarket Day Range nem sempre vem preenchido
         const dayRange =
             quote.regularMarketDayRange ||
@@ -31,6 +34,10 @@ const renderTable = (data) => {
         const formattedHigh = typeof quote.fiftyTwoWeekHigh === 'number'
             ? br.format(quote.fiftyTwoWeekHigh) : '---';
 
+        const min7d = formatNumber(quote.min7d);
+        const min30d = formatNumber(quote.min30d);
+        const min60d = formatNumber(quote.min60d);
+
         container.innerHTML += `
             <tr>
                 <td style="text-align:center">
@@ -41,6 +48,9 @@ const renderTable = (data) => {
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
                 <td>                ${quote.regularMarketDayRange}      </td>
+                <td>                ${min7d}                            </td>
+                <td>                ${min30d}                           </td>
+                <td>                ${min60d}                           </td>
                 <td>                ${formattedLow}                     </td>
                 <td>                ${formattedHigh}                    </td>
             </tr>
@@ -63,7 +73,6 @@ const updateQuotes = async () => {
         }
 
         const data = await response.json();
-
 
         if (data.results && Array.isArray(data.results)) {
             // filtra ETFs brasileiros
