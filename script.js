@@ -35,6 +35,7 @@ const renderTable = (data) => {
             ? br.format(quote.fiftyTwoWeekHigh) : '---';
 
         const min7d = formatNumber(quote.min7d);
+        // Fallback é assim: const min7d = quote.min7d ?? null;
         const min30d = formatNumber(quote.min30d);
         const min60d = formatNumber(quote.min60d);
 

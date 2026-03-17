@@ -66,7 +66,7 @@ exports.handler = async (event) => {
     const tickers = ETF_LIST.join(",");
 
     const response = await fetch(
-      `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&modules=historicalDataPrice&token=${API_TOKEN}`
     );
     const json = await response.json();
 
@@ -77,18 +77,14 @@ exports.handler = async (event) => {
     }
 
     const results = json.results.map(result => {
-        if (!result || !result.historicalDataPrice) {
+        if (!result) {
           return {
-            symbol: result?.symbol || "N/A",
-            name: "Não encontrado",
-            regularMarketPrice: 0,
-            min7d: null,
-            min30d: null,
-            min60d: null
+          symbol: "N/A",
+          name: "Não encontrado"
           };
         }
 
-        const hist = result.historicalDataPrice;
+        const hist = result.historicalDataPrice || [];
         const last7 = hist.slice(-7);
         const last30 = hist.slice(-30);
 
