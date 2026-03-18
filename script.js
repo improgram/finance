@@ -110,6 +110,7 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 updateQuotes();
 
 
+
 /*
 Fluxo do sistema:
 Brapi API
