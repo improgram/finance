@@ -101,8 +101,7 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 
     const filteredEtfs = allEtfs.filter(quote =>
         (quote.symbol || "").toLowerCase().includes(searchTerm) ||
-        (quote.name || "").toLowerCase().includes(searchTerm) ||
-        (quote.shortName || quote.longName || "").toLowerCase().includes(searchTerm)
+        (quote.name || "").toLowerCase().includes(searchTerm)
     );
 
     renderTable(filteredEtfs);

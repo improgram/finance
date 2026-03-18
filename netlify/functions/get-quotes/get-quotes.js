@@ -10,11 +10,8 @@
 //    O endpoint /quote/{ticker} retorna objeto 'results'
 
 const ETF_LIST = [
-"B5P211",
-"GOAT11",
-"IMAB11",
-"IRFM11",
-"5PRE11"
+"BOVA11",
+"IMAB11"
 ];
 
 let cache = {
@@ -75,7 +72,7 @@ exports.handler = async () => {
 
     const results = json.results.map(result => {
       // 🔴 Se vier null (acontece às vezes)
-        if (!result || typeof result !== "object") {
+        if (!result || !result.symbol) {
           return {
             symbol: "N/A",
             name: "Não encontrado",
