@@ -10,7 +10,7 @@
 //    O endpoint /quote/{ticker} retorna objeto 'results'
 
 const ETF_LIST = [
-"PETR4"
+"IMAB11"
 ];
 
 let cache = {
