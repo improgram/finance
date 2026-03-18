@@ -123,10 +123,6 @@ exports.handler = async () => {
       return {
         symbol: result.symbol,
         name: result.longName || result.shortName || result.symbol,
-        logourl:
-          result.logourl ||
-          `https://icons.brapi.dev/icons/${result.symbol}.svg`,
-
         regularMarketPrice:
           typeof result.regularMarketPrice === "number"
             ? result.regularMarketPrice
