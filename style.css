@@ -81,46 +81,32 @@ tr {
 
 tr:hover {      /* quando passa o mouse */
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-}
-
-/* -------- MOBILE PROFISSIONAL -------- */
-@media (max-width: 768px) {
-    thead {
-        display: none;
-    }
-    table, tbody, tr, td {
-        display: block;
-        width: 100%;
-    }
-    tr {
-        background: white;
-        margin-bottom: 12px;
-        border-radius: 10px;
-        padding: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 6px 0;
-        border: none;
-        font-size: 14px;
-    }
-
-    td::before {
-        content: attr(data-label);
-        font-weight: bold;
-        color: #555;
-        font-size: 12px;
-    }
+    box-shadow: 0 4px 10px #555;
 }
 
 .price {
     font-weight: bold;
     color: #2e7d32;
+}
+
+/* -------- MOBILE COM TABELA NORMAL -------- */
+@media (max-width: 768px) {
+
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* scroll suave no iPhone */
+    }
+
+    table {
+        min-width: 700px; /* força scroll ao invés de quebrar layout */
+    }
+
+    th, td {
+        padding: 6px;
+        font-size: 12px;
+        white-space: nowrap; /* evita quebra feia */
+    }
 }
 
 .badge {
