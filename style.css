@@ -18,7 +18,7 @@ body {
     background-size: cover;
     display: flex;
     flex-direction: column;
-    gap: 20px; /* Cria 20px de espaço entre os itens */
+    gap: 10px; /* Cria 20px de espaço entre os itens */
     align-items: center;
     color: white;
       background-image: radial-gradient(
@@ -27,7 +27,6 @@ body {
         rgb(169, 169, 169) 20%,
         rgb(79, 79, 79) 60% );
 }
-
 
 #titulo {
     font-size: 22px;
@@ -47,11 +46,16 @@ body {
     color: white;
 }
 
+/* Container com responsividade */
+.table-container {
+    width: 100%;
+    max-width: 1200px;
+}
+
 table {
-    width: 90%;
+    width: 100%;
     border-collapse: collapse;
     background: white;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     border-radius: 8px;
     overflow: hidden;
     color: MidnightBlue;
@@ -60,26 +64,63 @@ table {
 th {        /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
 }
 
 td, th {
-    padding: 6px 8px;
+    padding: 8px;
     text-align: left;
-    border-bottom: 0.6px inset #008080;
+    border-bottom: 1px solid #008080;
 }
 
 tr {
-    margin: 1px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 tr:hover {      /* quando passa o mouse */
-    background-color: #B0E0E6;
-    font-size: 14px;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+
+/* -------- MOBILE PROFISSIONAL -------- */
+@media (max-width: 768px) {
+    thead {
+        display: none;
+    }
+    table, tbody, tr, td {
+        display: block;
+        width: 100%;
+    }
+    tr {
+        background: white;
+        margin-bottom: 12px;
+        border-radius: 10px;
+        padding: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border: none;
+        font-size: 14px;
+    }
+
+    td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #555;
+        font-size: 12px;
+    }
 }
 
 .price {
     font-weight: bold;
-    color: #3CB371;
+    color: #2e7d32;
 }
 
 .badge {
