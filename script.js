@@ -39,7 +39,6 @@ const renderTable = (data) => {
         container.innerHTML += `
             <tr>
                 <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
-                <td>    </td>
                 <td class="price">R$ ${formattedPrice}                  </td>
                 <td>                ${dayRange}                         </td>
                 <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
