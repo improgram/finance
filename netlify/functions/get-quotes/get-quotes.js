@@ -58,7 +58,7 @@ exports.handler = async (event) => {
     const tickers = ETF_LIST.join(",");
 
     const response = await fetch(
-  `https://brapi.dev/api/quote/${tickers}?range=3mo&interval=1d&modules=historicalDataPrice&token=${API_TOKEN}`
+  `https://brapi.dev/api/quote/${tickers}?range=3mo&interval=1d&modules=summaryProfile&token=${API_TOKEN}`
     );
     const json = await response.json();
 
