@@ -26,15 +26,15 @@ const CACHE_TIME = 60 * 1000; // 60 segundos
 
 // calcula menor preço
 const getMinPrice = (data) => {
-  if (!data || !data.length) return null;
+   if (!Array.isArray(data) || data.length === 0) return null;
 
   const prices = data
-    .map(item => typeof item.close === 'number' ? item.close : null)
+    .map(item => item?.close)
     .filter(v => typeof v === "number");
   return prices.length ? Math.min(...prices) : null;
 };
 
-exports.handler = async (event) => {
+exports.handler = async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
 
@@ -45,7 +45,7 @@ exports.handler = async (event) => {
     };
   }
 
-    // se cache ainda válido retorna
+    // se cache HIT ainda válido retorna
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
     return {
       statusCode: 200,
@@ -62,18 +62,20 @@ exports.handler = async (event) => {
     const tickers = ETF_LIST.join(",");
 
     const response = await fetch(
-      `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&modules=historicalDataPrice&token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${tickers}?range=2mo&interval=1d&token=${API_TOKEN}`
+      // 🔥 REMOVIDO modules=historicalDataPrice (instável no free)
     );
     const json = await response.json();
 
-    console.log("BRAPI RESPONSE:", json);
+    console.log("BRAPI RESPONSE:", JSON.stringify(json, null, 2));
 
-    if (!json || !Array.isArray(json.results)) {
+    if (!json?.results || !Array.isArray(json.results)) {
       throw new Error("Resposta inválida da API");
     }
 
     const results = json.results.map(result => {
-        if (!result) {
+      // 🔴 Se vier null (acontece às vezes)
+        if (!result || typeof result !== "object") {
           return {
             symbol: "N/A",
             name: "Não encontrado",
@@ -91,28 +93,35 @@ exports.handler = async (event) => {
           };
         }
 
-        // 🔹 verifica se o histórico existe
-        const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
+        // 🔹 verifica se o histórico existe (pode NÃO vir no plano free)
+        const hist = Array.isArray(result.historicalDataPrice)
+          ? result.historicalDataPrice
+          : [];
+
         const historicalAvailable = hist.length > 0;
 
-        const last7 = hist?.slice(-7) || [];
-        const last30 = hist?.slice(-30) || [];
+        const last7 = hist?.slice(-7);
+        const last30 = hist?.slice(-30);
 
         return {
-          symbol: result.symbol || "N/A",
-          name: result.longName || result.shortName || "Não encontrado",
+          // 🔥 NUNCA perder esses dados
+          symbol: result.symbol ?? "N/A",
+          name: result.longName || result.shortName || result.symbol || "N/A",
           logourl: result.logourl || `https://icons.brapi.dev/icons/${result.symbol}.svg`,
 
-          regularMarketPrice: result.regularMarketPrice ?? 0,
+          regularMarketPrice: typeof result.regularMarketPrice === "number"
+            ? result.regularMarketPrice
+            : 0,
           regularMarketDayRange: result.regularMarketDayRange ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? null,
           fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? null,
           fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? null,
 
-          min7d: getMinPrice(last7),
-          min30d: getMinPrice(last30),
-          min60d: getMinPrice(hist)
+          // 🔹 só calcula se tiver histórico
+          min7d: historicalAvailable ? getMinPrice(last7) : null,
+          min30d: historicalAvailable ? getMinPrice(last30) : null,
+          min60d: historicalAvailable ? getMinPrice(hist) : null,
 
           // 🔹 flag indicando se histórico está disponível
           historicalAvailable
