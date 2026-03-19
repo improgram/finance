@@ -92,6 +92,19 @@ exports.handler = async () => {
     const allResults = responses.flatMap(r => r?.results || []);
 
       const results = allResults.map(result => {
+
+      if (!result || !result.symbol) {    // Validaçao
+        return {
+          symbol: "N/A",
+          name: "Não encontrado",
+          regularMarketPrice: 0,
+          min7d: null,
+          min30d: null,
+          min60d: null,
+          historicalAvailable: false
+        };
+      }
+
       const hist = Array.isArray(result.historicalDataPrice)
           ? result.historicalDataPrice
           : [];
@@ -100,7 +113,7 @@ exports.handler = async () => {
       const last30 = hist.slice(-30);
         return {
           symbol: result.symbol,
-    // NAO: name: result.longName || result.shortName || result.symbol,
+          name: result.longName || result.shortName || result.symbol,
           description: result.summaryProfile?.longBusinessSummary ?? null,
           totalAssets: result.defaultKeyStatistics?.totalAssets ?? null,
           regularMarketPrice:
@@ -124,18 +137,6 @@ exports.handler = async () => {
       });
 
     const payload = { results };
-
-     if (!result || !result.symbol) {
-        return {
-          symbol: "N/A",
-          name: "Não encontrado",
-          regularMarketPrice: 0,
-          min7d: null,
-          min30d: null,
-          min60d: null,
-          historicalAvailable: false
-        };
-      }
 
     // 💾 salva cache
     cache = {
