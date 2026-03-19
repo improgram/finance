@@ -83,16 +83,19 @@ exports.handler = async () => {
     const requests = ETF_LIST.map(symbol =>
       fetchWithRetry(
       `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&modules=summaryProfile,defaultKeyStatistics&token=${API_TOKEN}`
-      ).catch(() => ({ results: [] })) // proteção
-    );
+      ).catch(err => {
+        console.error("Erro ao buscar ETF:", symbol, err.message);
+        return null;
+      })
 
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
-    const allResults = responses.flatMap(r => r?.results || []);
+    const allResults = responses  //ERA: responses.flatMap(r => r?.results || []);
+      .filter(r => r && Array.isArray(r.results))
+      .flatMap(r => r.results);
 
-      const results = allResults.map(result => {
-
+    const results = allResults.map(result => {
       if (!result || !result.symbol) {    // Validaçao
         return {
           symbol: "N/A",
