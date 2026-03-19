@@ -36,11 +36,20 @@ const renderTable = (data) => {
         const min60d = formatNumber(quote.min60d);
         const histInfo = quote.historicalAvailable ? '' : '(Histórico indisponível)';
 
+        // cores automáticas (verde/vermelho) = detectar o valor e aplicar a classe
+        function aplicarCor(valor) {
+            if (valor > 0) return "positive";
+            if (valor < 0) return "negative";
+            return "neutral";
+        }
+        const variacao = -1.25;
+
         container.innerHTML += `
             <tr>
-                <td><strong>        ${quote.symbol || 'N/A'}</strong>   </td>
-                <td class="price">R$ ${formattedPrice}                  </td>
-                <td>                ${dayRange}                         </td>
+                <td><strong>         ${quote.symbol || 'N/A'}</strong>      </td>
+                <td class="price">R$ ${formattedPrice}                      </td>
+                <td class="${aplicarCor(variacao)}">${variacao.toFixed(2)}% </td>
+                <td>                 ${dayRange}                            </td>
                 <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
                 <td>${formatNumber(quote.min30d)} ${!quote.historicalAvailable ? '---' : ''} </td>
                 <td>${formatNumber(quote.min60d)} ${!quote.historicalAvailable ? '---' : ''} </td>
@@ -98,6 +107,7 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 
     renderTable(filteredEtfs);
 });
+
 
 updateQuotes();
 
