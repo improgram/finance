@@ -87,7 +87,8 @@ exports.handler = async () => {
         console.error("Erro ao buscar ETF:", symbol, err.message);
         return null;
       })
-
+    );
+    
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
