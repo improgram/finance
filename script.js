@@ -42,13 +42,17 @@ const renderTable = (data) => {
             if (valor < 0) return "negative";
             return "neutral";
         }
-        const variacao = -1.25;
+        const variacao = typeof quote.regularMarketChangePercent === "number"
+        ? quote.regularMarketChangePercent
+        : 0;
+
+        const formattedPercent = br.format(variacao);
 
         container.innerHTML += `
             <tr>
                 <td><strong>         ${quote.symbol || 'N/A'}</strong>      </td>
                 <td class="price">R$ ${formattedPrice}                      </td>
-                <td class="${aplicarCor(variacao)}">${variacao.toFixed(2)}% </td>
+                <td class="${aplicarCor(variacao)}">${formattedPercent}%    </td>
                 <td>                 ${dayRange}                            </td>
                 <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
                 <td>${formatNumber(quote.min30d)} ${!quote.historicalAvailable ? '---' : ''} </td>
