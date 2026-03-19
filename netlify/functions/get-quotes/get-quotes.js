@@ -11,6 +11,7 @@
 
 const ETF_LIST = [
   "AUPO11",
+  "BOVA11",
   "B5P211",
   "GOAT11",
   "IMAB11",
@@ -88,7 +89,7 @@ exports.handler = async () => {
     // 🔥 1 request por ativo (PLANO FREE)
     const requests = ETF_LIST.map(symbol =>
       fetchWithRetry(
-        `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&modules=summaryProfile&token=${API_TOKEN}`
+      `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&modules=summaryProfile&token=${API_TOKEN}`
       ).catch(() => ({ results: [] })) // proteção
     );
 
