@@ -17,7 +17,8 @@ body {
     background-size: cover;
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Cria 20px de espaço entre os itens */
+    gap: clamp(12px, 2vw, 24px);
+    padding: clamp(10px, 2vw, 20px);
     align-items: center;
     color: white;
       background-image: radial-gradient(
@@ -55,6 +56,7 @@ table {
     overflow: hidden;
     color: MidnightBlue;
     font-size: clamp(0.77rem, 0.8vw, 0.9rem);
+    margin-top: 10px;
 }
 
 th {        /* cabeçalho tabela */
@@ -71,7 +73,7 @@ td {
 }
 
 td, th {
-    padding: 7px;
+    padding: clamp(6px, 1vw, 12px);
     text-align: left;
     border-bottom: 1px solid #008080;
 }
@@ -108,15 +110,11 @@ tr:hover {      /* passar mouse */
     }
 }
 
-/*
-.search-container {
-    margin-bottom: 20px;
-}
-*/
-
 #etf-search {
     width: 60%;
-    padding: 7px;
+    max-width: 400px;
+    padding: 8px;
+     margin: 10px 0;
     border: 1px solid #7bff;
     border-radius: 8px;
     font-size: 16px;
@@ -149,8 +147,14 @@ tr:hover {      /* passar mouse */
         rgb(37, 48, 54, 100) 0%,
         rgb(185, 250, 213, 100) 80%,
         rgb(66, 64, 46, 100));
-    height: 50px;
     width: 100%;
+    padding: 10px;
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
 
 }
 
