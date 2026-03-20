@@ -137,6 +137,19 @@ exports.handler = async () => {
           console.warn("Sem defaultKeyStatistics:", result.symbol);
         }
 
+      // 🧠 descrição com fallback inteligente
+      const description =
+        result.summaryProfile?.longBusinessSummary ||
+        ETF_INFO[result.symbol]?.description ||
+        "Descrição não disponível";
+
+      // 🧠 patrimônio líquido com fallback em camadas
+      const totalAssets =
+        result.defaultKeyStatistics?.totalAssets ??   // 1️⃣ API (melhor fonte)
+        result.marketCap ??                           // 2️⃣ fallback automático
+        ETF_INFO[result.symbol]?.totalAssets ??       // 3️⃣ fallback manual
+        null;
+
       const hist = Array.isArray(result.historicalDataPrice)
           ? result.historicalDataPrice
           : [];
@@ -147,17 +160,8 @@ exports.handler = async () => {
         return {
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
-
-          description:
-            result.summaryProfile?.longBusinessSummary ||
-            ETF_INFO[result.symbol]?.description ||
-            "Descrição não disponível",
-
-          totalAssets:
-            result.defaultKeyStatistics?.totalAssets ||
-            ETF_INFO[result.symbol]?.totalAssets ||
-            null,
-
+          description,
+          totalAssets,
           regularMarketPrice:
             typeof result.regularMarketPrice === "number"
               ? result.regularMarketPrice
