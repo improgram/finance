@@ -11,6 +11,7 @@
 
 const ETF_LIST = [
   "AUPO11",
+  "BBDC4",
   "BOVA11",
   "B5P211",
   "GOAT11",
@@ -19,6 +20,7 @@ const ETF_LIST = [
   "LFTB11",
   "NBIT11",
   "NDIV11",
+  "POSB11",
   "UTLL11",
   "SMAL11",
   "5PRE11"
@@ -80,16 +82,6 @@ exports.handler = async () => {
 
   try {
     // 🔥 1 request por ativo (PLANO FREE)
-/*
-    const requests = ETF_LIST.map(symbol =>
-      fetchWithRetry(
-      `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&modules=summaryProfile,defaultKeyStatistics&token=${API_TOKEN}`
-      ).catch(err => {
-        console.error("Erro ao buscar ETF:", symbol, err.message);
-        return null;
-      })
-    );
-*/
     const requests = ETF_LIST.map(symbol => {
     const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
     const urlWithModules = `${urlBase}&modules=summaryProfile,defaultKeyStatistics`;
@@ -108,7 +100,7 @@ exports.handler = async () => {
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
-    const allResults = responses  //ERA: responses.flatMap(r => r?.results || []);
+    const allResults = responses 
       .filter(r => r && Array.isArray(r.results))
       .flatMap(r => r.results);
 
