@@ -25,6 +25,17 @@ const ETF_LIST = [
   "5PRE11"
 ];
 
+const ETF_INFO = {
+  BOVA11: {
+    description: "Replica o índice Ibovespa",
+    totalAssets: 10
+  },
+  SMAL11: {
+    description: "Small caps brasileiras",
+    totalAssets: 5
+  }
+};
+
 let cache = {
   data: null,
   timestamp: 0
@@ -104,17 +115,27 @@ exports.handler = async () => {
       .flatMap(r => r.results);
 
     const results = allResults.map(result => {
-      if (!result || !result.symbol) {    // Validaçao
-        return {
-          symbol: "N/A",
-          name: "Não encontrado",
-          regularMarketPrice: 0,
-          min7d: null,
-          min30d: null,
-          min60d: null,
-          historicalAvailable: false
-        };
-      }
+      if (!result || !result.symbol)      // Validaçao
+        {
+          return
+            {
+            symbol: "N/A",
+            name: "Não encontrado",
+            regularMarketPrice: 0,
+            min7d: null,
+            min30d: null,
+            min60d: null,
+            historicalAvailable: false
+            };
+        }
+
+        if (!result.summaryProfile) {
+          console.warn("Sem summaryProfile:", result.symbol);
+        }
+
+        if (!result.defaultKeyStatistics) {
+          console.warn("Sem defaultKeyStatistics:", result.symbol);
+        }
 
       const hist = Array.isArray(result.historicalDataPrice)
           ? result.historicalDataPrice
@@ -126,8 +147,17 @@ exports.handler = async () => {
         return {
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
-          description: result.summaryProfile?.longBusinessSummary ?? null,
-          totalAssets: result.defaultKeyStatistics?.totalAssets ?? null,
+
+          description:
+            result.summaryProfile?.longBusinessSummary ||
+            ETF_INFO[result.symbol]?.description ||
+            "Descrição não disponível",
+
+          totalAssets:
+            result.defaultKeyStatistics?.totalAssets ||
+            ETF_INFO[result.symbol]?.totalAssets ||
+            null,
+
           regularMarketPrice:
             typeof result.regularMarketPrice === "number"
               ? result.regularMarketPrice
@@ -146,7 +176,7 @@ exports.handler = async () => {
           min60d: historicalAvailable ? getMinPrice(hist) : null,
           historicalAvailable
         };
-      });
+      });   // Map final
 
     const payload = { results };
 

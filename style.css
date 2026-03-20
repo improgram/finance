@@ -108,14 +108,16 @@ tr:hover {      /* passar mouse */
     }
 }
 
+/*
 .search-container {
     margin-bottom: 20px;
 }
+*/
 
 #etf-search {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
+    width: 60%;
+    padding: 7px;
+    border: 1px solid #7bff;
     border-radius: 8px;
     font-size: 16px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
