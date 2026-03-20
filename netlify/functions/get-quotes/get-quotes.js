@@ -115,10 +115,8 @@ exports.handler = async () => {
       .flatMap(r => r.results);
 
     const results = allResults.map(result => {
-      if (!result || !result.symbol)      // Validaçao
-        {
-          return
-            {
+      if (!result || !result.symbol) {    // Validaçao
+          return {
             symbol: "N/A",
             name: "Não encontrado",
             regularMarketPrice: 0,
@@ -126,8 +124,8 @@ exports.handler = async () => {
             min30d: null,
             min60d: null,
             historicalAvailable: false
-            };
-        }
+          };
+      }
 
         if (!result.summaryProfile) {
           console.warn("Sem summaryProfile:", result.symbol);
