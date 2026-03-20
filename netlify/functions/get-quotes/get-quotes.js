@@ -80,6 +80,7 @@ exports.handler = async () => {
 
   try {
     // 🔥 1 request por ativo (PLANO FREE)
+/*
     const requests = ETF_LIST.map(symbol =>
       fetchWithRetry(
       `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&modules=summaryProfile,defaultKeyStatistics&token=${API_TOKEN}`
@@ -88,7 +89,22 @@ exports.handler = async () => {
         return null;
       })
     );
-    
+*/
+    const requests = ETF_LIST.map(symbol => {
+    const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
+    const urlWithModules = `${urlBase}&modules=summaryProfile,defaultKeyStatistics`;
+
+    return fetchWithRetry(urlWithModules)
+      .catch(async () => {
+        console.warn("Fallback sem modules:", symbol);
+        return fetchWithRetry(urlBase);
+      })
+      .catch(err => {
+        console.error("Erro ao buscar ETF:", symbol, err.message);
+        return null;
+      });
+  });
+
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
