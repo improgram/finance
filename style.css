@@ -28,7 +28,7 @@ body {
 }
 
 :heading {              /*Todas tags H1, H2 ... */
-    font-size: clamp(1.5rem, 4vw, 3rem);
+    font-size: clamp(1.3rem, 3vw, 2rem);
 }
 
 #status {
@@ -54,14 +54,16 @@ table {
     border-radius: 8px;
     overflow: hidden;
     color: MidnightBlue;
+    font-size: clamp(0.8125rem, 1.2vw, 1rem);
 }
 
 th {        /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
     text-transform: uppercase;
-    font-size: 12px;
+    font-size: clamp(0.875rem, 1.5vw, 1.125rem);
     letter-spacing: 0.5px;
+    font-weight: bold;
 }
 
 td {
@@ -88,25 +90,24 @@ tr:hover {      /* quando passa o mouse */
     color: #2e7d32;
 }
 
+
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
-
     .table-container {
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch; /* scroll suave no iPhone */
     }
-
     table {
         min-width: 700px; /* força scroll ao invés de quebrar layout */
     }
-
     th, td {
-        padding: 6px;
-        font-size: 12px;
-        white-space: nowrap; /* evita quebra feia */
+        padding: 8px 4px;
+        font-size: 0.85rem;
+        white-space: nowrap; /* evita quebra */
     }
 }
+
 
 .badge {
     background: #f0f2f5;

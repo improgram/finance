@@ -11,7 +11,6 @@
 
 const ETF_LIST = [
   "AUPO11",
-  "BBDC4",
   "BOVA11",
   "B5P211",
   "GOAT11",
@@ -100,7 +99,7 @@ exports.handler = async () => {
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
-    const allResults = responses 
+    const allResults = responses
       .filter(r => r && Array.isArray(r.results))
       .flatMap(r => r.results);
 
@@ -123,6 +122,7 @@ exports.handler = async () => {
       const historicalAvailable = hist.length > 0;
       const last7 = hist.slice(-7);
       const last30 = hist.slice(-30);
+
         return {
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
