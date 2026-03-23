@@ -165,7 +165,8 @@ exports.handler = async () => {
       if (!result || !result.symbol) {    // Validaçao
           return {
             symbol: "N/A",
-            name: "Não encontrado",
+            description: "Description Não encontrado",
+            name: "Name Não encontrado",
             regularMarketPrice: 0,
             min7d: null,
             min30d: null,
