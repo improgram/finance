@@ -16,23 +16,70 @@ const ETF_LIST = [
   "GOAT11",
   "IMAB11",
   "IRFM11",
+  "IVVB11",
   "LFTB11",
   "NBIT11",
   "NDIV11",
   "POSB11",
-  "UTLL11",
   "SMAL11",
-  "5PRE11"
+  "SPXB11",
+  "SPXI11",
+  "SPXR11",
+  "5PRE11",
+  "UTLL11"
 ];
 
 const ETF_INFO = {
-  BOVA11: {
+  AUPO11: {
+    description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31",
+  },
+   BOVA11: {
     description: "Replica o índice Ibovespa",
-    totalAssets: 10
+  },
+  B5P211: {
+    description: "NTN-B Inflaçao 2026/28/27/29/30",
+  },
+  GOAT11: {
+    description: "IMAB11(80%) e S&P (500 Maiores dos EUA) (19%)",
+  },
+  IMAB11: {
+    description: "Inflação (NTN-Bs) media e longa",
+  },
+  IRFM11: {
+    description: "Pre fix (LTN 26/29/31) e NTN-B",
+  },
+  IVVB11 {
+    description: "S&P 500 (500 Maiores dos EUA)",
+  },
+  LFTB11 {
+    description:"Tesouro Selic (LFT 27/28/29/30/2060)",
+  },
+  NBIT11 {
+    description: "Futuros Nu Nasdaq Brazil Bitcoin",
+  },
+  NDIV11 {
+    description: "Dividendos de grandes empresas",
+  },
+  POSB11 {
+    description: "Tes.Selic(91%) e IPCA longo(9%)",
   },
   SMAL11: {
     description: "Small caps brasileiras",
-    totalAssets: 5
+  },
+  SPXB11: {
+    description: "S&P 500 (500 Maiores dos EUA)",
+  },
+  SPXI11: {
+    description: "S&P 500 (500 Maiores dos EUA)",
+  },
+  SPXR11: {
+    description: "LFT 2026/27/28/29",
+  },
+  5PRE11: {
+    description: "5PRE11",
+  },
+  UTLL11: {
+    description: "Sabesp.Axia,Equatorial,Copel,Eneva,Cemig...",
   }
 };
 
@@ -141,13 +188,6 @@ exports.handler = async () => {
         ETF_INFO[result.symbol]?.description ||
         "Descrição não disponível";
 
-      // 🧠 patrimônio líquido com fallback em camadas
-      const totalAssets =
-        result.defaultKeyStatistics?.totalAssets ??   // 1️⃣ API (melhor fonte)
-        result.marketCap ??                           // 2️⃣ fallback automático
-        ETF_INFO[result.symbol]?.totalAssets ??       // 3️⃣ fallback manual
-        null;
-
       const hist = Array.isArray(result.historicalDataPrice)
           ? result.historicalDataPrice
           : [];
@@ -159,7 +199,6 @@ exports.handler = async () => {
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          totalAssets,
           regularMarketPrice:
             typeof result.regularMarketPrice === "number"
               ? result.regularMarketPrice

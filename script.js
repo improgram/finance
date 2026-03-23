@@ -51,6 +51,7 @@ const renderTable = (data) => {
         container.innerHTML += `
             <tr>
                 <td><strong>         ${quote.symbol || 'N/A'}</strong>      </td>
+                <td>                 ${description}                         </td>
                 <td class="price">R$ ${formattedPrice}                      </td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%    </td>
                 <td>                 ${dayRange}                            </td>
