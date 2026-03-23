@@ -10,23 +10,9 @@
 //    O endpoint /quote/{ticker} retorna objeto 'results'
 
 const ETF_LIST = [
-  "AUPO11",
-  "BOVA11",
-  "B5P211",
-  "GOAT11",
-  "IMAB11",
-  "IRFM11",
-  "IVVB11",
-  "LFTB11",
-  "NBIT11",
-  "NDIV11",
-  "POSB11",
-  "SMAL11",
-  "SPXB11",
-  "SPXI11",
-  "SPXR11",
-  "5PRE11",
-  "UTLL11"
+  "AUPO11", "BOVA11", "B5P211", "GOAT11", "IMAB11", "IRFM11",
+  "IVVB11", "LFTB11", "NBIT11", "NDIV11", "POSB11", "SMAL11",
+  "SPXB11", "SPXI11", "SPXR11", "5PRE11", "UTLL11"
 ];
 
 const ETF_INFO = {
@@ -48,19 +34,19 @@ const ETF_INFO = {
   IRFM11: {
     description: "Pre fix (LTN 26/29/31) e NTN-B",
   },
-  IVVB11 {
+  IVVB11: {
     description: "S&P 500 (500 Maiores dos EUA)",
   },
-  LFTB11 {
+  LFTB11: {
     description:"Tesouro Selic (LFT 27/28/29/30/2060)",
   },
-  NBIT11 {
+  NBIT11: {
     description: "Futuros Nu Nasdaq Brazil Bitcoin",
   },
-  NDIV11 {
+  NDIV11: {
     description: "Dividendos de grandes empresas",
   },
-  POSB11 {
+  POSB11: {
     description: "Tes.Selic(91%) e IPCA longo(9%)",
   },
   SMAL11: {
@@ -75,7 +61,7 @@ const ETF_INFO = {
   SPXR11: {
     description: "LFT 2026/27/28/29",
   },
-  5PRE11: {
+  "5PRE11": {
     description: "5PRE11",
   },
   UTLL11: {
@@ -95,9 +81,7 @@ const CACHE_TIME = 5 * 60 * 1000; // 5 minutos
   const fetchWithRetry = async (url, retries = 2, delay = 500) => {
     try {
       const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
       if (retries === 0) throw err;
@@ -218,7 +202,7 @@ exports.handler = async () => {
           min60d: historicalAvailable ? getMinPrice(hist) : null,
           historicalAvailable
         };
-      });   // Map final
+      });   // final do MAP
 
     const payload = { results };
 
