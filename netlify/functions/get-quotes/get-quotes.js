@@ -1,4 +1,3 @@
-
 //    Código rodará no lado do servidor ou serverless (netlify) navegador NAO
 //    Acionado apenas quando o Frontend faz o pedido
 //    A chave será lida das variáveis de ambiente do Netlify
@@ -15,64 +14,30 @@ const ETF_LIST = [
   "SPXB11", "SPXI11", "SPXR11", "5PRE11", "UTLL11"
 ];
 
+const tickersB3 = [ "ALPA4", "ASAI3", "BBDC4", "CAML3", "DXCO3", "KLBN4",
+                    "GRND3", "JALL3", "RAIL3", "SIMH3", "SLCE3" ];
+
 const ETF_INFO = {
-  AUPO11: {
-    description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31",
-  },
-   BOVA11: {
-    description: "Replica o índice Ibovespa",
-  },
-  B5P211: {
-    description: "NTN-B Inflaçao 2026/28/27/29/30",
-  },
-  GOAT11: {
-    description: "IMAB11(80%) e S&P (500 Maiores dos EUA) (19%)",
-  },
-  IMAB11: {
-    description: "Inflação (NTN-Bs) media e longa",
-  },
-  IRFM11: {
-    description: "Pre fix (LTN 26/29/31) e NTN-B",
-  },
-  IVVB11: {
-    description: "S&P 500 (500 Maiores dos EUA)",
-  },
-  LFTB11: {
-    description:"Tesouro Selic (LFT 27/28/29/30/2060)",
-  },
-  NBIT11: {
-    description: "Futuros Nu Nasdaq Brazil Bitcoin",
-  },
-  NDIV11: {
-    description: "Dividendos de grandes empresas",
-  },
-  POSB11: {
-    description: "Tes.Selic(91%) e IPCA longo(9%)",
-  },
-  SMAL11: {
-    description: "Small caps brasileiras",
-  },
-  SPXB11: {
-    description: "S&P 500 (500 Maiores dos EUA)",
-  },
-  SPXI11: {
-    description: "S&P 500 (500 Maiores dos EUA)",
-  },
-  SPXR11: {
-    description: "LFT 2026/27/28/29",
-  },
-  "5PRE11": {
-    description: "Pre-Fix: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)",
-  },
-  UTLL11: {
-    description: "Sabesp.Axia,Equatorial,Copel,Eneva,Cemig...",
-  }
+  AUPO11: { description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31" },
+  BOVA11: { description: "Replica o índice Ibovespa" },
+  B5P211: { description: "NTN-B Inflaçao 2026/28/27/29/30" },
+  GOAT11: { description: "IMAB11(80%) e S&P (500 Maiores dos EUA) (19%)" },
+  IMAB11: { description: "Inflação (NTN-Bs) media e longa" },
+  IRFM11: { description: "Pre fix (LTN 26/29/31) e NTN-B" },
+  IVVB11: { description: "S&P 500 (500 Maiores dos EUA)" },
+  LFTB11: { description:"Tesouro Selic (LFT 27/28/29/30/2060)" },
+  NBIT11: { description: "Futuros Nu Nasdaq Brazil Bitcoin" },
+  NDIV11: { description: "Dividendos de grandes empresas" },
+  POSB11: { description: "Tes.Selic(91%) e IPCA longo(9%)" },
+  SMAL11: { description: "Small caps brasileiras" },
+  SPXB11: { description: "S&P 500 (500 Maiores dos EUA)" },
+  SPXI11: { description: "S&P 500 (500 Maiores dos EUA)" },
+  SPXR11: { description: "LFT 2026/27/28/29" },
+  "5PRE11": { description: "Pre-Fix: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" },
+  UTLL11: { description: "Sabesp.Axia,Equatorial,Copel,Eneva,Cemig..." }
 };
 
-let cache = {
-  data: null,
-  timestamp: 0
-};
+let cache = { data: null, timestamp: 0 };
 
 // 🔥 cache maior (reduz chamadas na Brapi)
 const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
@@ -125,25 +90,14 @@ exports.handler = async () => {
     // 🔥 1 request por ativo (PLANO FREE)
     const requests = ETF_LIST.map(symbol => {
     const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
-    const urlWithModules = `${urlBase}&modules=summaryProfile,defaultKeyStatistics`;
-
-    return fetchWithRetry(urlWithModules)
-      .catch(async () => {
-        console.warn("Fallback sem modules:", symbol);
-        return fetchWithRetry(urlBase);
-      })
-      .catch(err => {
-        console.error("Erro ao buscar ETF:", symbol, err.message);
-        return null;
-      });
-  });
+    });
 
     const responses = await Promise.all(requests);
 
     // 🔗 junta tudo
     const allResults = responses
-      .filter(r => r && Array.isArray(r.results))
-      .flatMap(r => r.results);
+      .filter(item => item && Array.isArray(item.results)) // Para cada item (r) na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
+      .flatMap(item => item.results); // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
 
     const results = allResults.map(result => {
       if (!result || !result.symbol) {    // Validaçao
@@ -159,26 +113,16 @@ exports.handler = async () => {
           };
       }
 
-        if (!result.summaryProfile) {
-          console.warn("Sem summaryProfile:", result.symbol);
-        }
-
-        if (!result.defaultKeyStatistics) {
-          console.warn("Sem defaultKeyStatistics:", result.symbol);
-        }
-
       // 🧠 descrição com fallback inteligente
-      const description =
-        result.summaryProfile?.longBusinessSummary ||
-        ETF_INFO[result.symbol]?.description ||
+      const description = ETF_INFO[result.symbol]?.description ||
         "Descrição não disponível";
 
       const hist = Array.isArray(result.historicalDataPrice)
           ? result.historicalDataPrice
           : [];
-      const historicalAvailable = hist.length > 0;
       const last7 = hist.slice(-7);
       const last30 = hist.slice(-30);
+      const historicalAvailable = hist.length > 0;
 
         return {
           symbol: result.symbol,
@@ -202,7 +146,8 @@ exports.handler = async () => {
           min60d: historicalAvailable ? getMinPrice(hist) : null,
           historicalAvailable
         };
-      });   // final do MAP
+      });
+// final do MAP
 
     const payload = { results };
 

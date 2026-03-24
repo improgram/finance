@@ -1,7 +1,7 @@
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
 html {
@@ -68,17 +68,38 @@ body {
 .table-container {
     width: 100%;
     max-width: 1200px;
+    overflow: auto;
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
     background: white;
-    border-radius: 8px;
     overflow: hidden;
     color: MidnightBlue;
     font-size: clamp(0.77rem, 0.8vw, 0.9rem);
     margin-top: 10px;
+    border-radius: 8px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+table thead th {
+    position: sticky;
+    top: 0;
+    background: #1e1e1e; /* importante pra não ficar transparente */
+    z-index: 2;
+}
+
+table thead th:first-child { /* Sem isso, o primeiro TH pode ficar “por baixo” dos outros */
+    z-index: 3;
+}
+
+table th:first-child,       /* Congelar a primeira coluna */
+table td:first-child {
+    position: sticky;
+    left: 0;
+    background: #1e1e1e;
+    z-index: 1;
 }
 
 th {        /* cabeçalho tabela */
