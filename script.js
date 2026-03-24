@@ -1,4 +1,5 @@
 let allEtfs = [];
+let allAcoes = [];
 
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
