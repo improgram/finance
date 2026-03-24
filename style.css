@@ -69,6 +69,7 @@ body {
     width: 100%;
     max-width: 1200px;
     overflow: auto;
+    position: relative;
 }
 
 table {
@@ -78,6 +79,7 @@ table {
     color: MidnightBlue;
     font-size: clamp(0.77rem, 0.8vw, 0.9rem);
     margin-top: 10px;
+    position: relative;
     border-radius: 8px;
     border-collapse: separate;
     border-spacing: 0;
@@ -87,17 +89,27 @@ table thead th {
     position: sticky;
     top: 0;
     z-index: 2;
+    background: #BFF;
 }
 
 table thead th:first-child { /* Sem isso, o primeiro TH pode ficar “por baixo” dos outros */
-    z-index: 3;
+    z-index: 4;             /* maior que todos */
+    background: #BFF;
 }
 
-table th:first-child,       /* Congelar a primeira coluna */
+table th:first-child {      /* Congelar a primeira coluna */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: white;
+}
+
 table td:first-child {
     position: sticky;
     left: 0;
     z-index: 1;
+    background: white;
 }
 
 th {        /* cabeçalho tabela */
