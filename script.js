@@ -65,14 +65,17 @@ const renderTable = (data) => {
 
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
-    tbody.innerHTML = '';
 
     const br = new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
 
-    data.forEach(acao => {
+    const formatNumber = (value) =>
+        typeof value === 'number' ? br.format(value) : '---';
+
+    // Usando map para criar todas as linhas e depois inserir de uma vez
+    tbody.innerHTML = data.map(acao => {
         const preco = typeof acao.regularMarketPrice === 'number'
             ? br.format(acao.regularMarketPrice)
             : '---';
@@ -91,28 +94,24 @@ const renderAcoes = (data) => {
 
         const formattedPercent = br.format(variacao);
 
-        const formatNumber = (value) =>
-            typeof value === 'number' ? br.format(value) : '---';
-
-        tbody.innerHTML += `
+        return `
             <tr>
                 <td style="display: flex; align-items: center; gap: 8px;">
                     ${acao.logo_url
                         ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
                         : ''}
                 </td>
-                <td><strong>${quote.symbol || 'N/A'}</strong></td>
-                <td>${acao.name || acao.symbol}</td>
+                <td><strong>${acao.symbol || 'N/A'}</strong></td> <td>${acao.name || acao.symbol}</td>
                 <td>R$ ${preco}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
                 <td>${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''}</td>
                 <td>${formatNumber(acao.min30d)} ${!acao.historicalAvailable ? '---' : ''}</td>
                 <td>${formatNumber(acao.min60d)} ${!acao.historicalAvailable ? '---' : ''}</td>
-                <td>${min12m ||  ' N / A ' } </td>
+                <td>${min12m}</td>
                 <td>${alvo}</td>
             </tr>
         `;
-    });
+    }).join('');
 };
 
 const fetchQuotes = async () => {
