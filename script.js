@@ -81,14 +81,15 @@ const updateQuotes = async () => {
 
         const data = await response.json();
 
-        if (data.results && Array.isArray(data.results)) {
+        if (data.etfs && data.acoes) {
             // filtra ETFs brasileiros
-            allEtfs = data.results;
+            allEtfs = data.etfs;
 
             if (allEtfs.length === 0) {
                 statusEl.innerText = "Nenhum ETF encontrado";
             } else {
-                renderTable(allEtfs);
+                renderTable(data.etfs);
+                renderAcoes(data.acoes);  // AÇÕES
             }
         } else {
             statusEl.innerText = "Formato de dados inválido recebido.";
@@ -113,7 +114,6 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
     renderTable(filteredEtfs);
 });
 
-
 updateQuotes();
 
 /*
@@ -134,5 +134,37 @@ filtra ETFs brasileiros
 renderiza tabela HTML
 */
 
+const renderAcoes = (data) => {
+    const tbody = document.getElementById('corpoTabela2');
+    tbody.innerHTML = '';
 
+    const br = new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 
+    data.forEach(acao => {
+        const preco = typeof acao.regularMarketPrice === 'number'
+            ? br.format(acao.regularMarketPrice)
+            : '---';
+
+        const min12m = typeof acao.fiftyTwoWeekLow === 'number'
+            ? br.format(acao.fiftyTwoWeekLow)
+            : '---';
+
+        // exemplo simples de "alvo" (pode ajustar depois)
+        const alvo = typeof acao.fiftyTwoWeekHigh === 'number'
+            ? br.format(acao.fiftyTwoWeekHigh)
+            : '---';
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${acao.name || acao.symbol}</td>
+                <td>R$ ${preco}</td>
+                <td><strong>${acao.symbol}</strong></td>
+                <td>${min12m}</td>
+                <td>${alvo}</td>
+            </tr>
+        `;
+    });
+};

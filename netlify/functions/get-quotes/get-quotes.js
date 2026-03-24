@@ -88,7 +88,8 @@ exports.handler = async () => {
 
   try {
     // 🔥 1 request por ativo (PLANO FREE)
-    const requests = ETF_LIST.map(symbol => {
+    const ALL_TICKERS = [...ETF_LIST, ...tickersB3];
+    const requests = ALL_TICKERS.map(symbol => {
     const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
       return fetchWithRetry(urlBase);
     });
@@ -151,7 +152,10 @@ exports.handler = async () => {
       });
 // final do MAP
 
-    const payload = { results };
+    const etfs = results.filter(r => ETF_LIST.includes(r.symbol));
+    const acoes = results.filter(r => tickersB3.includes(r.symbol));
+
+    const payload = { etfs, acoes };
 
     // 💾 salva cache
     cache = {
