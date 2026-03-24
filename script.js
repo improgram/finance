@@ -1,5 +1,12 @@
 let allEtfs = [];
 
+ // cores automáticas (verde/vermelho) = detectar o valor e aplicar a classe
+        function aplicarCor(valor) {
+            if (valor > 0) return "positive";
+            if (valor < 0) return "negative";
+            return "neutral";
+        }
+
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
     container.innerHTML = '';
@@ -35,13 +42,6 @@ const renderTable = (data) => {
         const min30d = formatNumber(quote.min30d);
         const min60d = formatNumber(quote.min60d);
         const histInfo = quote.historicalAvailable ? '' : '(Histórico indisponível)';
-
-        // cores automáticas (verde/vermelho) = detectar o valor e aplicar a classe
-        function aplicarCor(valor) {
-            if (valor > 0) return "positive";
-            if (valor < 0) return "negative";
-            return "neutral";
-        }
         const variacao = typeof quote.regularMarketChangePercent === "number"
         ? quote.regularMarketChangePercent
         : 0;
@@ -165,7 +165,6 @@ const renderAcoes = (data) => {
                 </td>
                 <td>${acao.name || acao.symbol}</td>
                 <td>R$ ${preco}</td>
-                <td><strong>${acao.symbol}</strong></td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%    </td>
                 <td>                 ${dayRange}                            </td>
                 <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
