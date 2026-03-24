@@ -113,9 +113,9 @@ const renderAcoes = (data) => {
     });
 };
 
-renderTable();
+renderTable(allEtfs);
 
-renderAcoes();
+renderAcoes(allAcoes);
 
 /*
 Fluxo do sistema:
