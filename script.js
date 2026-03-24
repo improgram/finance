@@ -113,6 +113,10 @@ const renderAcoes = (data) => {
     });
 };
 
+renderTable();
+
+renderAcoes();
+
 /*
 Fluxo do sistema:
 Brapi API
