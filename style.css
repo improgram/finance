@@ -86,7 +86,6 @@ table {
 table thead th {
     position: sticky;
     top: 0;
-    background: #1e1e1e; /* importante pra não ficar transparente */
     z-index: 2;
 }
 
@@ -98,7 +97,6 @@ table th:first-child,       /* Congelar a primeira coluna */
 table td:first-child {
     position: sticky;
     left: 0;
-    background: #1e1e1e;
     z-index: 1;
 }
 

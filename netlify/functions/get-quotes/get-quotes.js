@@ -90,9 +90,11 @@ exports.handler = async () => {
     // 🔥 1 request por ativo (PLANO FREE)
     const requests = ETF_LIST.map(symbol => {
     const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
+      return fetchWithRetry(urlBase);
     });
 
     const responses = await Promise.all(requests);
+    console.log(JSON.stringify(responses, null, 2));
 
     // 🔗 junta tudo
     const allResults = responses
