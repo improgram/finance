@@ -159,13 +159,20 @@ const renderAcoes = (data) => {
 
         tbody.innerHTML += `
             <tr>
-                <td style="display: flex; align-items: center; gap: 8px;">${acao.logourl
-? `<img src="${acao.logourl}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
+                <td style="display: flex; align-items: center; gap: 8px;">${acao.logo_url
+? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
 : ''}
                 </td>
                 <td>${acao.name || acao.symbol}</td>
                 <td>R$ ${preco}</td>
                 <td><strong>${acao.symbol}</strong></td>
+                <td class="${aplicarCor(variacao)}">${formattedPercent}%    </td>
+                <td>                 ${dayRange}                            </td>
+                <td>${formatNumber(quote.min7d)} ${!quote.historicalAvailable ? '---' : ''}  </td>
+                <td>${formatNumber(quote.min30d)} ${!quote.historicalAvailable ? '---' : ''} </td>
+                <td>${formatNumber(quote.min60d)} ${!quote.historicalAvailable ? '---' : ''} </td>
+                <td>                ${formattedLow}                     </td>
+                <td>                ${formattedHigh}                    </td>
                 <td>${min12m}</td>
                 <td>${alvo}</td>
             </tr>

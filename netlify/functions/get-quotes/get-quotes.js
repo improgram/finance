@@ -112,7 +112,8 @@ exports.handler = async () => {
             min7d: null,
             min30d: null,
             min60d: null,
-            historicalAvailable: false
+            historicalAvailable: false,
+            logo_url: null
           };
       }
 
@@ -147,7 +148,8 @@ exports.handler = async () => {
           min7d: historicalAvailable ? getMinPrice(last7) : null,
           min30d: historicalAvailable ? getMinPrice(last30) : null,
           min60d: historicalAvailable ? getMinPrice(hist) : null,
-          historicalAvailable
+          historicalAvailable,
+          logo_url: result.logo_url || null
         };
       });
 // final do MAP
