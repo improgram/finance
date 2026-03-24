@@ -62,7 +62,7 @@ const ETF_INFO = {
     description: "LFT 2026/27/28/29",
   },
   "5PRE11": {
-    description: "5PRE11",
+    description: "Pre-Fix: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)",
   },
   UTLL11: {
     description: "Sabesp.Axia,Equatorial,Copel,Eneva,Cemig...",
@@ -75,7 +75,7 @@ let cache = {
 };
 
 // 🔥 cache maior (reduz chamadas na Brapi)
-const CACHE_TIME = 5 * 60 * 1000; // 5 minutos
+const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
 
   // 🔁 retry simples
   const fetchWithRetry = async (url, retries = 2, delay = 500) => {

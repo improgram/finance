@@ -116,8 +116,6 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 
 updateQuotes();
 
-
-
 /*
 Fluxo do sistema:
 Brapi API
@@ -135,3 +133,7 @@ filtra ETFs brasileiros
    ↓
 renderiza tabela HTML
 */
+
+const tickersB3 = [ "ALPA4.SA", "ASAI3", "BBDC4.SA", "CAML3.SA", "DXCO3.SA", "KLBN4.SA",
+                         "GRND3.SA", "JALL3.SA", "RAIL3.SA", "SIMH3.SA", "SLCE3.SA" ];
+const urlB3 = `https://brapi.dev/api/quote/${tickers}?token=${process.env.BRAPI_TOKEN}`;

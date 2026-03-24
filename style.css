@@ -17,9 +17,10 @@ body {
     background-size: cover;
     display: flex;
     flex-direction: column;
-    gap: clamp(12px, 2vw, 24px);
-    padding: clamp(10px, 2vw, 20px);
-    align-items: center;
+    align-items: center;      /* horizontal */
+    justify-content: center;  /* vertical */
+    gap: clamp(10px, 1.9vw, 20px);
+    padding: clamp(8px, 1.8vw, 18px);
     color: white;
       background-image: radial-gradient(
         circle at center,
@@ -30,6 +31,10 @@ body {
 
 :heading {              /*(mínimo, ideal, máximo) */
     font-size: clamp(0.9rem, 2.4vw, 1.6rem);
+}
+
+.search-container {
+    text-align: center;
 }
 
 #status {
