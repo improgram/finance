@@ -114,9 +114,26 @@ const renderAcoes = (data) => {
     });
 };
 
-renderTable(allEtfs);
+const fetchQuotes = async () => {
+    try {
+        const res = await fetch('/.netlify/functions/get-quotes');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-renderAcoes(allAcoes);
+        allEtfs = data.etfs || [];
+        allAcoes = data.acoes || [];
+
+        renderTable(allEtfs);
+        renderAcoes(allAcoes);
+
+    } catch (err) {
+        console.error('Erro ao buscar quotes:', err);
+        document.getElementById('status').innerText = 'Erro ao carregar dados';
+    }
+};
+
+// Chame a função quando a página carregar
+window.addEventListener('DOMContentLoaded', fetchQuotes);
 
 /*
 Fluxo do sistema:
