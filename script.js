@@ -159,6 +159,10 @@ const renderAcoes = (data) => {
 
         tbody.innerHTML += `
             <tr>
+                <td style="display: flex; align-items: center; gap: 8px;">${acao.logourl
+? `<img src="${acao.logourl}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
+: ''}
+                </td>
                 <td>${acao.name || acao.symbol}</td>
                 <td>R$ ${preco}</td>
                 <td><strong>${acao.symbol}</strong></td>
