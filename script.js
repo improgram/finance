@@ -101,13 +101,14 @@ const renderAcoes = (data) => {
                         ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
                         : ''}
                 </td>
+                <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${acao.name || acao.symbol}</td>
                 <td>R$ ${preco}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
                 <td>${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''}</td>
                 <td>${formatNumber(acao.min30d)} ${!acao.historicalAvailable ? '---' : ''}</td>
                 <td>${formatNumber(acao.min60d)} ${!acao.historicalAvailable ? '---' : ''}</td>
-                <td>${min12m}</td>
+                <td>${min12m ||  ' N / A ' } </td>
                 <td>${alvo}</td>
             </tr>
         `;
