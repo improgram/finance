@@ -105,6 +105,7 @@ exports.handler = async () => {
     const results = allResults.map(result => {
       if (!result || !result.symbol) {    // Validaçao
           return {
+            logo_url: null,
             symbol: "N/A",
             description: "Description Não encontrado",
             name: "Name Não encontrado",
@@ -112,8 +113,7 @@ exports.handler = async () => {
             min7d: null,
             min30d: null,
             min60d: null,
-            historicalAvailable: false,
-            logo_url: null
+            historicalAvailable: false
           };
       }
 
@@ -129,6 +129,7 @@ exports.handler = async () => {
       const historicalAvailable = hist.length > 0;
 
         return {
+          logo_url: result.logo_url || null,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
@@ -148,8 +149,7 @@ exports.handler = async () => {
           min7d: historicalAvailable ? getMinPrice(last7) : null,
           min30d: historicalAvailable ? getMinPrice(last30) : null,
           min60d: historicalAvailable ? getMinPrice(hist) : null,
-          historicalAvailable,
-          logo_url: result.logo_url || null
+          historicalAvailable
         };
       });
 // final do MAP

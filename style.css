@@ -112,6 +112,11 @@ table td:first-child {
     background: white;
 }
 
+.tableAcoes td:first-child {
+    width: 40px;
+    text-align: center;
+}
+
 th {        /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
@@ -145,6 +150,11 @@ tr:hover {      /* passar mouse */
     color: #2e7d32;
 }
 
+#quotes-container td:nth-child(2) {
+    max-width: 220px;     /* Limitar largura máxima das colunas*/
+    word-wrap: break-word;
+    white-space: normal;
+}
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {

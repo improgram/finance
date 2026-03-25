@@ -76,14 +76,21 @@ const renderAcoes = (data) => {
 
     // Usando map para criar todas as linhas e depois inserir de uma vez
     tbody.innerHTML = data.map(acao => {
-/*
-    const logo = acao.logo_url
-  ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
-  : `<span style="font-size:12px;color:#888;">—</span>`;
-*/
-        const logo = acao.logo_url
-            ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
-            : `<img src="https://logo.clearbit.com/${acao.symbol.replace(/\d/g, '').toLowerCase()}.com" width="24" height="24" style="object-fit: contain;" alt="logo">`;
+
+        const getLogo = (acao) => {
+            const symbolBase = acao.symbol.replace(/\d/g, '').toLowerCase();
+            return acao.logo_url
+                ? acao.logo_url
+                : `https://logo.clearbit.com/${symbolBase}.com`;
+        };
+
+        const logo = `<img
+            src="${getLogo(acao)}"
+            width="24"
+            height="24"
+            style="object-fit:contain;"
+            onerror="this.src='https://via.placeholder.com/24?text=--'"
+            alt="${acao.symbol} logo">`;
 
         const preco = typeof acao.regularMarketPrice === 'number'
             ? br.format(acao.regularMarketPrice)
