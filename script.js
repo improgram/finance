@@ -20,6 +20,19 @@ function aplicarCor(valor) {
     return "neutral";
 }
 
+// Buscar Logos fora do Map
+const getLogo = (acao) => {
+    if (acao.logo_url) return acao.logo_url;
+
+    // remove números do ticker (ex: PETR4 → petr)
+    const base = acao.symbol.replace(/\d/g, '').toLowerCase();
+
+    // tenta Clearbit primeiro
+    const clearbitUrl = `https://logo.clearbit.com/${base}.com`;
+    return clearbitUrl;
+};
+
+// Primeira Tabela
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
 
@@ -66,10 +79,9 @@ const renderTable = (data) => {
             </tr>
         `;
     }).join('');
-
-    document.getElementById('status').style.display = 'none';
 };
 
+// Segunda Tabela
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
 
@@ -122,21 +134,26 @@ const renderAcoes = (data) => {
                 <td>${acao.name}</td>
                 <td class="price">R$ ${preco}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
-                <td>${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''}</td>
-                <td>${formatNumber(acao.min30d)} ${!acao.historicalAvailable ? '---' : ''}</td>
-                <td>${formatNumber(acao.min60d)} ${!acao.historicalAvailable ? '---' : ''}</td>
+                <td>${formatNumber(acao.min7d)}</td>
+                <td>${formatNumber(acao.min30d)}</td>
+                <td>${formatNumber(acao.min60d)}</td>
                 <td>${min12m}</td>
                 <td>${alvo}</td>
             </tr>
         `;
     }).join('');
-    // Mostrar loading real
-    document.getElementById('status').style.display = 'block';
+    // <td> ${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''} </td>
 };
 
-
 const fetchQuotes = async () => {
+    // Mostrar loading real
+    const statusEl = document.getElementById('status');
+
     try {
+        //  MOSTRA loading antes de buscar
+        statusEl.style.display = 'block';
+        statusEl.innerText = 'Carregando...';
+
         const res = await fetch('/.netlify/functions/get-quotes');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -147,14 +164,19 @@ const fetchQuotes = async () => {
         renderTable(allEtfs);
         renderAcoes(allAcoes);
 
+        // ESCONDE loading depois de renderizar
+        statusEl.style.display = 'none';
+
     } catch (err) {
         console.error('Erro ao buscar quotes:', err);
-        document.getElementById('status').innerText = 'Erro ao carregar dados';
+        statusEl.style.display = 'block';
+        statusEl.innerText = 'Erro ao carregar dados';
     }
 };
 
 // Chame a função quando a página carregar
 window.addEventListener('DOMContentLoaded', fetchQuotes);
+
 
 /*
 Fluxo do sistema:
