@@ -11,7 +11,7 @@
 const ETF_LIST = [
   "AUPO11", "BOVA11", "B5P211", "GOAT11", "IMAB11", "IRFM11",
   "IVVB11", "LFTB11", "NBIT11", "NDIV11", "POSB11", "SMAL11",
-  "SPXB11", "SPXI11", "SPXR11", "5PRE11", "UTLL11"
+  "SPXB11", "SPXI11", "SPXR11", "UTLL11", "5PRE11"
 ];
 
 const tickersB3 = [ "ALPA4", "ASAI3", "BBDC4", "CAML3", "DXCO3", "KLBN4",
@@ -21,20 +21,20 @@ const ETF_INFO = {
   AUPO11: { description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31" },
   BOVA11: { description: "Replica o índice Ibovespa" },
   B5P211: { description: "NTN-B Inflaçao 2026/28/27/29/30" },
-  GOAT11: { description: "IMAB11(80%) e S&P (500 Maiores dos EUA) (19%)" },
+  GOAT11: { description: "IMAB11: Inflação(80%) e S&P (500 Maiores dos EUA) (19%)" },
   IMAB11: { description: "Inflação (NTN-Bs) media e longa" },
-  IRFM11: { description: "Pre fix (LTN 26/29/31) e NTN-B" },
+  IRFM11: { description: "Pre-Fixados (LTN 26/29/31) e NTN-B Inflaçao" },
   IVVB11: { description: "S&P 500 (500 Maiores dos EUA)" },
-  LFTB11: { description:"Tesouro Selic (LFT 27/28/29/30/2060)" },
+  LFTB11: { description: "Tesouro Selic (LFT 27/28/29/30/2060)" },
   NBIT11: { description: "Futuros Nu Nasdaq Brazil Bitcoin" },
   NDIV11: { description: "Dividendos de grandes empresas" },
-  POSB11: { description: "Tes.Selic(91%) e IPCA longo(9%)" },
+  POSB11: { description: "Tesouro Selic (LFT) (91%) e IPCA longo(9%)" },
   SMAL11: { description: "Small caps brasileiras" },
   SPXB11: { description: "S&P 500 (500 Maiores dos EUA)" },
   SPXI11: { description: "S&P 500 (500 Maiores dos EUA)" },
-  SPXR11: { description: "LFT 2026/27/28/29" },
-  "5PRE11": { description: "Pre-Fix: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" },
-  UTLL11: { description: "Sabesp.Axia,Equatorial,Copel,Eneva,Cemig..." }
+  SPXR11: { description: "Tesouro Selic (LFT) 2026/27/28/29" },
+  UTLL11: { description: "Sabesp Axia, Equatorial, Copel, Eneva, Cemig, Engie, Sanepar" },
+"5PRE11": { description: "Pre-Fixados: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" }
 };
 
 let cache = { data: null, timestamp: 0 };
@@ -54,19 +54,6 @@ const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
       return fetchWithRetry(url, retries - 1, delay * 2);
     }
   };
-
-          // Logo baseado no ticker
-          const getLogoUrl = (symbol) => {
-              const base = symbol.replace(/\d/g, '').toLowerCase();
-
-              const domainMap = {
-                  petr: "petrobras.com.br",
-                  vale: "vale.com",
-                  itub: "itau.com.br",
-                  bbdc: "bradesco.com.br",
-              };
-              return `https://logo.clearbit.com/${domainMap[base] || base + ".com"}`;
-          };
 
   // 📉 menor preço
   const getMinPrice = (data) => {
@@ -118,7 +105,7 @@ exports.handler = async () => {
     const results = allResults.map(result => {
       if (!result || !result.symbol) {    // Validaçao
           return {
-            logo_url: null,
+            logourl: null,
             symbol: "N/A",
             description: "Description Não encontrado",
             name: "Name Não encontrado",
@@ -142,7 +129,7 @@ exports.handler = async () => {
       const historicalAvailable = hist.length > 0;
 
         return {
-          logo_url: getLogoUrl(result.symbol) || null,
+          logourl: result.logourl || `https://icons.brapi.dev/icons/${result.symbol.toLowerCase()}.svg`,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
