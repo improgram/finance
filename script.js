@@ -73,6 +73,14 @@ const renderAcoes = (data) => {
 
     const formatNumber = (value) =>
         typeof value === 'number' ? br.format(value) : '---';
+/*
+    const logo = acao.logo_url
+  ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
+  : `<span style="font-size:12px;color:#888;">—</span>`;
+*/
+  const logo = acao.logo_url
+  ? acao.logo_url
+  : `https://logo.clearbit.com/${acao.symbol.replace(/\d/g, '').toLowerCase()}.com`;
 
     // Usando map para criar todas as linhas e depois inserir de uma vez
     tbody.innerHTML = data.map(acao => {
@@ -88,20 +96,22 @@ const renderAcoes = (data) => {
             ? br.format(acao.fiftyTwoWeekHigh)
             : '---';
 
-        const variacao = typeof acao.regularMarketChangePercent === "number"
-            ? acao.regularMarketChangePercent
-            : 0;
+        const variacao = acao.regularMarketChangePercent ?? null;
 
-        const formattedPercent = br.format(variacao);
+        const formattedPercent = variacao !== null
+            ? br.format(variacao)
+            : '---';
 
         return `
             <tr>
-                <td style="display: flex; align-items: center; gap: 8px;">
-                    ${acao.logo_url
-                        ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
-                        : ''}
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${logo}
+                        <strong>${acao.symbol}</strong>
+                    </div>
                 </td>
-                <td><strong>${acao.symbol || 'N/A'}</strong></td> <td>${acao.name || acao.symbol}</td>
+                <td><strong>${acao.symbol || 'N/A'}</strong></td>
+                <td>${acao.name}</td>
                 <td>R$ ${preco}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
                 <td>${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''}</td>
