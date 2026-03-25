@@ -73,17 +73,18 @@ const renderAcoes = (data) => {
 
     const formatNumber = (value) =>
         typeof value === 'number' ? br.format(value) : '---';
+
+    // Usando map para criar todas as linhas e depois inserir de uma vez
+    tbody.innerHTML = data.map(acao => {
 /*
     const logo = acao.logo_url
   ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
   : `<span style="font-size:12px;color:#888;">—</span>`;
 */
-  const logo = acao.logo_url
-  ? acao.logo_url
-  : `https://logo.clearbit.com/${acao.symbol.replace(/\d/g, '').toLowerCase()}.com`;
+        const logo = acao.logo_url
+            ? `<img src="${acao.logo_url}" width="24" height="24" style="object-fit: contain;" alt="${acao.symbol} logo">`
+            : `<img src="https://logo.clearbit.com/${acao.symbol.replace(/\d/g, '').toLowerCase()}.com" width="24" height="24" style="object-fit: contain;" alt="logo">`;
 
-    // Usando map para criar todas as linhas e depois inserir de uma vez
-    tbody.innerHTML = data.map(acao => {
         const preco = typeof acao.regularMarketPrice === 'number'
             ? br.format(acao.regularMarketPrice)
             : '---';
@@ -107,7 +108,6 @@ const renderAcoes = (data) => {
                 <td>
                     <div style="display:flex; align-items:center; gap:8px;">
                         ${logo}
-                        <strong>${acao.symbol}</strong>
                     </div>
                 </td>
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
