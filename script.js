@@ -1,6 +1,18 @@
 let allEtfs = [];
 let allAcoes = [];
 
+// Ferramenta de Busca
+document.getElementById('etf-search').addEventListener('input', (e) => {
+    const termo = e.target.value.toLowerCase();
+
+    const filtrados = allEtfs.filter(etf =>
+        etf.symbol.toLowerCase().includes(termo) ||
+        etf.description.toLowerCase().includes(termo)
+    );
+
+    renderTable(filtrados);
+});
+
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
     if (valor > 0) return "positive";
@@ -10,20 +22,19 @@ function aplicarCor(valor) {
 
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
-    container.innerHTML = '';
 
     const br = new Intl.NumberFormat('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+    const formatNumber = (value) =>
+        typeof value === 'number' ? br.format(value) : '---';
 
-    data.forEach(quote => {
-        // Preço atual
+    container.innerHTML = data.map(quote => {
+
         const formattedPrice = quote.regularMarketPrice != null
-            ? br.format(quote.regularMarketPrice) : '---';
-
-        const formatNumber = (value) =>
-            typeof value === 'number' ? br.format(value) : '---';
+            ? br.format(quote.regularMarketPrice)
+            : '---';
 
         const dayRange = quote.regularMarketDayRange ||
             `${quote.regularMarketDayLow ?? '-'} - ${quote.regularMarketDayHigh ?? '-'}`;
@@ -34,31 +45,27 @@ const renderTable = (data) => {
         const formattedHigh = typeof quote.fiftyTwoWeekHigh === 'number'
             ? br.format(quote.fiftyTwoWeekHigh) : '---';
 
-        const min7d = formatNumber(quote.min7d);
-        const min30d = formatNumber(quote.min30d);
-        const min60d = formatNumber(quote.min60d);
-
         const variacao = typeof quote.regularMarketChangePercent === "number"
             ? quote.regularMarketChangePercent
             : 0;
 
         const formattedPercent = br.format(variacao);
 
-        container.innerHTML += `
+        return `
             <tr>
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
                 <td class="price">R$ ${formattedPrice}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
                 <td>${dayRange}</td>
-                <td>${min7d} ${!quote.historicalAvailable ? '---' : ''}</td>
-                <td>${min30d} ${!quote.historicalAvailable ? '---' : ''}</td>
-                <td>${min60d} ${!quote.historicalAvailable ? '---' : ''}</td>
+                <td>${formatNumber(quote.min7d)}</td>
+                <td>${formatNumber(quote.min30d)}</td>
+                <td>${formatNumber(quote.min60d)}</td>
                 <td>${formattedLow}</td>
                 <td>${formattedHigh}</td>
             </tr>
         `;
-    });
+    }).join('');
 
     document.getElementById('status').style.display = 'none';
 };
@@ -77,19 +84,13 @@ const renderAcoes = (data) => {
     // Usando map para criar todas as linhas e depois inserir de uma vez
     tbody.innerHTML = data.map(acao => {
 
-        const getLogo = (acao) => {
-            const symbolBase = acao.symbol.replace(/\d/g, '').toLowerCase();
-            return acao.logo_url
-                ? acao.logo_url
-                : `https://logo.clearbit.com/${symbolBase}.com`;
-        };
-
         const logo = `<img
             src="${getLogo(acao)}"
+            loading="lazy"
             width="24"
             height="24"
             style="object-fit:contain;"
-            onerror="this.src='https://via.placeholder.com/24?text=--'"
+            onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${acao.symbol}&size=24'"
             alt="${acao.symbol} logo">`;
 
         const preco = typeof acao.regularMarketPrice === 'number'
@@ -119,7 +120,7 @@ const renderAcoes = (data) => {
                 </td>
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
                 <td>${acao.name}</td>
-                <td>R$ ${preco}</td>
+                <td class="price">R$ ${preco}</td>
                 <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
                 <td>${formatNumber(acao.min7d)} ${!acao.historicalAvailable ? '---' : ''}</td>
                 <td>${formatNumber(acao.min30d)} ${!acao.historicalAvailable ? '---' : ''}</td>
@@ -129,7 +130,10 @@ const renderAcoes = (data) => {
             </tr>
         `;
     }).join('');
+    // Mostrar loading real
+    document.getElementById('status').style.display = 'block';
 };
+
 
 const fetchQuotes = async () => {
     try {

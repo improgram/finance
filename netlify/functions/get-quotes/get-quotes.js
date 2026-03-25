@@ -55,6 +55,19 @@ const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
     }
   };
 
+          // Logo baseado no ticker
+          const getLogoUrl = (symbol) => {
+              const base = symbol.replace(/\d/g, '').toLowerCase();
+
+              const domainMap = {
+                  petr: "petrobras.com.br",
+                  vale: "vale.com",
+                  itub: "itau.com.br",
+                  bbdc: "bradesco.com.br",
+              };
+              return `https://logo.clearbit.com/${domainMap[base] || base + ".com"}`;
+          };
+
   // 📉 menor preço
   const getMinPrice = (data) => {
     if (!Array.isArray(data) || data.length === 0) return null;
@@ -129,7 +142,7 @@ exports.handler = async () => {
       const historicalAvailable = hist.length > 0;
 
         return {
-          logo_url: result.logo_url || null,
+          logo_url: getLogoUrl(result.symbol) || null,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,

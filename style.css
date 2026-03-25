@@ -117,6 +117,12 @@ table td:first-child {
     text-align: center;
 }
 
+table td:nth-child(2) {
+    max-width: 200px;     /* Limitar largura máxima das colunas das tabelas */
+    white-space: normal;
+    word-wrap: break-word;
+}
+
 th {        /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
@@ -150,11 +156,6 @@ tr:hover {      /* passar mouse */
     color: #2e7d32;
 }
 
-#quotes-container td:nth-child(2) {
-    max-width: 220px;     /* Limitar largura máxima das colunas*/
-    word-wrap: break-word;
-    white-space: normal;
-}
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
