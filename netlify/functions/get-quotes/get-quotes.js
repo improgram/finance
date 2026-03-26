@@ -110,9 +110,9 @@ exports.handler = async () => {
             description: "Description Não encontrado",
             name: "Name Não encontrado",
             regularMarketPrice: 0,
-            min7d: null,
-            min30d: null,
-            min60d: null,
+            min7d: getMinPrice(last7) ?? result.regularMarketPrice ?? null,
+            min30d: getMinPrice(last30) ?? result.regularMarketPrice ?? null,
+            min90d: getMinPrice(last90) ?? result.regularMarketPrice ?? null,
             historicalAvailable: false
           };
       }
@@ -121,12 +121,13 @@ exports.handler = async () => {
       const description = ETF_INFO[result.symbol]?.description ||
         "Descrição não disponível";
 
-      const hist = Array.isArray(result.historicalDataPrice)
-          ? result.historicalDataPrice
-          : [];
+      const hist = Array.isArray(result.historicalDataPrice) && result.historicalDataPrice.length
+        ? result.historicalDataPrice
+        : null;
       const last7 = hist.slice(-7);
       const last30 = hist.slice(-30);
-      const historicalAvailable = hist.length > 0;
+      const last90 = hist ? hist.slice(-90) : null;
+      const historicalAvailable = !!hist;
 
         return {
           logourl: result.logourl || `https://icons.brapi.dev/icons/${result.symbol.toLowerCase()}.svg`,
@@ -134,21 +135,18 @@ exports.handler = async () => {
           name: result.longName || result.shortName || result.symbol,
           description,
           regularMarketPrice:
-            typeof result.regularMarketPrice === "number"
-              ? result.regularMarketPrice
-                : 0,
+            typeof result.regularMarketPrice === "number" ? result.regularMarketPrice : 0,
           regularMarketChangePercent:
             typeof result.regularMarketChangePercent === "number"
-              ? result.regularMarketChangePercent
-                : null,
+              ? result.regularMarketChangePercent : null,
           regularMarketDayRange: result.regularMarketDayRange ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? null,
           fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? null,
           fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? null,
-          min7d: historicalAvailable ? getMinPrice(last7) : null,
-          min30d: historicalAvailable ? getMinPrice(last30) : null,
-          min60d: historicalAvailable ? getMinPrice(hist) : null,
+          min7d: hist ? getMinPrice(last7) : null,
+          min30d: hist ? getMinPrice(last30) : null,
+          min90d: hist ? getMinPrice(last90) : null,
           historicalAvailable
         };
       });

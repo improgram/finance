@@ -76,7 +76,7 @@ const renderTable = (data) => {
                 <td>${getDayRange(quote)}</td>
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
-                <td>${formatNumber(quote.min60d)}</td>
+                <td>${formatNumber(quote.min90d)}</td>
                 <td>${formatNumber(quote.fiftyTwoWeekLow)}</td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
@@ -117,7 +117,7 @@ const renderAcoes = (data) => {
                 <td>${getDayRange(acao)}</td>
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
-                <td>${formatNumber(acao.min60d)}</td>
+                <td>${formatNumber(acao.min90d)}</td>
                 <td>${formatNumber(acao.fiftyTwoWeekLow)}</td>
                 <td>${formatNumber(acao.fiftyTwoWeekHigh)}</td>
             </tr>
