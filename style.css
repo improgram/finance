@@ -130,14 +130,13 @@ h2 {
 .search-container {
     text-align: center;
     width: 100%;
-    padding: 20px;
     box-sizing: border-box; /* Garante que o padding não "estoure" a largura */
 }
 
 #status {
     font-size: 16px;
     color: #DC143C;
-    padding: 10px;
+    padding: 20px;
     font-family: sans-serif;
     background: radial-gradient(
         rgb(127, 255, 212) 0%,
@@ -183,7 +182,7 @@ table {
     border-spacing: 0;
 }
 
-table thead th {
+table thead th {        /* cabeçalho (th) de todas as tabelas */
     position: sticky;
     top: 0;
     z-index: 2;
@@ -191,14 +190,15 @@ table thead th {
 }
 
 table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background: white;
+    position: sticky;   /* primeira coluna “grudar” */
+    left: 0;            /* à esquerda quando  faz scroll */
+    z-index: 1;         /* primeira coluna fique sobreposta às outras células quando rola o scroll*/
+    background: white;  /* primeira coluna com fundo branco
+                            para que o texto continue legível sobre outras células roladas */
 }
 
-.tableAcoes td:first-child {
-    width: 40px;
+.tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
+    width: 40px;                /* da segunda tabela tera 40px nos logos*/
     text-align: center;
 }
 
@@ -222,9 +222,9 @@ td {
 }
 
 td, th {
-    padding: clamp(6px, 1vw, 12px);
-    text-align: left;
-    border-bottom: 1px solid #008080;
+    padding: clamp(4px, 0.5vw, 8px);    /* espaçamento interno da célula */
+    text-align: left;                       /* E a (distância do conteúdo até a borda da célula).*/
+    border-bottom: 1.5px solid #008080;
 }
 
 tr {
