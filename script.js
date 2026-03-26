@@ -91,26 +91,18 @@ const renderTable = (data) => {
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
 
-    const getLogo = (acao) =>
-        `https://icons.brapi.dev/icons/${acao.symbol.toLowerCase()}.svg`;
-
     tbody.innerHTML = data.map(acao => {
         const variacao = getVariacao(acao);
-        const logoUrl = getLogo(acao);
-        const fallbackUrl = `https://via.placeholder.com/24?text=${acao.symbol[0]}`;
-
-        const logo = `<img src="${logoUrl}"
-            loading="lazy" width="24" height="24"
-            style="object-fit:contain; border-radius: 4px;"
-            onerror="this.onerror=null;this.src='${fallbackUrl}';"
-            alt="${acao.symbol} logo">`;
+        // Usar o logourl que o backend já preparou
+        const logoUrl = acao.logourl;
 
         return `
             <tr>
                 <td>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        ${logo}
-                    </div>
+                    <img src="${logoUrl}"
+                    width="24" height="24" style="object-fit:contain; border-radius: 4px;"
+                    onerror="this.onerror=null;this.src='https://via.placeholder.com/24?text=${acao.symbol[0]}';"
+                    alt="logo">
                 </td>
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
                 <td>${acao.name}</td>

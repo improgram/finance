@@ -130,12 +130,19 @@ exports.handler = async () => {
       if (!result || !result.symbol) {          // Validaçao
           return {
             symbol: "N/A",
+            logourl: null,
             regularMarketPrice: null,
             min7d: null,
             min30d: null,
             min90d: null
           };
       }
+
+      // 1. Prioridade para o logo da API
+      // 2. Fallback para a URL padrão de ícones da Brapi
+      const logoAtivo = result.logourl
+        ? result.logourl
+        : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
 
       // 🧠 descrição com fallback inteligente
       const description = ETF_INFO[result.symbol]?.description || "Descrição não disponível";
@@ -146,7 +153,7 @@ exports.handler = async () => {
       const price = getLastPrice(hist);
 
         return {
-          logourl: `https://icons.brapi.dev/icons/${result.symbol.toLowerCase()}.svg`,
+          logourl: logoAtivo,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
