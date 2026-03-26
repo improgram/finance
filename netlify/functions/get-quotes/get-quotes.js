@@ -72,13 +72,21 @@ const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
   };
 
   // 📊 variação (%)
-  const getVariation = (data) => {
-    if (!Array.isArray(data) || data.length < 2) return null;
-    const first = data[0]?.close;
-    const last = data[data.length - 1]?.close;
-    if (typeof first !== "number" || typeof last !== "number") return null;
-    return ((last - first) / first) * 100;
-  };
+  const getDailyVariation = (hist) => {
+  if (!Array.isArray(hist) || hist.length < 2) return null;
+
+  const last = hist[hist.length - 1]?.close;
+
+  // procura o último preço diferente
+  for (let i = hist.length - 2; i >= 0; i--) {
+    const prev = hist[i]?.close;
+    if (typeof prev === "number" && prev !== last) {
+      return ((last - prev) / prev) * 100;
+    }
+  }
+
+  return 0;
+};
 
 exports.handler = async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -146,8 +154,9 @@ exports.handler = async () => {
           // 🔥 preço vem do histórico (mais confiável)
           regularMarketPrice: price ?? result.regularMarketPrice ?? 0,
 
-          // 🔥 variação calculada (últimos 2 dias)
-          regularMarketChangePercent: getVariation(hist.slice(-2)),
+          // 🔥 variação calculada (pegar último dia válido diferente)
+          regularMarketChangePercent: getDailyVariation(hist)
+          ?? result.regularMarketChangePercent ?? null,
 
           // 🔥 ranges
           regularMarketDayLow: last7.length ? getMinPrice(last7) : null,

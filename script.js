@@ -50,7 +50,7 @@ const formatPrice = (value) =>
 const getVariacao = (obj) =>
     typeof obj.regularMarketChangePercent === "number"
         ? obj.regularMarketChangePercent
-        : 0;
+        : null;
 
 const formatPercent = (value) =>
     typeof value === "number" ? br.format(value) : '---';
@@ -72,7 +72,9 @@ const renderTable = (data) => {
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
                 <td class="price">R$ ${formatPrice(quote.regularMarketPrice)}</td>
-                <td class="${aplicarCor(variacao)}">${formatPercent(variacao)}%</td>
+                <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
+                    ${variacao !== null ? formatPercent(variacao) + '%' : '---'}
+                </td>
                 <td>${getDayRange(quote)}</td>
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
@@ -113,7 +115,9 @@ const renderAcoes = (data) => {
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
                 <td>${acao.name}</td>
                 <td class="price">R$ ${formatPrice(acao.regularMarketPrice)}</td>
-                <td class="${aplicarCor(variacao)}">${formatPercent(variacao)}%</td>
+                <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
+                    ${variacao !== null ? formatPercent(variacao) + '%' : '---'}
+                </td>
                 <td>${getDayRange(acao)}</td>
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
