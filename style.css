@@ -190,19 +190,6 @@ table thead th {
     background: #BFF;
 }
 
-table thead th:first-child { /* Sem isso, o primeiro TH pode ficar “por baixo” dos outros */
-    z-index: 4;             /* maior que todos */
-    background: #BFF;
-}
-
-table th:first-child {      /* Congelar a primeira coluna */
-    box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background: white;
-}
-
 table td:first-child {
     position: sticky;
     left: 0;
@@ -221,7 +208,7 @@ table td:nth-child(2) {
     word-wrap: break-word;
 }
 
-th {                     /* cabeçalho tabela */
+th {                            /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
     text-transform: uppercase;
@@ -244,7 +231,7 @@ tr {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-tr:hover {      /* passar mouse */
+tr:hover {                      /* passar mouse */
     transform: translateY(-2px);
     box-shadow: 0 4px 10px #555;
 }
@@ -252,6 +239,20 @@ tr:hover {      /* passar mouse */
 .price {
     font-weight: bold;
     color: #2e7d32;
+}
+
+.positive {
+    color: #1b5e20;
+    background-color: rgba(76, 175, 80, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.negative {
+    color: #b71c1c;
+    background-color: rgba(244, 67, 54, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 
@@ -274,6 +275,8 @@ tr:hover {      /* passar mouse */
         white-space: nowrap; /* evita quebra */
     }
 }
+
+
 
 /*--------MOBILE RESPONSIVO-------------------*/
 @media (max-width: 600px) {
@@ -303,19 +306,6 @@ tr:hover {      /* passar mouse */
     }
 }
 
-.positive {
-    color: #1b5e20;
-    background-color: rgba(76, 175, 80, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-.negative {
-    color: #b71c1c;
-    background-color: rgba(244, 67, 54, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-}
 
 
 #rodape {

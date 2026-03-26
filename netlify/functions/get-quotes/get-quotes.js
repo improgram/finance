@@ -59,9 +59,25 @@ const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
   const getMinPrice = (data) => {
     if (!Array.isArray(data) || data.length === 0) return null;
     const prices = data
-      .map(item => item?.close)
-      .filter(v => typeof v === "number");
-    return prices.length ? Math.min(...prices) : null;
+    .map(item => item?.close)
+    .filter(v => typeof v === "number");
+  return prices.length ? Math.min(...prices) : null;
+  };
+
+  // 📈 último preço válido
+  const getLastPrice = (data) => {
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const last = data[data.length - 1];
+    return typeof last?.close === "number" ? last.close : null;
+  };
+
+  // 📊 variação (%)
+  const getVariation = (data) => {
+    if (!Array.isArray(data) || data.length < 2) return null;
+    const first = data[0]?.close;
+    const last = data[data.length - 1]?.close;
+    if (typeof first !== "number" || typeof last !== "number") return null;
+    return ((last - first) / first) * 100;
   };
 
 exports.handler = async () => {
@@ -90,7 +106,7 @@ exports.handler = async () => {
     // 🔥 1 request por ativo (PLANO FREE)
     const ALL_TICKERS = [...ETF_LIST, ...tickersB3];
     const requests = ALL_TICKERS.map(symbol => {
-    const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
+      const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
       return fetchWithRetry(urlBase);
     });
 
@@ -103,51 +119,54 @@ exports.handler = async () => {
       .flatMap(item => item.results); // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
 
     const results = allResults.map(result => {
-      if (!result || !result.symbol) {    // Validaçao
+      if (!result || !result.symbol) {          // Validaçao
           return {
-            logourl: null,
             symbol: "N/A",
-            description: "Description Não encontrado",
-            name: "Name Não encontrado",
-            regularMarketPrice: 0,
-            min7d: getMinPrice(last7) ?? result.regularMarketPrice ?? null,
-            min30d: getMinPrice(last30) ?? result.regularMarketPrice ?? null,
-            min90d: getMinPrice(last90) ?? result.regularMarketPrice ?? null,
-            historicalAvailable: false
+            regularMarketPrice: null,
+            min7d: null,
+            min30d: null,
+            min60d: null
           };
       }
 
       // 🧠 descrição com fallback inteligente
-      const description = ETF_INFO[result.symbol]?.description ||
-        "Descrição não disponível";
-
-      const hist = Array.isArray(result.historicalDataPrice) && result.historicalDataPrice.length
-        ? result.historicalDataPrice
-        : null;
+      const description = ETF_INFO[result.symbol]?.description || "Descrição não disponível";
+      const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
       const last7 = hist.slice(-7);
       const last30 = hist.slice(-30);
-      const last90 = hist ? hist.slice(-90) : null;
-      const historicalAvailable = !!hist;
+      const last90 = hist.slice(-90);
+      const price = getLastPrice(hist);
 
         return {
-          logourl: result.logourl || `https://icons.brapi.dev/icons/${result.symbol.toLowerCase()}.svg`,
+          logourl: `https://icons.brapi.dev/icons/${result.symbol.toLowerCase()}.svg`,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice:
-            typeof result.regularMarketPrice === "number" ? result.regularMarketPrice : 0,
-          regularMarketChangePercent:
-            typeof result.regularMarketChangePercent === "number"
-              ? result.regularMarketChangePercent : null,
-          regularMarketDayRange: result.regularMarketDayRange ?? null,
-          regularMarketDayLow: result.regularMarketDayLow ?? null,
-          regularMarketDayHigh: result.regularMarketDayHigh ?? null,
-          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? null,
-          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? null,
-          min7d: hist ? getMinPrice(last7) : null,
-          min30d: hist ? getMinPrice(last30) : null,
-          min90d: hist ? getMinPrice(last90) : null,
-          historicalAvailable
+
+          // 🔥 preço vem do histórico (mais confiável)
+          regularMarketPrice: price ?? result.regularMarketPrice ?? 0,
+
+          // 🔥 variação calculada (últimos 2 dias)
+          regularMarketChangePercent: getVariation(hist.slice(-2)),
+
+          // 🔥 ranges
+          regularMarketDayLow: last7.length ? getMinPrice(last7) : null,
+          regularMarketDayHigh: last7.length
+            ? Math.max(...last7.map(d => d.close || 0))
+            : null,
+
+          fiftyTwoWeekLow: getMinPrice(hist),
+          fiftyTwoWeekHigh: hist.length
+            ? Math.max(...hist.map(d => d.close || 0))
+            : null,
+
+          // 🎯 principais métricas
+          min7d: getMinPrice(last7),
+          min30d: getMinPrice(last30),
+          min60d: getMinPrice(last60),
+
+          historicalAvailable: hist.length > 0
+
         };
       });
 // final do MAP
