@@ -125,7 +125,7 @@ exports.handler = async () => {
             regularMarketPrice: null,
             min7d: null,
             min30d: null,
-            min60d: null
+            min90d: null
           };
       }
 
@@ -163,7 +163,7 @@ exports.handler = async () => {
           // 🎯 principais métricas
           min7d: getMinPrice(last7),
           min30d: getMinPrice(last30),
-          min60d: getMinPrice(last60),
+          min90d: getMinPrice(last90),
 
           historicalAvailable: hist.length > 0
 
