@@ -37,7 +37,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 24px;
+    padding: 2px 2px;
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
@@ -49,6 +49,8 @@ body {
 .nav-center {
     display: flex;
     gap: 25px;
+    flex-wrap: wrap;              /* 🔥 permite quebrar linha */
+    justify-content: center;      /* centraliza quando quebra */
 }
 
 .nav-center a {
@@ -101,7 +103,6 @@ body {
 }
 
 h3 {
-    margin-top: 5px;
     margin-bottom: 5px;
 }
 
@@ -250,6 +251,36 @@ tr:hover {      /* passar mouse */
         padding: 8px 4px;
         font-size: 0.85rem;
         white-space: nowrap; /* evita quebra */
+    }
+}
+
+
+
+/*--------MOBILE RESPONSIVO-------------------*/
+@media (max-width: 600px) {
+    .navbar {
+        flex-direction: column;   /* empilha menu + busca */
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .nav-center {
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .nav-center a {
+        font-size: 13px;
+    }
+
+    .nav-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .nav-search {
+        width: 100%;
+        max-width: 300px;
     }
 }
 

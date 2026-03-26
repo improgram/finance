@@ -28,7 +28,6 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
 }
 });
 
-
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
     if (valor > 0) return "positive";
@@ -36,83 +35,73 @@ function aplicarCor(valor) {
     return "neutral";
 }
 
+// 🌍 FORMATADORES E HELPERS GLOBAIS
+const br = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+
+const formatNumber = (value) =>
+    typeof value === 'number' ? br.format(value) : '---';
+
+const formatPrice = (value) =>
+    value != null ? br.format(value) : '---';
+
+const getVariacao = (obj) =>
+    typeof obj.regularMarketChangePercent === "number"
+        ? obj.regularMarketChangePercent
+        : 0;
+
+const formatPercent = (value) =>
+    typeof value === "number" ? br.format(value) : '---';
+
+const getDayRange = (obj) =>
+    obj.regularMarketDayRange ||
+    `${obj.regularMarketDayLow ?? '-'} - ${obj.regularMarketDayHigh ?? '-'}`;
+
+
 // Primeira Tabela
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
-    const br = new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    const formatNumber = (value) => typeof value === 'number' ? br.format(value) : '---';
 
     container.innerHTML = data.map(quote => {
-        const formattedPrice = quote.regularMarketPrice != null
-            ? br.format(quote.regularMarketPrice) : '---';
-        const dayRange = quote.regularMarketDayRange ||
-            `${quote.regularMarketDayLow ?? '-'} - ${quote.regularMarketDayHigh ?? '-'}`;
-        const formattedLow = typeof quote.fiftyTwoWeekLow === 'number'
-            ? br.format(quote.fiftyTwoWeekLow) : '---';
-        const formattedHigh = typeof quote.fiftyTwoWeekHigh === 'number'
-            ? br.format(quote.fiftyTwoWeekHigh) : '---';
-        const variacao = typeof quote.regularMarketChangePercent === "number"
-            ? quote.regularMarketChangePercent : 0;
-        const formattedPercent = br.format(variacao);
+        const variacao = getVariacao(quote);
 
         return `
             <tr>
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
-                <td class="price">R$ ${formattedPrice}</td>
-                <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
-                <td>${dayRange}</td>
+                <td class="price">R$ ${formatPrice(quote.regularMarketPrice)}</td>
+                <td class="${aplicarCor(variacao)}">${formatPercent(variacao)}%</td>
+                <td>${getDayRange(quote)}</td>
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.min60d)}</td>
-                <td>${formattedLow}</td>
-                <td>${formattedHigh}</td>
+                <td>${formatNumber(quote.fiftyTwoWeekLow)}</td>
+                <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
     }).join('');
 };
 
+
 // Segunda Tabela
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
-    const br = new Intl.NumberFormat('pt-BR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    const formatNumber = (value) =>
-        typeof value === 'number' ? br.format(value) : '---';
 
-        // Buscar Logos
-        const getLogo = (acao) => {
-            // Fallback: Usa o serviço de ícones da Brapi com o ticker completo (ex: PETR4)
-            // Evitar remover os números, pois o serviço de ícones geralmente usa o ticker exato.
-            return `https://icons.brapi.dev/icons/${acao.symbol.toLowerCase()}.svg`;
-        };
+    const getLogo = (acao) =>
+        `https://icons.brapi.dev/icons/${acao.symbol.toLowerCase()}.svg`;
 
-    // Usando map para criar todas as linhas e depois inserir de uma vez
     tbody.innerHTML = data.map(acao => {
+        const variacao = getVariacao(acao);
         const logoUrl = getLogo(acao);
-        const fallbackUrl = `https://via.placeholder.com/24?text=${acao.symbol[0]}`; // Ícone genérico com a letra inicial
+        const fallbackUrl = `https://via.placeholder.com/24?text=${acao.symbol[0]}`;
 
         const logo = `<img src="${logoUrl}"
             loading="lazy" width="24" height="24"
             style="object-fit:contain; border-radius: 4px;"
             onerror="this.onerror=null;this.src='${fallbackUrl}';"
             alt="${acao.symbol} logo">`;
-
-        const preco = typeof acao.regularMarketPrice === 'number'
-            ? br.format(acao.regularMarketPrice) : '---';
-        const variacao = typeof acao.regularMarketChangePercent ?? null;
-        const formattedPercent = variacao !== null ? br.format(variacao) : '---';
-        const dayRange = typeof acao.regularMarketDayRange ||
-            `${acao.regularMarketDayLow ?? '-'} - ${acao.regularMarketDayHigh ?? '-'}`;
-        const min12m = typeof acao.fiftyTwoWeekLow === 'number'
-            ? br.format(acao.fiftyTwoWeekLow) : '---';
-        const alvo = typeof acao.fiftyTwoWeekHigh === 'number'
-            ? br.format(acao.fiftyTwoWeekHigh) : '---';
 
         return `
             <tr>
@@ -123,14 +112,14 @@ const renderAcoes = (data) => {
                 </td>
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
                 <td>${acao.name}</td>
-                <td class="price">R$ ${preco}</td>
-                <td class="${aplicarCor(variacao)}">${formattedPercent}%</td>
-                <td>${dayRange}</td>
+                <td class="price">R$ ${formatPrice(acao.regularMarketPrice)}</td>
+                <td class="${aplicarCor(variacao)}">${formatPercent(variacao)}%</td>
+                <td>${getDayRange(acao)}</td>
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
                 <td>${formatNumber(acao.min60d)}</td>
-                <td>${min12m}</td>
-                <td>${alvo}</td>
+                <td>${formatNumber(acao.fiftyTwoWeekLow)}</td>
+                <td>${formatNumber(acao.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
     }).join('');
