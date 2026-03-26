@@ -19,8 +19,8 @@ body {
     flex-direction: column;
     align-items: center;                /* horizontal */
     justify-content: center;            /* vertical */
-    gap: clamp(8px, 1.6vw, 18px);
-    padding: clamp(8px, 1.8vw, 18px);
+    gap: clamp(7px, 1.4vw, 16px);
+    padding: clamp(7px, 1.6vw, 16px);
     color: white;
       background-image: radial-gradient(
         circle at center,
@@ -30,7 +30,7 @@ body {
 }
 
 :heading {              /*(mínimo, ideal, máximo) */
-    font-size: clamp(0.7rem, 2.2vw, 1.4rem);
+    font-size: clamp(0.7rem, 2.0vw, 1.4rem);
 }
 
 .navbar {
@@ -76,7 +76,6 @@ body {
     left: 0;
     width: 100%;
     height: 2px;
-    background: #00ff88;
 }
 
 /* direita */
@@ -101,9 +100,8 @@ body {
     color: #6b7280;
 }
 
-
 h3 {
-    margin-top: 20px;
+    margin-top: 5px;
     margin-bottom: 5px;
 }
 
@@ -129,7 +127,7 @@ h3 {
     width: 100%;
     max-width: 250px;
     padding: 10px;
-    margin: 10px 0;
+    margin: 5px 10px;
     border: 1px solid #7bff;
     border-radius: 8px;
     font-size: 16px;
