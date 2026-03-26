@@ -223,7 +223,7 @@ td {
 
 td, th {
     padding: clamp(4px, 0.5vw, 8px);    /* espaçamento interno da célula */
-    text-align: left;                       /* E a (distância do conteúdo até a borda da célula).*/
+    text-align: left;                       /* E (distância do conteúdo até a borda da célula).*/
     border-bottom: 1.5px solid #008080;
 }
 
@@ -235,6 +235,15 @@ tr:hover {                      /* passar mouse */
     transform: translateY(-2px);
     box-shadow: 0 4px 10px #555;
 }
+
+#tabelaTickers td:nth-child(3),     /* Terceira coluna(Empresa) da Segunda Tabela*/
+#tabelaTickers th:nth-child(3) {
+    width: 150px;          /* Defina a largura que desejar      */
+    max-width: 150px;      /* Limita para não esticar           */
+    white-space: normal;   /* permite quebra de linha          */
+    word-wrap: break-word; /* força a quebra se palavra for muito longa */
+}
+
 
 .price {
     font-weight: bold;
