@@ -37,7 +37,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 2px 2px;
+    padding: 2px 25px;      /* Menu superior parte preta */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
@@ -54,21 +54,42 @@ body {
 }
 
 .nav-center a {
-    color: #9ca3af;
+    color: #ffffff;
     text-decoration: none;
     font-size: 14px;
     position: relative;
-    transition: 0.2s;
-}
-
-/* hover */
-.nav-center a:hover {
-    color: #ffffff;
+    padding: 6px 4px;
+    transition: color 0.25s ease, transform 0.15s ease;
 }
 
 /* ativo (estilo app financeiro) */
 .nav-center a.active {
     color: #00ff88;
+    transform: scale(0.92);
+    text-shadow: 0 0 4px rgba(0, 255, 136, 0.8);
+}
+
+/* hover */
+.nav-center a:hover {
+    color: #ffffff;
+    transform: translateY(-2px);
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+}
+
+.nav-center a::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    width: 0%;
+    height: 2px;
+    background: linear-gradient(90deg, #00ff88, #00cfff);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.nav-center a:hover::after {
+    width: 100%;
 }
 
 .nav-center a.active::after {
@@ -102,8 +123,8 @@ body {
     color: #6b7280;
 }
 
-h3 {
-    margin-bottom: 5px;
+h2 {
+    margin: 5px 0 5px;
 }
 
 .search-container {
@@ -200,7 +221,7 @@ table td:nth-child(2) {
     word-wrap: break-word;
 }
 
-th {        /* cabeçalho tabela */
+th {                     /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
     text-transform: uppercase;
@@ -253,8 +274,6 @@ tr:hover {      /* passar mouse */
         white-space: nowrap; /* evita quebra */
     }
 }
-
-
 
 /*--------MOBILE RESPONSIVO-------------------*/
 @media (max-width: 600px) {
