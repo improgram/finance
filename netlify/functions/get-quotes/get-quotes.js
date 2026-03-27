@@ -45,14 +45,19 @@ let cache = { data: null, timestamp: 0 };
 const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
 
 // ⚡ CONCORRÊNCIA CONTROLADA
-const BATCH_SIZE = 4;
+const BATCH_SIZE = 2;
 
   // 🔁 retry
   const fetchWithRetry = async (url, retries = 2, delay = 400) => {
     try {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const text = await res.text();
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      return JSON.parse(text);
     } catch (err) {
       if (retries === 0) throw err;
       await new Promise(r => setTimeout(r, delay));
@@ -65,13 +70,17 @@ const BATCH_SIZE = 4;
       const results = [];
       for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
         const batch = tickers.slice(i, i + BATCH_SIZE);
-        const responses = await Promise.all(
+
+        const responses = await Promise.allSettled(
           batch.map(symbol => {
-            const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`;
+            const url = `https://brapi.dev/api/quote/${symbol}?token=${token}`;
             return fetchWithRetry(url);
-          })
+          })                  // ${symbol}?range=1y&interval=1d&token=${token}
         );
-        results.push(...responses);
+        const success = responses
+          .filter(r => r.status === "fulfilled")
+          .map(r => r.value);
+      results.push(...success);
       }
       return results;
     }; // final Batches
