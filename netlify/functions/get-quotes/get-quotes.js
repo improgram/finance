@@ -66,37 +66,30 @@ const BATCH_SIZE = 2;
     }
   };
 
-   // 📦 batches
+   // Fetch em batches
     const fetchInBatches = async (tickers, token) => {
       const results = [];
       for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
         const batch = tickers.slice(i, i + BATCH_SIZE);
 
         const responses = await Promise.allSettled(
-          batch.map(symbol => {
-            const url = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`;
-            return fetchWithRetry(url);
-          })
-        );
+          batch.map(symbol => fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`));
+          );
         const success = responses
           .filter(r => r.status === "fulfilled")
           .map(r => r.value);
-          .filter(data =>
-            Array.isArray(data?.results) &&
-            data.results.length > 0
-            );
           results.push(...success);
       }
       return results;
     }; // final Batches
 
-        // 📉 helpers seguros
+        // 📉 helpers
     const getCloses = (hist) =>
-      hist.map(d => d.close).filter(v => typeof v === "number");
+      hist.filter(d => d && typeof d.close === "number").map(d => d.close);
     const getMin = (arr) =>
-      arr.length ? Math.min(...arr) : null;
+      arr.length ? Math.min.apply(...arr) : null;
     const getMax = (arr) =>
-      arr.length ? Math.max(...arr) : null;
+      arr.length ? Math.max.apply(...arr) : null;
     const getLast = (hist) => {
       const closes = getCloses(hist);
       return closes.length ? closes[closes.length - 1] : null;
@@ -191,7 +184,8 @@ exports.handler = async () => {
         : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
 
       // 🧠 descrição com fallback inteligente
-      const description = ETF_INFO[result.symbol]?.description || "Descrição não disponível";
+      const description = (ETF_INFO[result.symbol] && ETF_INFO[result.symbol].description)
+        ? ETF_INFO[result.symbol].description : "Descrição não disponível";
       const hist = Array.isArray(result.historicalDataPrice)
         ? result.historicalDataPrice
         : [];
