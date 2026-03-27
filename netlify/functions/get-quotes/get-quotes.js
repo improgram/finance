@@ -8,14 +8,17 @@
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
 //    O endpoint /quote/{ticker} retorna objeto 'results'
 
+
 const ETF_LIST = [
-  "AUPO11", "BOVA11", "B5P211", "GOAT11", "IMAB11", "IRFM11",
-  "IVVB11", "LFTB11", "NBIT11", "NDIV11", "POSB11", "SMAL11",
-  "SPXB11", "SPXI11", "SPXR11", "UTLL11", "5PRE11"
+  "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
+  "IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
+  "SPXB11","SPXI11","SPXR11","UTLL11","5PRE11"
 ];
 
-const tickersB3 = [ "ALPA4", "ASAI3", "BBDC4", "CAML3", "DXCO3", "KLBN4",
-                    "GRND3", "JALL3", "RAIL3", "SIMH3", "SLCE3" ];
+const tickersB3 = [
+  "ALPA4","ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
+  "GRND3","JALL3","RAIL3","SIMH3","SLCE3"
+];
 
 const ETF_INFO = {
   AUPO11: { description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31" },
@@ -37,13 +40,18 @@ const ETF_INFO = {
 "5PRE11": { description: "Pre-Fixados: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" }
 };
 
+// 🧠 CACHE (mais agressivo)
 let cache = { data: null, timestamp: 0 };
+const CACHE_TIME = 3 * 60 * 1000; // 3 minutos
+
+// ⚡ CONCORRÊNCIA CONTROLADA
+const BATCH_SIZE = 4;
 
 // 🔥 cache maior (reduz chamadas na Brapi)
 const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
 
-  // 🔁 retry simples
-  const fetchWithRetry = async (url, retries = 2, delay = 500) => {
+  // 🔁 retry
+  const fetchWithRetry = async (url, retries = 2, delay = 400) => {
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -55,38 +63,46 @@ const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
     }
   };
 
-  // 📉 menor preço
-  const getMinPrice = (data) => {
-    if (!Array.isArray(data) || data.length === 0) return null;
-    const prices = data
-    .map(item => item?.close)
-    .filter(v => typeof v === "number");
-  return prices.length ? Math.min(...prices) : null;
-  };
+   // 📦 batches
+    const fetchInBatches = async (tickers, token) => {
+      const results = [];
+      for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+        const batch = tickers.slice(i, i + BATCH_SIZE);
+        const responses = await Promise.all(
+          batch.map(symbol => {
+            const url = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`;
+            return fetchWithRetry(url);
+          })
+        );
+        results.push(...responses);
+      }
+      return results;
+    }; // final Batches
 
-  // 📈 último preço válido
-  const getLastPrice = (data) => {
-    if (!Array.isArray(data) || data.length === 0) return null;
-    const last = data[data.length - 1];
-    return typeof last?.close === "number" ? last.close : null;
-  };
+        // 📉 helpers seguros
+    const getCloses = (hist) =>
+      hist.map(d => d.close).filter(v => typeof v === "number");
+    const getMin = (arr) =>
+      arr.length ? Math.min(...arr) : null;
+    const getMax = (arr) =>
+      arr.length ? Math.max(...arr) : null;
+    const getLast = (hist) => {
+      const closes = getCloses(hist);
+      return closes.length ? closes[closes.length - 1] : null;
+    };
 
-  // 📊 variação (%)
-  const getDailyVariation = (hist) => {
-  if (!Array.isArray(hist) || hist.length < 2) return null;
+    const getVariation = (hist) => {
+      const closes = getCloses(hist);
+      if (closes.length < 2) return null;
+      const last = closes[closes.length - 1];
+      for (let i = closes.length - 2; i >= 0; i--) {
+        if (closes[i] !== last) {
+          return ((last - closes[i]) / closes[i]) * 100;
+        }
+      }
+      return 0;
+    };
 
-  const last = hist[hist.length - 1]?.close;
-
-  // procura o último preço diferente
-  for (let i = hist.length - 2; i >= 0; i--) {
-    const prev = hist[i]?.close;
-    if (typeof prev === "number" && prev !== last) {
-      return ((last - prev) / prev) * 100;
-    }
-  }
-
-  return 0;
-};
 
 exports.handler = async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -94,9 +110,10 @@ exports.handler = async () => {
   if (!API_TOKEN) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Token da BRAPI não configurado" })
+      body: JSON.stringify({ error: "Token não configurado" })
     };
   }
+
   // 🧠 CACHE HIT
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
     return {
@@ -113,21 +130,24 @@ exports.handler = async () => {
   try {
     // 🔥 1 request por ativo (PLANO FREE)
     const ALL_TICKERS = [...ETF_LIST, ...tickersB3];
+
+    // ⚡ fetch otimizado (3 meses)
+    const responses = await fetchInBatches(ALL, API_TOKEN);
+    console.log(JSON.stringify(responses, null, 2));
+
     const requests = ALL_TICKERS.map(symbol => {
       const urlBase = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${API_TOKEN}`;
       return fetchWithRetry(urlBase);
     });
 
-    const responses = await Promise.all(requests);
-    console.log(JSON.stringify(responses, null, 2));
-
-    // 🔗 junta tudo
+    // 🔗 juntar tudo
     const allResults = responses
-      .filter(item => item && Array.isArray(item.results)) // Para cada item (r) na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
+      .filter(item => Array.isArray(item?.results)) // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
       .flatMap(item => item.results); // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
 
     const results = allResults.map(result => {
-      if (!result || !result.symbol) {          // Validaçao
+      // Validaçao
+      if (!result || !result.symbol) {
           return {
             symbol: "N/A",
             logourl: null,
@@ -137,6 +157,7 @@ exports.handler = async () => {
             min90d: null
           };
       }
+      // FiM Validaçao
 
       // 1. Prioridade para o logo da API
       // 2. Fallback para a URL padrão de ícones da Brapi
@@ -148,10 +169,16 @@ exports.handler = async () => {
 
       // 🧠 descrição com fallback inteligente
       const description = ETF_INFO[result.symbol]?.description || "Descrição não disponível";
-      const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
-      const last7 = hist.slice(-7);
+      const hist = Array.isArray(result.historicalDataPrice)
+        ? result.historicalDataPrice
+        : [];
+
+      const closes = getCloses(hist);
+
+      const last7 = hist.slice(-7);     // extrair os últimos 7 elementos do array hist
       const last30 = hist.slice(-30);
       const last90 = hist.slice(-90);
+      const last365 = hist.slice(365);
       const price = getLastPrice(hist);
 
         return {
@@ -161,45 +188,43 @@ exports.handler = async () => {
           description,
 
           // 🔥 preço vem do histórico (mais confiável)
-          regularMarketPrice: price ?? result.regularMarketPrice ?? 0,
+          regularMarketPrice:
+              getLast(hist) ?? r.regularMarketPrice ?? null,
 
           // 🔥 variação calculada (pegar último dia válido diferente)
-          regularMarketChangePercent: getDailyVariation(hist)
-          ?? result.regularMarketChangePercent ?? null,
+          regularMarketChangePercent:
+              getVariation(hist),
 
-          // 🔥 ranges
-          regularMarketDayLow: last7.length ? getMinPrice(last7) : null,
-          regularMarketDayHigh: last7.length
-            ? Math.max(...last7.map(d => d.close || 0))
-            : null,
+          // 🔥 Ranges
+          regularMarketDayLow: getMin(last7),
+          regularMarketDayHigh: getMax(last7),
 
-          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMinPrice(hist),
-          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh
-            ?? Math.max(...hist
-                          .map(d => d.close)
-                          .filter(v => typeof v === "number")
-                        ) : null,
+          fiftyTwoWeekLow:
+              result.fiftyTwoWeekLow ?? getMin(closes),
 
-
-          /*hist.length
-            ? Math.max(...hist.map(d => d.close || 0))
-            : null,*/
+          fiftyTwoWeekHigh:
+              result.fiftyTwoWeekHigh ?? getMax(closes),
 
           // 🎯 principais métricas
           min7d: getMinPrice(last7),
           min30d: getMinPrice(last30),
           min90d: getMinPrice(last90),
-
-          historicalAvailable: hist.length > 0
-
+          min365: getMinPrice(last365),
+          historicalAvailable: closes.length > 0
         };
       });
 // final do MAP
 
-    const etfs = results.filter(r => ETF_LIST.includes(r.symbol));
-    const acoes = results.filter(r => tickersB3.includes(r.symbol));
-
-    const payload = { etfs, acoes };
+    const payload = {
+      data: {
+        etfs: results.filter(result => ETF_LIST.includes(result.symbol)),
+        acoes: results.filter(result => tickersB3.includes(result.symbol))
+      },
+      meta: {
+        updatedAt: now,
+        total: results.length
+      }
+    };
 
     // 💾 salva cache
     cache = {
@@ -212,7 +237,7 @@ exports.handler = async () => {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=300",
+        "Cache-Control": "public, max-age=180",
         "X-Cache": "MISS"
       },
       body: JSON.stringify(payload)
@@ -222,9 +247,7 @@ exports.handler = async () => {
     console.error("ERRO:", error);
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*"
-      },
+      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         error: "Falha ao buscar dados",
         details: error.message

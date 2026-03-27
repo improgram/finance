@@ -130,8 +130,8 @@ const fetchQuotes = async () => {
         const res = await fetch('/.netlify/functions/get-quotes');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        allEtfs = data.etfs || [];
-        allAcoes = data.acoes || [];
+        allEtfs = data.data?.etfs || [];
+        allAcoes = data.data?.acoes || [];
         renderTable(allEtfs);
         renderAcoes(allAcoes);
         // ESCONDE loading depois de renderizar
