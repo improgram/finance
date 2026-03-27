@@ -19,11 +19,11 @@ const tickersB3 = [ "ALPA4", "ASAI3", "BBDC4", "CAML3", "DXCO3", "KLBN4",
 
 const ETF_INFO = {
   AUPO11: { description: "NTN-B Inflaçao 2060(9%) e LFT(Tes.Selic) 27/28/30/31" },
-  BOVA11: { description: "Replica o índice Ibovespa" },
+  BOVA11: { description: "Replica o IBOV: índice Ibovespa" },
   B5P211: { description: "NTN-B Inflaçao 2026/28/27/29/30" },
-  GOAT11: { description: "IMAB11: Inflação(80%) e S&P (500 Maiores dos EUA) (19%)" },
-  IMAB11: { description: "Inflação (NTN-Bs) media e longa" },
-  IRFM11: { description: "Pre-Fixados (LTN 26/29/31) e NTN-B Inflaçao" },
+  GOAT11: { description: "IMAB11: Inflação (80%) e S&P (19%)" },
+  IMAB11: { description: "NTN-Bs Inflação de media e longa duração" },
+  IRFM11: { description: "Pre-Fixados: LTN 26/29/31 e NTN-B Inflaçao" },
   IVVB11: { description: "S&P 500 (500 Maiores dos EUA)" },
   LFTB11: { description: "Tesouro Selic (LFT 27/28/29/30/2060)" },
   NBIT11: { description: "Futuros Nu Nasdaq Brazil Bitcoin" },
@@ -114,7 +114,7 @@ exports.handler = async () => {
     // 🔥 1 request por ativo (PLANO FREE)
     const ALL_TICKERS = [...ETF_LIST, ...tickersB3];
     const requests = ALL_TICKERS.map(symbol => {
-      const urlBase = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
+      const urlBase = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${API_TOKEN}`;
       return fetchWithRetry(urlBase);
     });
 
@@ -140,6 +140,8 @@ exports.handler = async () => {
 
       // 1. Prioridade para o logo da API
       // 2. Fallback para a URL padrão de ícones da Brapi
+      // A maioria dos servidores de imagem da B3/Brapi
+      // prefere o ticker em maiúsculas
       const logoAtivo = result.logourl
         ? result.logourl
         : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
@@ -171,10 +173,17 @@ exports.handler = async () => {
             ? Math.max(...last7.map(d => d.close || 0))
             : null,
 
-          fiftyTwoWeekLow: getMinPrice(hist),
-          fiftyTwoWeekHigh: hist.length
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMinPrice(hist),
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh
+            ?? Math.max(...hist
+                          .map(d => d.close)
+                          .filter(v => typeof v === "number")
+                        ) : null,
+
+
+          /*hist.length
             ? Math.max(...hist.map(d => d.close || 0))
-            : null,
+            : null,*/
 
           // 🎯 principais métricas
           min7d: getMinPrice(last7),

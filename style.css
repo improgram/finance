@@ -198,7 +198,7 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 40px;                /* da segunda tabela tera 40px nos logos*/
+    width: 48px;                /* da segunda tabela tera 40px nos logos*/
     text-align: center;
 }
 

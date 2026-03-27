@@ -100,7 +100,7 @@ const renderAcoes = (data) => {
             <tr>
                 <td>
                     <img src="${logoUrl}"
-                    width="24" height="24" style="object-fit:contain; border-radius: 4px;"
+                    width="26" height="26" style="object-fit:contain; border-radius: 4px;"
                     onerror="this.onerror=null;this.src='https://via.placeholder.com/24?text=${acao.symbol[0]}';"
                     alt="logo">
                 </td>
