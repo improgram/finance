@@ -67,7 +67,7 @@ const BATCH_SIZE = 4;
         const batch = tickers.slice(i, i + BATCH_SIZE);
         const responses = await Promise.all(
           batch.map(symbol => {
-            const url = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`;
+            const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`;
             return fetchWithRetry(url);
           })
         );
@@ -167,10 +167,10 @@ exports.handler = async () => {
 
       const closes = getCloses(hist);
 
-      const last7 = hist.slice(-7);     // extrair os últimos 7 elementos do array hist
-      const last30 = hist.slice(-30);
-      const last90 = hist.slice(-90);
-      const last365 = hist.slice(-365);
+      const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
+      const last30 = getCloses(hist.slice(-30) );
+      const last90 = getCloses(hist.slice(-90) );
+      const last365 = getCloses(hist.slice(-365) );
       const price = getLast(hist);
 
         return {
