@@ -73,8 +73,10 @@ const BATCH_SIZE = 2;
         const batch = tickers.slice(i, i + BATCH_SIZE);
 
         const responses = await Promise.allSettled(
-          batch.map(symbol => fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`));
-          );
+          batch.map(symbol => {
+            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`);
+          })
+        );
         const success = responses
           .filter(r => r.status === "fulfilled")
           .map(r => r.value);
@@ -108,7 +110,7 @@ const BATCH_SIZE = 2;
     };
 
 
-exports.handler = async function(event, context) => {
+exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
 
@@ -168,60 +170,46 @@ exports.handler = async function(event, context) => {
       }
 
     const results = [];
-      // Validaçao
-      if (!result || !result.symbol) {
-          return {
-            symbol: "N/A",
-            logourl: null,
-            regularMarketPrice: null,
-            min7d: null,
-            min30d: null,
-            min90d: null
-          };
-      }
-      // FiM Validaçao
-
       for (let i = 0; i < allResults.length; i++) {
         const result = allResults[i];
-        if (!result || !result.symbol) continue;
+        if (!result || !result.symbol) continue; // Validaçao
 
-      const logoAtivo = result.logourl
-        ? result.logourl
-        : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
-      // 1. Prioridade para o logo da API
-      // 2. Fallback para a URL padrão de ícones da Brapi
-      // A maioria dos servidores de imagem da B3/Brapi
-      // prefere o ticker em maiúsculas
+        const logoAtivo = result.logourl
+          ? result.logourl
+          : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
+        // 1. Prioridade para o logo da API
+        // 2. Fallback para a URL padrão de ícones da Brapi
+        // A maioria dos servidores de imagem da B3/Brapi
+        // prefere o ticker em maiúsculas
 
-      // 🧠 descrição com fallback inteligente
-      const description = (ETF_INFO[result.symbol] && ETF_INFO[result.symbol].description)
-        ? ETF_INFO[result.symbol].description : "Descrição não disponível";
+        // 🧠 descrição com fallback inteligente
+        const description = (ETF_INFO[result.symbol] && ETF_INFO[result.symbol].description)
+          ? ETF_INFO[result.symbol].description : "Descrição não disponível";
 
-      const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
-      const closes = getCloses(hist);
-
-      const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
-      const last30 = getCloses(hist.slice(-30) );
-      const last90 = getCloses(hist.slice(-90) );
-      const last365 = getCloses(hist.slice(-365) );
+        const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
+        const closes = getCloses(hist);
+        const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
+        const last30 = getCloses(hist.slice(-30) );
+        const last90 = getCloses(hist.slice(-90) );
+        const last365 = getCloses(hist.slice(-365) );
 
         results.push({
-        logourl: logoAtivo,
-        symbol: result.symbol,
-        name: result.longName || result.shortName || result.symbol,
-        description,
-        regularMarketPrice: getLast(hist) || result.regularMarketPrice || null,
-        regularMarketChangePercent: getVariation(hist),
-        regularMarketDayLow: getMin(last7),
-        regularMarketDayHigh: getMax(last7),
-        fiftyTwoWeekLow: result.fiftyTwoWeekLow || getMin(closes),
-        fiftyTwoWeekHigh: result.fiftyTwoWeekHigh || getMax(closes),
-        min7d: getMin(last7),
-        min30d: getMin(last30),
-        min90d: getMin(last90),
-        min365: getMin(last365),
-        historicalAvailable: closes.length > 0
-      });
+          logourl: logoAtivo,
+          symbol: result.symbol,
+          name: result.longName || result.shortName || result.symbol,
+          description,
+          regularMarketPrice: getLast(hist) || result.regularMarketPrice || null,
+          regularMarketChangePercent: getVariation(hist),
+          regularMarketDayLow: getMin(last7),
+          regularMarketDayHigh: getMax(last7),
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow || getMin(closes),
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh || getMax(closes),
+          min7d: getMin(last7),
+          min30d: getMin(last30),
+          min90d: getMin(last90),
+          min365: getMin(last365),
+          historicalAvailable: closes.length > 0
+        });
     }
 // final do Result
 
@@ -237,10 +225,7 @@ exports.handler = async function(event, context) => {
     };
 
     // 💾 salva cache
-    cache = {
-      data: payload,
-      timestamp: now
-    };
+    cache = { data: payload, timestamp: now };
 
     return {
       statusCode: 200,
@@ -258,10 +243,7 @@ exports.handler = async function(event, context) => {
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({
-        error: "Falha ao buscar dados",
-        details: error.message
-      })
+      body: JSON.stringify({ error: "Falha ao buscar dados", details: error.message })
     };
   }
 };
