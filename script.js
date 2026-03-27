@@ -83,11 +83,11 @@ const renderTable = (data) => {
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.min90d)}</td>
-                <td class="price">${formatNumber(quote.fiftyTwoWeekLow) + ' ? '
-                    + quote.fiftyTwoWeekLow != null
-                        +   ? formatNumber(quote.fiftyTwoWeekLow)
-                        +   : '---'
-                }
+                <td class="price">
+                    ${quote.fiftyTwoWeekLow != null
+                        ? formatNumber(quote.fiftyTwoWeekLow)
+                        : '---'}
+
                 </td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
