@@ -40,6 +40,13 @@ const ETF_INFO = {
 "5PRE11": { description: "Pre-Fixados: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" }
 };
 
+// Teste antes de tudo
+const test = await fetchWithRetry(
+  `https://brapi.dev/api/quote/BOVA11?range=3mo&interval=1d&token=${API_TOKEN}`
+);
+console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
+
+
 // 🧠 CACHE (mais agressivo)
 let cache = { data: null, timestamp: 0 };
 const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
@@ -73,14 +80,18 @@ const BATCH_SIZE = 2;
 
         const responses = await Promise.allSettled(
           batch.map(symbol => {
-            const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`;
+            const url = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`;
             return fetchWithRetry(url);
-          })                 
+          })
         );
         const success = responses
           .filter(r => r.status === "fulfilled")
           .map(r => r.value);
-      results.push(...success);
+          .filter(data =>
+            Array.isArray(data?.results) &&
+            data.results.length > 0
+            );
+          results.push(...success);
       }
       return results;
     }; // final Batches
@@ -139,7 +150,17 @@ exports.handler = async () => {
 
     // ⚡ fetch otimizado (3 meses)
     const responses = await fetchInBatches(ALL, API_TOKEN);
-    console.log(JSON.stringify(responses, null, 2));
+
+    // Debug
+    responses.forEach((r, i) => {
+      console.log("Ticker:", ALL[i]);
+
+      if (r.status === "fulfilled") {
+        console.log("OK:", JSON.stringify(r.value));
+      } else {
+        console.log("ERROR:", r.reason);
+      }
+    });
 
     // 🔗 juntar tudo
     const allResults = responses
