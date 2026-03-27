@@ -163,12 +163,13 @@ exports.handler = async (event, context) => {
     const allResults = [];
       // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
       // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
-     for (let i = 0; i < responses.length; i++) {
-        const item = responses[i];
+    for (const item of responses) { // responses já é do fetchInBatches
         if (item && Array.isArray(item.results)) {
-          allResults.push.apply(allResults, item.results);
+            allResults.push(...item.results);
+        } else {
+            console.warn(`Sem results para ticker: ${item?.symbol || 'unknown'}`);
         }
-      }
+    }
 
     const results = [];
       for (let i = 0; i < allResults.length; i++) {
@@ -189,7 +190,7 @@ exports.handler = async (event, context) => {
 
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
-        
+
         const closes = getCloses(hist);
         const last7 = getCloses(hist.slice(-7) || [] );     // extrair os últimos 7 elementos do array hist
         const last30 = getCloses(hist.slice(-30) || [] );
