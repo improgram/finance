@@ -56,9 +56,9 @@ const formatPercent = (value) =>
     typeof value === "number" ? br.format(value) : '---';
 
 const getDayRange = (obj) =>
-    obj.regularMarketDayRange ||
-    `${obj.regularMarketDayLow ?? '-'} - ${obj.regularMarketDayHigh ?? '-'}`;
-
+    obj.regularMarketDayLow != null && obj.regularMarketDayHigh != null
+        ? `${formatNumber(obj.regularMarketDayLow)} - ${formatNumber(obj.regularMarketDayHigh)}`
+        : '-';
 
 // Primeira Tabela
 const renderTable = (data) => {

@@ -99,12 +99,13 @@ const BATCH_SIZE = 2;
 
     const getVariation = (hist) => {
       const closes = getCloses(hist);
-      if (closes.length < 2) return null;
+      if (closes.length === 0) return null;
+      if (closes.length === 1) return 0;      // Só um dia disponível
       const last = closes[closes.length - 1];
       for (let i = closes.length - 2; i >= 0; i--) {
-        if (closes[i] !== last) {
-          return ((last - closes[i]) / closes[i]) * 100;
-        }
+          if (closes[i] !== last) {
+      return ((last - closes[i]) / closes[i]) * 100;
+          }
       }
       return 0;
     };
@@ -191,23 +192,23 @@ exports.handler = async (event, context) => {
         const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
         const last30 = getCloses(hist.slice(-30) );
         const last90 = getCloses(hist.slice(-90) );
-        const last365 = getCloses(hist.slice(-365) );
+        const last365 = getCloses(hist.slice(-365)) || closes;
 
         results.push({
           logourl: logoAtivo,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice: getLast(hist) || result.regularMarketPrice || null,
-          regularMarketChangePercent: getVariation(hist),
-          regularMarketDayLow: getMin(last7),
-          regularMarketDayHigh: getMax(last7),
-          fiftyTwoWeekLow: result.fiftyTwoWeekLow || getMin(closes),
-          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh || getMax(closes),
-          min7d: getMin(last7),
-          min30d: getMin(last30),
-          min90d: getMin(last90),
-          min365: getMin(last365),
+          regularMarketPrice: result.regularMarketPrice ?? getLast(hist) ?? null,
+          regularMarketChangePercent: result.regularMarketChangePercent ?? getVariation(hist) ?? null,
+          regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
+          regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMin(closes) ?? null,
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? getMax(closes) ?? null,
+          min7d: getMin(last7) ?? null,
+          min30d: getMin(last30) ?? null,
+          min90d: getMin(last90) ?? null,
+          min365: getMin(last365) ?? null,
           historicalAvailable: closes.length > 0
         });
     }
