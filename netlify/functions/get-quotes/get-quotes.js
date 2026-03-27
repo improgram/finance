@@ -89,9 +89,9 @@ const BATCH_SIZE = 2;
     const getCloses = (hist) =>
       hist.filter(d => d && typeof d.close === "number").map(d => d.close);
     const getMin = (arr) =>
-      arr.length ? Math.min.apply(...arr) : null;
+      Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
     const getMax = (arr) =>
-      arr.length ? Math.max.apply(...arr) : null;
+      Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
     const getLast = (hist) => {
       const closes = getCloses(hist);
       return closes.length ? closes[closes.length - 1] : null;
@@ -117,7 +117,7 @@ exports.handler = async (event, context) => {
 
     // Teste antes de tudo deve ficar dentro Async
   const test = await fetchWithRetry(
-    `https://brapi.dev/api/quote/BOVA11?range=3mo&interval=1d&token=${API_TOKEN}`
+    `https://brapi.dev/api/quote/BOVA11?token=${API_TOKEN}`
   );
   console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
 
@@ -188,10 +188,12 @@ exports.handler = async (event, context) => {
           ? ETF_INFO[result.symbol].description : "Descrição não disponível";
 
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
+        if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
+        
         const closes = getCloses(hist);
-        const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
-        const last30 = getCloses(hist.slice(-30) );
-        const last90 = getCloses(hist.slice(-90) );
+        const last7 = getCloses(hist.slice(-7) || [] );     // extrair os últimos 7 elementos do array hist
+        const last30 = getCloses(hist.slice(-30) || [] );
+        const last90 = getCloses(hist.slice(-90) || [] );
         const last365 = getCloses(hist.slice(-365)) || closes;
 
         results.push({
