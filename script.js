@@ -71,7 +71,11 @@ const renderTable = (data) => {
             <tr>
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
-                <td class="price">R$ ${formatPrice(quote.regularMarketPrice)}</td>
+                <td class="price">
+                    ${quote.fiftyTwoWeekLow != null
+                        ? formatNumber(quote.fiftyTwoWeekLow)
+                        : '---'}
+                </td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
                     ${variacao !== null ? formatPercent(variacao) + '%' : '---'}
                 </td>
@@ -79,7 +83,12 @@ const renderTable = (data) => {
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.min90d)}</td>
-                <td class="price">${formatNumber(quote.fiftyTwoWeekLow) + ' ? ' }</td>
+                <td class="price">${formatNumber(quote.fiftyTwoWeekLow) + ' ? '
+                    + quote.fiftyTwoWeekLow != null
+                        +   ? formatNumber(quote.fiftyTwoWeekLow)
+                        +   : '---'
+                }
+                </td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
@@ -114,7 +123,7 @@ const renderAcoes = (data) => {
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
                 <td>${formatNumber(acao.min90d)}</td>
-                <td>${formatNumber(acao.min365)}</td>
+                <td>${formatNumber(acao.fiftyTwoWeekLow)}</td>
                 <td>${formatNumber(acao.fiftyTwoWeekHigh)}</td>
             </tr>
         `;

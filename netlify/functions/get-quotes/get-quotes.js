@@ -73,9 +73,9 @@ const BATCH_SIZE = 2;
 
         const responses = await Promise.allSettled(
           batch.map(symbol => {
-            const url = `https://brapi.dev/api/quote/${symbol}?token=${token}`;
+            const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`;
             return fetchWithRetry(url);
-          })                  // ${symbol}?range=1y&interval=1d&token=${token}
+          })                 
         );
         const success = responses
           .filter(r => r.status === "fulfilled")
