@@ -40,12 +40,6 @@ const ETF_INFO = {
 "5PRE11": { description: "Pre-Fixados: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" }
 };
 
-// Teste antes de tudo
-const test = await fetchWithRetry(
-  `https://brapi.dev/api/quote/BOVA11?range=3mo&interval=1d&token=${API_TOKEN}`
-);
-console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
-
 
 // 🧠 CACHE (mais agressivo)
 let cache = { data: null, timestamp: 0 };
@@ -124,6 +118,13 @@ const BATCH_SIZE = 2;
 exports.handler = async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
+
+    // Teste antes de tudo deve ficar dentro Async
+  const test = await fetchWithRetry(
+    `https://brapi.dev/api/quote/BOVA11?range=3mo&interval=1d&token=${API_TOKEN}`
+  );
+  console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
+
   if (!API_TOKEN) {
     return {
       statusCode: 500,
