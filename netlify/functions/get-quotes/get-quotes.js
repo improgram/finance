@@ -108,7 +108,7 @@ const BATCH_SIZE = 2;
     };
 
 
-exports.handler = async () => {
+exports.handler = async function(event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
 
@@ -140,7 +140,7 @@ exports.handler = async () => {
 
   try {
     // 🔥 1 request por ativo (PLANO FREE)
-    const ALL = [...ETF_LIST, ...tickersB3];
+    const ALL = ETF_LIST.concat(tickersB3);
 
     // ⚡ fetch otimizado (3 meses)
     const responses = await fetchInBatches(ALL, API_TOKEN);
@@ -156,12 +156,18 @@ exports.handler = async () => {
       }
     });
 
-    // 🔗 juntar tudo
-    const allResults = responses
-      .filter(item => Array.isArray(item?.results)) // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
-      .flatMap(item => item.results); // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
+    // 🔗 juntar resultados
+    const allResults = [];
+      // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
+      // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
+     for (let i = 0; i < responses.length; i++) {
+        const item = responses[i];
+        if (item && Array.isArray(item.results)) {
+          allResults.push.apply(allResults, item.results);
+        }
+      }
 
-    const results = allResults.map(result => {
+    const results = [];
       // Validaçao
       if (!result || !result.symbol) {
           return {
@@ -175,67 +181,54 @@ exports.handler = async () => {
       }
       // FiM Validaçao
 
+      for (let i = 0; i < allResults.length; i++) {
+        const result = allResults[i];
+        if (!result || !result.symbol) continue;
+
+      const logoAtivo = result.logourl
+        ? result.logourl
+        : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
       // 1. Prioridade para o logo da API
       // 2. Fallback para a URL padrão de ícones da Brapi
       // A maioria dos servidores de imagem da B3/Brapi
       // prefere o ticker em maiúsculas
-      const logoAtivo = result.logourl
-        ? result.logourl
-        : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
 
       // 🧠 descrição com fallback inteligente
       const description = (ETF_INFO[result.symbol] && ETF_INFO[result.symbol].description)
         ? ETF_INFO[result.symbol].description : "Descrição não disponível";
-      const hist = Array.isArray(result.historicalDataPrice)
-        ? result.historicalDataPrice
-        : [];
 
+      const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
       const closes = getCloses(hist);
 
       const last7 = getCloses(hist.slice(-7) );     // extrair os últimos 7 elementos do array hist
       const last30 = getCloses(hist.slice(-30) );
       const last90 = getCloses(hist.slice(-90) );
       const last365 = getCloses(hist.slice(-365) );
-      const price = getLast(hist);
 
-        return {
-          logourl: logoAtivo,
-          symbol: result.symbol,
-          name: result.longName || result.shortName || result.symbol,
-          description,
-
-          // 🔥 preço vem do histórico (mais confiável)
-          regularMarketPrice:
-              getLast(hist) ?? result.regularMarketPrice ?? null,
-
-          // 🔥 variação calculada (pegar último dia válido diferente)
-          regularMarketChangePercent:
-              getVariation(hist),
-
-          // 🔥 Ranges
-          regularMarketDayLow: getMin(last7),
-          regularMarketDayHigh: getMax(last7),
-
-          fiftyTwoWeekLow:
-              result.fiftyTwoWeekLow ?? getMin(closes),
-
-          fiftyTwoWeekHigh:
-              result.fiftyTwoWeekHigh ?? getMax(closes),
-
-          // 🎯 principais métricas
-          min7d: getMin(last7),
-          min30d: getMin(last30),
-          min90d: getMin(last90),
-          min365: getMin(last365),
-          historicalAvailable: closes.length > 0
-        };
+        results.push({
+        logourl: logoAtivo,
+        symbol: result.symbol,
+        name: result.longName || result.shortName || result.symbol,
+        description,
+        regularMarketPrice: getLast(hist) || result.regularMarketPrice || null,
+        regularMarketChangePercent: getVariation(hist),
+        regularMarketDayLow: getMin(last7),
+        regularMarketDayHigh: getMax(last7),
+        fiftyTwoWeekLow: result.fiftyTwoWeekLow || getMin(closes),
+        fiftyTwoWeekHigh: result.fiftyTwoWeekHigh || getMax(closes),
+        min7d: getMin(last7),
+        min30d: getMin(last30),
+        min90d: getMin(last90),
+        min365: getMin(last365),
+        historicalAvailable: closes.length > 0
       });
-// final do MAP
+    }
+// final do Result
 
     const payload = {
       data: {
-        etfs: results.filter(result => ETF_LIST.includes(result.symbol)),
-        acoes: results.filter(result => tickersB3.includes(result.symbol))
+        etfs: results.filter(r => ETF_LIST.indexOf(r.symbol) !== -1),
+        acoes: results.filter(r => tickersB3.indexOf(r.symbol) !== -1)
       },
       meta: {
         updatedAt: now,
