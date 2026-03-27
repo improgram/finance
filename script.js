@@ -79,7 +79,7 @@ const renderTable = (data) => {
                 <td>${formatNumber(quote.min7d)}</td>
                 <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.min90d)}</td>
-                <td>${formatNumber(quote.fiftyTwoWeekLow)}</td>
+                <td class="price">${formatNumber(quote.fiftyTwoWeekLow) + ' ? ' }</td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
@@ -114,7 +114,7 @@ const renderAcoes = (data) => {
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
                 <td>${formatNumber(acao.min90d)}</td>
-                <td>${formatNumber(acao.fiftyTwoWeekLow)}</td>
+                <td>${formatNumber(acao.min365)}</td>
                 <td>${formatNumber(acao.fiftyTwoWeekHigh)}</td>
             </tr>
         `;

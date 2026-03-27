@@ -42,13 +42,10 @@ const ETF_INFO = {
 
 // 🧠 CACHE (mais agressivo)
 let cache = { data: null, timestamp: 0 };
-const CACHE_TIME = 3 * 60 * 1000; // 3 minutos
+const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
 
 // ⚡ CONCORRÊNCIA CONTROLADA
 const BATCH_SIZE = 4;
-
-// 🔥 cache maior (reduz chamadas na Brapi)
-const CACHE_TIME = 2 * 60 * 1000; // 120.000 milisegundos =  2 minutos
 
   // 🔁 retry
   const fetchWithRetry = async (url, retries = 2, delay = 400) => {
@@ -129,16 +126,11 @@ exports.handler = async () => {
 
   try {
     // 🔥 1 request por ativo (PLANO FREE)
-    const ALL_TICKERS = [...ETF_LIST, ...tickersB3];
+    const ALL = [...ETF_LIST, ...tickersB3];
 
     // ⚡ fetch otimizado (3 meses)
     const responses = await fetchInBatches(ALL, API_TOKEN);
     console.log(JSON.stringify(responses, null, 2));
-
-    const requests = ALL_TICKERS.map(symbol => {
-      const urlBase = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${API_TOKEN}`;
-      return fetchWithRetry(urlBase);
-    });
 
     // 🔗 juntar tudo
     const allResults = responses
@@ -178,8 +170,8 @@ exports.handler = async () => {
       const last7 = hist.slice(-7);     // extrair os últimos 7 elementos do array hist
       const last30 = hist.slice(-30);
       const last90 = hist.slice(-90);
-      const last365 = hist.slice(365);
-      const price = getLastPrice(hist);
+      const last365 = hist.slice(-365);
+      const price = getLast(hist);
 
         return {
           logourl: logoAtivo,
@@ -189,7 +181,7 @@ exports.handler = async () => {
 
           // 🔥 preço vem do histórico (mais confiável)
           regularMarketPrice:
-              getLast(hist) ?? r.regularMarketPrice ?? null,
+              getLast(hist) ?? result.regularMarketPrice ?? null,
 
           // 🔥 variação calculada (pegar último dia válido diferente)
           regularMarketChangePercent:
@@ -206,10 +198,10 @@ exports.handler = async () => {
               result.fiftyTwoWeekHigh ?? getMax(closes),
 
           // 🎯 principais métricas
-          min7d: getMinPrice(last7),
-          min30d: getMinPrice(last30),
-          min90d: getMinPrice(last90),
-          min365: getMinPrice(last365),
+          min7d: getMin(last7),
+          min30d: getMin(last30),
+          min90d: getMin(last90),
+          min365: getMin(last365),
           historicalAvailable: closes.length > 0
         };
       });
