@@ -86,25 +86,33 @@ const BATCH_SIZE = 2;
     }; // final Batches
 
         // 📉 helpers
-    const getCloses = (hist) =>
-      hist.filter(d => d && typeof d.close === "number").map(d => d.close);
+    const getCloses = (hist) => // remove zeros inválidos
+      hist.filter(d => d && typeof d.close === "number" && d.close > 0 ) .map(d => d.close);
     const getMin = (arr) =>
       Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
     const getMax = (arr) =>
       Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
-    const getLast = (hist) => {
+    const getLastValid = (hist) => {
       const closes = getCloses(hist);
-      return closes.length ? closes[closes.length - 1] : null;
+      if (!closes.length) return null;
+      const last = closes[closes.length - 1];
+      // busca último valor DIFERENTE (evita repetição)
+        for (let i = closes.length - 2; i >= 0; i--) {
+          if (closes[i] !== last) {
+            return last;
+          }
+        }
+      return last;
     };
 
     const getVariation = (hist) => {
       const closes = getCloses(hist);
-      if (closes.length === 0) return null;
-      if (closes.length === 1) return 0;      // Só um dia disponível
+      if (closes.length < 2) return null;
       const last = closes[closes.length - 1];
+
       for (let i = closes.length - 2; i >= 0; i--) {
           if (closes[i] !== last) {
-      return ((last - closes[i]) / closes[i]) * 100;
+            return ((last - closes[i]) / closes[i]) * 100;
           }
       }
       return 0;
@@ -191,14 +199,19 @@ exports.handler = async (event, context) => {
         const last30 = getCloses(hist.slice(-30) || [] );
         const last90 = getCloses(hist.slice(-90) || [] );
         const last365 = getCloses(hist.slice(-365)) || closes;
+        const priceHist = getLastValid(hist);
+        const variation = getVariation(hist);
 
         results.push({
           logourl: logoAtivo,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice: getLast(hist) ?? result.regularMarketPrice ?? null,
-          regularMarketChangePercent: getVariation(hist) ?? result.regularMarketChangePercent ?? null,
+          regularMarketPrice: priceHist && priceHist > 0 ? priceHist
+           : (result.regularMarketPrice && result.regularMarketPrice > 0
+            ? result.regularMarketPrice
+            : null),
+          regularMarketChangePercent: variation !== null ? variation : result.regularMarketChangePercent ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
           fiftyTwoWeekLow: getMin(last365) ?? result.fiftyTwoWeekLow ?? null,
