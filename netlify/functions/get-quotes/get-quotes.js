@@ -74,7 +74,7 @@ const BATCH_SIZE = 2;
 
         const responses = await Promise.allSettled(
           batch.map(symbol => {
-            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`);
+            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=5d&interval=1d&token=${token}`);
           })
         );
         const success = responses
@@ -202,15 +202,42 @@ exports.handler = async (event, context) => {
         const priceHist = getLastValid(hist);
         const variation = getVariation(hist);
 
+        const getBestPrice = (hist, quotePrice) => {
+        const closes = getCloses(hist);
+
+        if (!closes.length && quotePrice > 0) return quotePrice;
+
+        const lastHist = closes[closes.length - 1];
+
+        // 🔥 se não tem histórico válido
+        if (!lastHist || lastHist <= 0) {
+          return quotePrice ?? null;
+        }
+
+        // 🔥 se não tem quote válido
+        if (!quotePrice || quotePrice <= 0) {
+          return lastHist;
+        }
+
+        // 🔥 diferença percentual
+        const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
+
+        // 🔥 regra principal:
+        // se diferença pequena → usa histórico (mais confiável)
+        if (diff < 2) {
+          return lastHist;
+        }
+
+        // 🔥 se diferença grande → provavelmente histórico atrasado → usa quote
+        return quotePrice;
+      };
+
         results.push({
           logourl: logoAtivo,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice: priceHist && priceHist > 0 ? priceHist
-           : (result.regularMarketPrice && result.regularMarketPrice > 0
-            ? result.regularMarketPrice
-            : null),
+          regularMarketPrice: getBestPrice(hist,result.regularMarketPrice),
           regularMarketChangePercent: variation !== null ? variation : result.regularMarketChangePercent ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,

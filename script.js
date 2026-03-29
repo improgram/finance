@@ -70,8 +70,8 @@ const renderTable = (data) => {
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
                 <td class="price">
-                    ${quote.fiftyTwoWeekLow != null
-                        ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
+                    ${quote.regularMarketPrice  != null
+                        ? formatNumber(quote.regularMarketPrice ) : '---'}
                 </td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
                     ${variacao !== null ? formatPercent(variacao) + '%' : '---'}
