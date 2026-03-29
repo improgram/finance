@@ -15,15 +15,20 @@
 
     <body>
         <header class="navbar">
-            <div class="nav-center">
+            <div class="hamburger" id="hamburger">
+                ☰
+            </div>
+            <div class="nav-center" id="nav-menu">
                 <a href="#" >Home</a>
                 <a href="#" >ETFs</a>
                 <a href="#tabelaTickers">Ações</a>
-                <a href="#" >Projetos</a>
-                    <ul>
-                        <li><a href="https://improgramcasadocodigo.netlify.app/" target="_blank">Casa do Codigo</a></li>
-                        <li><a href="https://improgrameconomia.netlify.app/" target="_blank">Estudos de Economia</a></li>
-                    </ul>
+                <div class="dropdown">
+                    <a href="#" id="menu-projetos">Projetos ▼</a>
+                        <ul class="submenu">
+                            <li><a href="https://improgramcasadocodigo.netlify.app/" target="_blank">Casa do Codigo</a></li>
+                            <li><a href="https://improgrameconomia.netlify.app/" target="_blank">Estudos de Economia</a></li>
+                        </ul>
+                </div>
                 <a href="#rodape" >Contato</a>
             </div>
             <div class="nav-right">

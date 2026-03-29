@@ -1,3 +1,30 @@
+// menu hamburguer
+const hamburger = document.getElementById("hamburger");
+const navMenu = document.getElementById("nav-menu");
+
+hamburger.addEventListener("click", () => {
+    navMenu.classList.toggle("active");
+});
+
+// dropdown projetos
+const projetos = document.getElementById("menu-projetos");
+const submenu = document.querySelector(".submenu");
+
+projetos.addEventListener("click", (e) => {
+    e.preventDefault();
+    submenu.style.display =
+        submenu.style.display === "block" ? "none" : "block";
+});
+
+// fechar menu ao clicar fora
+document.addEventListener("click", (e) => {
+    if (!navMenu.contains(e.target) && !hamburger.contains(e.target)) {
+        navMenu.classList.remove("active");
+        submenu.style.display = "none";
+    }
+});
+
+
 let allEtfs = [];
 let allAcoes = [];
 
@@ -152,6 +179,7 @@ window.addEventListener('DOMContentLoaded', fetchQuotes);
 
 
 /*
+
 Fluxo do sistema:
 Brapi API
    ↓

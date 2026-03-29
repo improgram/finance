@@ -65,6 +65,7 @@ body {
 /* ativo (estilo app financeiro) */
 .nav-center a.active {
     color: #00ff88;
+    display: flex;
     transform: scale(0.92);
     text-shadow: 0 0 4px rgba(0, 255, 136, 0.8);
 }
@@ -122,6 +123,40 @@ body {
 .nav-search::placeholder {
     color: #6b7280;
 }
+
+/* Submenus */
+.hamburger {
+    display: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: white;
+}
+
+.dropdown {
+    position: relative;
+}
+
+.submenu {
+    display: none; /* 🔒 escondido inicialmente */
+    position: absolute;
+    background: #0f1115;
+    list-style: none;
+    padding: 10px;
+    border-radius: 6px;
+    top: 30px;
+}
+
+.submenu li {
+    margin: 5px 0;
+}
+
+.submenu a {
+    color: white;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+/* FiM do Submenu */
 
 h2 {
     margin: 5px 0 5px;
@@ -267,9 +302,35 @@ tr:hover {                      /* passar mouse */
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
+    .hamburger {
+        display: block;
+    }
+
+    .navbar {
+        justify-content: space-between;
+    }
+
      .nav-center {
         display: none;
+        flex-direction: column;
+        width: 100%;
+        background: #0f1115;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        padding: 15px;
+        gap: 15px;
+        border-top: 1px solid #1f2937;
     }
+     .nav-center a {
+        font-size: 16px;
+    }
+    .submenu {
+        position: static;
+        background: transparent;
+        padding-left: 10px;
+    }
+
     .table-container {
         width: 100%;
         overflow-x: auto;
