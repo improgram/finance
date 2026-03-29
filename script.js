@@ -63,18 +63,15 @@ const getDayRange = (obj) =>
 // Primeira Tabela
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
-
     container.innerHTML = data.map(quote => {
         const variacao = getVariacao(quote);
-
         return `
             <tr>
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
                 <td>${quote.description}</td>
                 <td class="price">
                     ${quote.fiftyTwoWeekLow != null
-                        ? formatNumber(quote.fiftyTwoWeekLow)
-                        : '---'}
+                        ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
                 </td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
                     ${variacao !== null ? formatPercent(variacao) + '%' : '---'}
@@ -85,9 +82,7 @@ const renderTable = (data) => {
                 <td>${formatNumber(quote.min90d)}</td>
                 <td class="price">
                     ${quote.fiftyTwoWeekLow != null
-                        ? formatNumber(quote.fiftyTwoWeekLow)
-                        : '---'}
-
+                        ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
                 </td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
@@ -99,12 +94,10 @@ const renderTable = (data) => {
 // Segunda Tabela
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
-
     tbody.innerHTML = data.map(acao => {
         const variacao = getVariacao(acao);
         // Usar o logourl que o backend já preparou
         const logoUrl = acao.logourl;
-
         return `
             <tr>
                 <td>

@@ -151,12 +151,7 @@ exports.handler = async (event, context) => {
     // Debug
     responses.forEach((r, i) => {
       console.log("Ticker:", ALL[i]);
-
-      if (r.status === "fulfilled") {
-        console.log("OK:", JSON.stringify(r.value));
-      } else {
-        console.log("ERROR:", r.reason);
-      }
+      console.log("DATA:", JSON.stringify(r));
     });
 
     // 🔗 juntar resultados
@@ -202,12 +197,12 @@ exports.handler = async (event, context) => {
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice: result.regularMarketPrice ?? getLast(hist) ?? null,
-          regularMarketChangePercent: result.regularMarketChangePercent ?? getVariation(hist) ?? null,
+          regularMarketPrice: getLast(hist) ?? result.regularMarketPrice ?? null,
+          regularMarketChangePercent: getVariation(hist) ?? result.regularMarketChangePercent ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
-          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMin(closes) ?? null,
-          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? getMax(closes) ?? null,
+          fiftyTwoWeekLow: getMin(last365) ?? result.fiftyTwoWeekLow ?? null,
+          fiftyTwoWeekHigh: getMax(last365) ?? result.fiftyTwoWeekHigh ?? null,
           min7d: getMin(last7) ?? null,
           min30d: getMin(last30) ?? null,
           min90d: getMin(last90) ?? null,
