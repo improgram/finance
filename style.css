@@ -48,9 +48,10 @@ body {
 /* centro (menu principal) */
 .nav-center {
     display: flex;
+    list-style: none;
     gap: 25px;
-    flex-wrap: wrap;              /* 🔥 permite quebrar linha */
-    justify-content: center;      /* centraliza quando quebra */
+    align-items: center;
+    gap: 25px;
 }
 
 .nav-center a {
@@ -134,6 +135,13 @@ body {
 
 .dropdown {
     position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dropdown > a {
+    display: inline-block;
+    padding: 6px 4px;
 }
 
 .submenu {
