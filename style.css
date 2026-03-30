@@ -58,7 +58,7 @@ body {
 .nav-center a {
     color: #ffffff;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 18px;
     position: relative;
     padding: 6px 4px;
     transition: color 0.25s ease, transform 0.15s ease;
@@ -118,7 +118,7 @@ body {
     border: 1px solid #2d3748;
     background: #111827;
     color: #fff;
-    font-size: 13px;
+    font-size: 14px;
     margin: 0 0 0 5px;
 }
 
@@ -166,7 +166,7 @@ body {
 .submenu a {
     color: white;
     text-decoration: none;
-    font-size: 13px;
+    font-size: 14px;
 }
 /* FiM do Submenu */
 
@@ -341,7 +341,7 @@ tr:hover {                      /* passar mouse */
     }
 
      .nav-center a {
-        font-size: clamp(18px, 4vw, 22px);
+        font-size: clamp(20px, 5vw, 24px);
         width: 100%;
         text-align: center;
         padding: 12px 0;
@@ -404,7 +404,7 @@ tr:hover {                      /* passar mouse */
     }
 
     .nav-center a {
-        font-size: 13px;
+        font-size: 14px;
     }
 
     .nav-right {
