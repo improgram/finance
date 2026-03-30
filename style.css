@@ -158,6 +158,10 @@ body {
     margin: 5px 0;
 }
 
+.submenu li a {
+    white-space: nowrap; /* impede quebra de linha */
+}
+
 .submenu a {
     color: white;
     text-decoration: none;

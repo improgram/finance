@@ -74,7 +74,7 @@ const BATCH_SIZE = 2;
 
         const responses = await Promise.allSettled(
           batch.map(symbol => {
-            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=5d&interval=1d&token=${token}`);
+            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`);
           })
         );
         const success = responses
