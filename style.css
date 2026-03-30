@@ -168,11 +168,11 @@ body {
     text-decoration: none;
     font-size: 13px;
 }
-
 /* FiM do Submenu */
 
-h2 {
+h1, h2 {
     margin: 20px 0 5px 0;
+    text-align: center;
 }
 
 .search-container {
@@ -212,9 +212,9 @@ h2 {
 /* Container com responsividade */
 .table-container {
     width: 100%;
-    max-width: 1200px;
     overflow: auto;
     position: relative;
+    margin: 0 auto;
 }
 
 table {
@@ -291,7 +291,6 @@ tr:hover {                      /* passar mouse */
     white-space: normal;   /* permite quebra de linha          */
     word-wrap: break-word; /* força a quebra se palavra for muito longa */
 }
-
 
 .price {
     font-weight: bold;
@@ -431,7 +430,6 @@ tr:hover {                      /* passar mouse */
     padding: 12px;
     margin-top: 30px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
