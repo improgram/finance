@@ -11,12 +11,9 @@
 
 const ETF_LIST = [
   "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-
-];
-/*
-"IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
+  "IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
   "SPXB11","SPXI11","SPXR11","UTLL11","5PRE11"
-*/
+];
 
 const tickersB3 = [
   "ALPA4","ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
@@ -49,7 +46,7 @@ let cache = { data: null, timestamp: 0 };
 const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
 
 // ⚡ CONCORRÊNCIA CONTROLADA
-const BATCH_SIZE = 1;
+// const BATCH_SIZE = 1;      => causou ERRO
 
   // 🔁 retry
   const fetchWithRetry = async (url, retries = 2, delay = 400) => {
@@ -58,7 +55,6 @@ const BATCH_SIZE = 1;
       const text = await res.text();
 
       if (!res.ok) {
-        const text = await res.text();
         console.error("HTTP ERROR:", res.status, text);
         throw new Error(`HTTP ${res.status}`);
       }
@@ -71,43 +67,20 @@ const BATCH_SIZE = 1;
     }
   };
 
-   // Fetch em batches
-    const fetchInBatches = async (tickers, token) => {
-      const results = [];
-      for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
-        const batch = tickers.slice(i, i + BATCH_SIZE);
-
-        const responses = await Promise.allSettled(
-          batch.map(symbol => {
-            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`);
-          })
-        );
-        const success = responses
-          .filter(r => r.status === "fulfilled")
-          .map(r => r.value);
-          results.push(...success);
-      }
-      return results;
-    }; // final Batches
-
         // 📉 helpers
     const getCloses = (hist) => // remove zeros inválidos
       hist.filter(d => d && typeof d.close === "number" && d.close > 0 && isFinite(d.close)
-                  )
-                  .map(d => d.close);
-    const getMin = (arr) =>
-      Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
-    const getMax = (arr) =>
-      Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
+                  ) .map(d => d.close);
+    const getMin = (arr) => Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
+    const getMax = (arr) => Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
+
     const getLastValid = (hist) => {
       const closes = getCloses(hist);
       if (!closes.length) return null;
       const last = closes[closes.length - 1];
       // busca último valor DIFERENTE (evita repetição)
         for (let i = closes.length - 2; i >= 0; i--) {
-          if (closes[i] !== last) {
-            return last;
-          }
+          if (closes[i] !== last) return last;
         }
       return last;
     };
@@ -125,6 +98,44 @@ const BATCH_SIZE = 1;
       return 0;
     };
 
+    const getBestPrice = (hist, quotePrice) => {
+          const closes = getCloses(hist);
+          if (!closes.length && quotePrice > 0) return quotePrice;
+          const lastHist = closes[closes.length - 1];
+          // 🔥 se não tem histórico válido
+          if (!lastHist || lastHist <= 0) return quotePrice ?? null;
+          // 🔥 se não tem quote válido
+          if (!quotePrice || quotePrice <= 0) return lastHist;
+          // 🔥 diferença percentual
+          const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
+          // 🔥 regra principal:
+          // se diferença pequena → usa histórico (mais confiável)
+          if (diff < 2) return lastHist;
+        // 🔥 se diferença grande → provavelmente histórico atrasado → usa quote
+          return quotePrice;
+    };
+
+/*
+    // Fetch em batches
+    const fetchInBatches = async (tickers, token) => {
+      const results = [];
+      for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
+        const batch = tickers.slice(i, i + BATCH_SIZE);
+
+        const responses = await Promise.allSettled(
+          batch.map(symbol => {
+            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`);
+          })
+        );
+        const success = responses
+          .filter(r => r.status === "fulfilled")
+          .map(r => r.value);
+          results.push(...success);
+      }
+      return results;
+    };
+    // final Batches
+*/
 
 exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -162,7 +173,7 @@ exports.handler = async (event, context) => {
     const ALL = ETF_LIST.concat(tickersB3);
 
     // ⚡ fetch otimizado (3 meses)
-    const responses = await fetchInBatches(ALL, API_TOKEN);
+    // const responses = await fetchInBatches(ALL, API_TOKEN);
 
     // Debug
     responses.forEach((r, i) => {
@@ -170,17 +181,33 @@ exports.handler = async (event, context) => {
       console.log("RAW RESPONSE:", r);
     });
 
+
     // 🔗 juntar resultados
-    const allResults = [];
-      // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
-      // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
-    for (const item of responses) { // responses já é do fetchInBatches
+    // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
+    // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
+
+    /*
+      for (const item of responses) { // responses já é do fetchInBatches
         if (item && Array.isArray(item.results) && item.results.length > 0) {
             allResults.push(...item.results);
         } else {
             console.warn(`Sem results para ticker: ${item?.symbol || 'unknown'}`);
             console.error("Resposta inválida da API:", item);
         }
+    }
+    */
+
+    // ⚡ REQUEST OTIMIZADO: Um único fetch para todos os ativos!
+    const symbolsParam = ALL.join(',');
+    const url = `https://brapi.dev/api/quote/${symbolsParam}?range=1y&interval=1d&token=${API_TOKEN}`;
+
+    console.log(`Buscando ${ALL.length} ativos em uma única requisição...`);
+    const brapiResponse = await fetchWithRetry(url);
+
+    const allResults = brapiResponse.results || [];
+
+    if (allResults.length === 0) {
+      console.warn("API retornou sucesso, mas não há ativos no array 'results'.");
     }
 
     const results = [];
@@ -210,38 +237,7 @@ exports.handler = async (event, context) => {
         const last365Raw = hist.slice(-365);
         const last365 = last365Raw.length ? getCloses(last365Raw) : closes;
 
-        const priceHist = getLastValid(hist);
         const variation = getVariation(hist);
-
-        const getBestPrice = (hist, quotePrice) => {
-        const closes = getCloses(hist);
-
-        if (!closes.length && quotePrice > 0) return quotePrice;
-
-        const lastHist = closes[closes.length - 1];
-
-        // 🔥 se não tem histórico válido
-        if (!lastHist || lastHist <= 0) {
-          return quotePrice ?? null;
-        }
-
-        // 🔥 se não tem quote válido
-        if (!quotePrice || quotePrice <= 0) {
-          return lastHist;
-        }
-
-        // 🔥 diferença percentual
-        const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
-
-        // 🔥 regra principal:
-        // se diferença pequena → usa histórico (mais confiável)
-        if (diff < 2) {
-          return lastHist;
-        }
-
-        // 🔥 se diferença grande → provavelmente histórico atrasado → usa quote
-        return quotePrice;
-      };
 
         results.push({
           logourl: logoAtivo,
