@@ -176,11 +176,12 @@ exports.handler = async (event, context) => {
     // const responses = await fetchInBatches(ALL, API_TOKEN);
 
     // Debug
+    /*
     responses.forEach((r, i) => {
       console.log("Ticker:", ALL[i]);
       console.log("RAW RESPONSE:", r);
     });
-
+    */
 
     // 🔗 juntar resultados
     // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
