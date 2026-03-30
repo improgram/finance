@@ -74,7 +74,7 @@ const BATCH_SIZE = 2;
 
         const responses = await Promise.allSettled(
           batch.map(symbol => {
-            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${token}`);
+            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`);
           })
         );
         const success = responses
@@ -87,7 +87,9 @@ const BATCH_SIZE = 2;
 
         // 📉 helpers
     const getCloses = (hist) => // remove zeros inválidos
-      hist.filter(d => d && typeof d.close === "number" && d.close > 0 ) .map(d => d.close);
+      hist.filter(d => d && typeof d.close === "number" && d.close > 0 && isFinite(d.close)
+                  )
+                  .map(d => d.close);
     const getMin = (arr) =>
       Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
     const getMax = (arr) =>
@@ -198,7 +200,9 @@ exports.handler = async (event, context) => {
         const last7 = getCloses(hist.slice(-7) || [] );     // extrair os últimos 7 elementos do array hist
         const last30 = getCloses(hist.slice(-30) || [] );
         const last90 = getCloses(hist.slice(-90) || [] );
-        const last365 = getCloses(hist.slice(-365)) || closes;
+        const last365Raw = hist.slice(-365);
+        const last365 = last365Raw.length ? getCloses(last365Raw) : closes;
+
         const priceHist = getLastValid(hist);
         const variation = getVariation(hist);
 
@@ -241,8 +245,8 @@ exports.handler = async (event, context) => {
           regularMarketChangePercent: variation !== null ? variation : result.regularMarketChangePercent ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
-          fiftyTwoWeekLow: getMin(last365) ?? result.fiftyTwoWeekLow ?? null,
-          fiftyTwoWeekHigh: getMax(last365) ?? result.fiftyTwoWeekHigh ?? null,
+          fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMin(last365) ?? null,
+          fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? getMax(last365) ?? null,
           min7d: getMin(last7) ?? null,
           min30d: getMin(last30) ?? null,
           min90d: getMin(last90) ?? null,
