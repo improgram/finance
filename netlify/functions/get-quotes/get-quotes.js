@@ -11,9 +11,12 @@
 
 const ETF_LIST = [
   "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-  "IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
-  "SPXB11","SPXI11","SPXR11","UTLL11","5PRE11"
+
 ];
+/*
+"IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
+  "SPXB11","SPXI11","SPXR11","UTLL11","5PRE11"
+*/
 
 const tickersB3 = [
   "ALPA4","ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
@@ -46,7 +49,7 @@ let cache = { data: null, timestamp: 0 };
 const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
 
 // ⚡ CONCORRÊNCIA CONTROLADA
-const BATCH_SIZE = 2;
+const BATCH_SIZE = 1;
 
   // 🔁 retry
   const fetchWithRetry = async (url, retries = 2, delay = 400) => {
@@ -55,6 +58,8 @@ const BATCH_SIZE = 2;
       const text = await res.text();
 
       if (!res.ok) {
+        const text = await res.text();
+        console.error("HTTP ERROR:", res.status, text);
         throw new Error(`HTTP ${res.status}`);
       }
 
@@ -125,18 +130,19 @@ exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   const now = Date.now();
 
-    // Teste antes de tudo deve ficar dentro Async
-  const test = await fetchWithRetry(
-    `https://brapi.dev/api/quote/BOVA11?token=${API_TOKEN}`
-  );
-  console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
-
   if (!API_TOKEN) {
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Token não configurado" })
     };
   }
+
+      // Teste antes de tudo deve ficar dentro Async
+  const test = await fetchWithRetry(
+    `https://brapi.dev/api/quote/BOVA11?token=${API_TOKEN}`
+  );
+  console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
+
 
   // 🧠 CACHE HIT
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
@@ -161,7 +167,7 @@ exports.handler = async (event, context) => {
     // Debug
     responses.forEach((r, i) => {
       console.log("Ticker:", ALL[i]);
-      console.log("DATA:", JSON.stringify(r));
+      console.log("RAW RESPONSE:", r);
     });
 
     // 🔗 juntar resultados
@@ -169,10 +175,11 @@ exports.handler = async (event, context) => {
       // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
       // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
     for (const item of responses) { // responses já é do fetchInBatches
-        if (item && Array.isArray(item.results)) {
+        if (item && Array.isArray(item.results) && item.results.length > 0) {
             allResults.push(...item.results);
         } else {
             console.warn(`Sem results para ticker: ${item?.symbol || 'unknown'}`);
+            console.error("Resposta inválida da API:", item);
         }
     }
 
