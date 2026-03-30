@@ -8,7 +8,6 @@
 //    O endpoint /quote/list retorna:   { "stocks": [...]  }
 //    O endpoint /quote/{ticker} retorna objeto 'results'
 
-
 const ETF_LIST = [
   "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
   "IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
@@ -43,99 +42,75 @@ const ETF_INFO = {
 
 // 🧠 CACHE (mais agressivo)
 let cache = { data: null, timestamp: 0 };
-const CACHE_TIME = 3 * 60 * 1000; // 130.000 milisegundos = 3 minutos
+const CACHE_TIME = 3 * 60 * 1000; // 180.000 milisegundos = 3 minutos
 
-// ⚡ CONCORRÊNCIA CONTROLADA
-// const BATCH_SIZE = 1;      => causou ERRO
+// Função auxiliar para criar delay
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // 🔁 retry
-  const fetchWithRetry = async (url, retries = 2, delay = 400) => {
-    try {
-      const res = await fetch(url);
-      const text = await res.text();
+// 🔁 retry
+const fetchWithRetry = async (url, retries = 2, delay = 400) => {
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
 
-      if (!res.ok) {
-        console.error("HTTP ERROR:", res.status, text);
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      return JSON.parse(text);
-    } catch (err) {
-      if (retries === 0) throw err;
-      await new Promise(r => setTimeout(r, delay));
-      return fetchWithRetry(url, retries - 1, delay * 2);
+    if (!res.ok) {
+      console.error("HTTP ERROR:", res.status, text);
+      throw new Error(`HTTP ${res.status}`);
     }
-  };
 
-        // 📉 helpers
-    const getCloses = (hist) => // remove zeros inválidos
-      hist.filter(d => d && typeof d.close === "number" && d.close > 0 && isFinite(d.close)
-                  ) .map(d => d.close);
-    const getMin = (arr) => Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
-    const getMax = (arr) => Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
+    return JSON.parse(text);
+  } catch (err) {
+    if (retries === 0) throw err;
+    await sleep(delay); // Aguarda antes de tentar novamente
+    return fetchWithRetry(url, retries - 1, delay * 2);
+  }
+};
 
-    const getLastValid = (hist) => {
-      const closes = getCloses(hist);
-      if (!closes.length) return null;
-      const last = closes[closes.length - 1];
-      // busca último valor DIFERENTE (evita repetição)
-        for (let i = closes.length - 2; i >= 0; i--) {
-          if (closes[i] !== last) return last;
-        }
-      return last;
-    };
+// 📉 helpers
+const getCloses = (hist) => // remove zeros inválidos
+  hist.filter(d => d && typeof d.close === "number" && d.close > 0 && isFinite(d.close))
+      .map(d => d.close);
 
-    const getVariation = (hist) => {
-      const closes = getCloses(hist);
-      if (closes.length < 2) return null;
-      const last = closes[closes.length - 1];
+const getMin = (arr) => Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
+const getMax = (arr) => Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
 
-      for (let i = closes.length - 2; i >= 0; i--) {
-          if (closes[i] !== last) {
-            return ((last - closes[i]) / closes[i]) * 100;
-          }
+const getLastValid = (hist) => {
+  const closes = getCloses(hist);
+  if (!closes.length) return null;
+  const last = closes[closes.length - 1];
+  for (let i = closes.length - 2; i >= 0; i--) {
+    if (closes[i] !== last) return last;
+  }
+  return last;
+};
+
+const getVariation = (hist) => {
+  const closes = getCloses(hist);
+  if (closes.length < 2) return null;
+  const last = closes[closes.length - 1];
+
+  for (let i = closes.length - 2; i >= 0; i--) {
+      if (closes[i] !== last) {
+        return ((last - closes[i]) / closes[i]) * 100;
       }
-      return 0;
-    };
+  }
+  return 0;
+};
 
-    const getBestPrice = (hist, quotePrice) => {
-          const closes = getCloses(hist);
-          if (!closes.length && quotePrice > 0) return quotePrice;
-          const lastHist = closes[closes.length - 1];
-          // 🔥 se não tem histórico válido
-          if (!lastHist || lastHist <= 0) return quotePrice ?? null;
-          // 🔥 se não tem quote válido
-          if (!quotePrice || quotePrice <= 0) return lastHist;
-          // 🔥 diferença percentual
-          const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
-          // 🔥 regra principal:
-          // se diferença pequena → usa histórico (mais confiável)
-          if (diff < 2) return lastHist;
-        // 🔥 se diferença grande → provavelmente histórico atrasado → usa quote
-          return quotePrice;
-    };
+const getBestPrice = (hist, quotePrice) => {
+      const closes = getCloses(hist);
+      if (!closes.length && quotePrice > 0) return quotePrice;
+      const lastHist = closes[closes.length - 1];
 
-/*
-    // Fetch em batches
-    const fetchInBatches = async (tickers, token) => {
-      const results = [];
-      for (let i = 0; i < tickers.length; i += BATCH_SIZE) {
-        const batch = tickers.slice(i, i + BATCH_SIZE);
+      if (!lastHist || lastHist <= 0) return quotePrice ?? null;
+      if (!quotePrice || quotePrice <= 0) return lastHist;
 
-        const responses = await Promise.allSettled(
-          batch.map(symbol => {
-            return fetchWithRetry(`https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${token}`);
-          })
-        );
-        const success = responses
-          .filter(r => r.status === "fulfilled")
-          .map(r => r.value);
-          results.push(...success);
-      }
-      return results;
-    };
-    // final Batches
-*/
+      const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
+
+      if (diff < 2) return lastHist;
+      return quotePrice;
+};
+
 
 exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -147,13 +122,6 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({ error: "Token não configurado" })
     };
   }
-
-      // Teste antes de tudo deve ficar dentro Async
-  const test = await fetchWithRetry(
-    `https://brapi.dev/api/quote/BOVA11?token=${API_TOKEN}`
-  );
-  console.log("TESTE BOVA11:", JSON.stringify(test, null, 2));
-
 
   // 🧠 CACHE HIT
   if (cache.data && (now - cache.timestamp < CACHE_TIME)) {
@@ -169,62 +137,43 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // 🔥 1 request por ativo (PLANO FREE)
     const ALL = ETF_LIST.concat(tickersB3);
+    const allResults = [];
 
-    // ⚡ fetch otimizado (3 meses)
-    // const responses = await fetchInBatches(ALL, API_TOKEN);
+    // ⚡ REQUEST SEQUENCIAL CONTROLADO: 1 ativo por vez com delay
+    console.log(`Buscando ${ALL.length} ativos sequencialmente...`);
 
-    // Debug
-    /*
-    responses.forEach((r, i) => {
-      console.log("Ticker:", ALL[i]);
-      console.log("RAW RESPONSE:", r);
-    });
-    */
+    for (const symbol of ALL) {
+      try {
+        const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${API_TOKEN}`;
+        const response = await fetchWithRetry(url);
 
-    // 🔗 juntar resultados
-    // Para cada item na lista, verifique se ele existe e se tem uma lista chamada results dentro dele
-    // Para cada item que passou no teste anterior, pegue apenas a lista results e junte tudo em um único array final.
-
-    /*
-      for (const item of responses) { // responses já é do fetchInBatches
-        if (item && Array.isArray(item.results) && item.results.length > 0) {
-            allResults.push(...item.results);
+        if (response && response.results && response.results.length > 0) {
+          allResults.push(...response.results);
         } else {
-            console.warn(`Sem results para ticker: ${item?.symbol || 'unknown'}`);
-            console.error("Resposta inválida da API:", item);
+          console.warn(`Sem results para ticker: ${symbol}`);
         }
+      } catch (err) {
+        console.error(`Falha ao buscar ticker ${symbol}:`, err.message);
+      }
+
+      // ⏱️ Pausa de 150ms entre cada requisição para evitar Erro 429 (Too Many Requests)
+      await sleep(150);
     }
-    */
-
-    // ⚡ REQUEST OTIMIZADO: Um único fetch para todos os ativos!
-    const symbolsParam = ALL.join(',');
-    const url = `https://brapi.dev/api/quote/${symbolsParam}?range=1y&interval=1d&token=${API_TOKEN}`;
-
-    console.log(`Buscando ${ALL.length} ativos em uma única requisição...`);
-    const brapiResponse = await fetchWithRetry(url);
-
-    const allResults = brapiResponse.results || [];
 
     if (allResults.length === 0) {
-      console.warn("API retornou sucesso, mas não há ativos no array 'results'.");
+      throw new Error("Nenhum dado retornado pela API após processar os tickers.");
     }
 
     const results = [];
       for (let i = 0; i < allResults.length; i++) {
         const result = allResults[i];
-        if (!result || !result.symbol) continue; // Validaçao
+        if (!result || !result.symbol) continue;
 
         const logoAtivo = result.logourl
           ? result.logourl
           : `https://icons.brapi.dev/icons/${result.symbol.toUpperCase()}.svg`;
-        // 1. Prioridade para o logo da API
-        // 2. Fallback para a URL padrão de ícones da Brapi
-        // A maioria dos servidores de imagem da B3/Brapi
-        // prefere o ticker em maiúsculas
 
-        // 🧠 descrição com fallback inteligente
         const description = (ETF_INFO[result.symbol] && ETF_INFO[result.symbol].description)
           ? ETF_INFO[result.symbol].description : "Descrição não disponível";
 
@@ -232,7 +181,7 @@ exports.handler = async (event, context) => {
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
 
         const closes = getCloses(hist);
-        const last7 = getCloses(hist.slice(-7) || [] );     // extrair os últimos 7 elementos do array hist
+        const last7 = getCloses(hist.slice(-7) || [] );
         const last30 = getCloses(hist.slice(-30) || [] );
         const last90 = getCloses(hist.slice(-90) || [] );
         const last365Raw = hist.slice(-365);
@@ -258,7 +207,6 @@ exports.handler = async (event, context) => {
           historicalAvailable: closes.length > 0
         });
     }
-// final do Result
 
     const payload = {
       data: {
