@@ -143,9 +143,9 @@ exports.handler = async (event, context) => {
     // ⚡ REQUEST SEQUENCIAL CONTROLADO: 1 ativo por vez com delay
     console.log(`Buscando ${ALL.length} ativos sequencialmente...`);
 
-    for (const symbol of ALL) {
+    for (const symbol of ALL) {   // range=3y nao disponivel
       try {
-        const url = `https://brapi.dev/api/quote/${symbol}?range=1y&interval=1d&token=${API_TOKEN}`;
+        const url = `https://brapi.dev/api/quote/${symbol}?range=3mo&interval=1d&token=${API_TOKEN}`;
         const response = await fetchWithRetry(url);
 
         if (response && response.results && response.results.length > 0) {
