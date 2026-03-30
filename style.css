@@ -4,8 +4,8 @@
   box-sizing: border-box;
 }
 
-html {
-    height: 100%;
+html, body {
+    height: auto;
 }
 
 body {
@@ -17,8 +17,8 @@ body {
     background-size: cover;
     display: flex;
     flex-direction: column;
-    align-items: center;                /* horizontal */
-    justify-content: center;            /* vertical */
+    align-items: center;                     /* horizontal */
+    justify-content: flex-start;            /* vertical */
     gap: clamp(7px, 1.4vw, 16px);
     padding: clamp(7px, 1.6vw, 16px);
     color: white;
@@ -344,12 +344,12 @@ tr:hover {                      /* passar mouse */
     }
 
     .table-container {
-        width: 100%;
+        max-width: 100vw;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch; /* scroll suave no iPhone */
     }
     table {
-        min-width: 700px; /* força scroll ao invés de quebrar layout */
+        min-width: 900px;  /* força scroll ao invés de quebrar layout */
     }
     th, td {
         padding: 8px 4px;
@@ -363,9 +363,8 @@ tr:hover {                      /* passar mouse */
 /*--------MOBILE RESPONSIVO-------------------*/
 @media (max-width: 600px) {
     .navbar {
-        flex-direction: column;   /* empilha menu + busca */
-        gap: 10px;
-        padding: 10px;
+        position: sticky;
+        top: 0;
     }
 
     .nav-center {
