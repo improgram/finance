@@ -17,7 +17,7 @@ body {
     background-size: cover;
     display: flex;
     flex-direction: column;
-    align-items: center;                     /* horizontal */
+    align-items: stretch;                     /* horizontal */
     justify-content: flex-start;            /* vertical */
     gap: clamp(7px, 1.4vw, 16px);
     padding: clamp(7px, 1.6vw, 16px);
@@ -37,12 +37,14 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    width: 100%;            /* ocupa toda largura da tela */
     padding: 2px 25px;      /* Menu superior parte preta */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
     top: 0;
     z-index: 1000;
+    left: 0;
 }
 
 /* centro (menu principal) */
@@ -329,9 +331,9 @@ tr:hover {                      /* passar mouse */
         background: #0f1115;
         position: absolute;
         top: 100%;
+        width: 100vw;
+        height: 100vh;      /* ocupa tela inteira */
         left: 0;
-        width: 100%;
-
         padding: 30px 0;
         gap: 20px;
         border-top: 1px solid #1f2937;
@@ -340,7 +342,7 @@ tr:hover {                      /* passar mouse */
     }
 
      .nav-center a {
-        font-size: 20px;
+        font-size: clamp(18px, 4vw, 22px);
         width: 100%;
         text-align: center;
         padding: 12px 0;
@@ -360,7 +362,8 @@ tr:hover {                      /* passar mouse */
     }
 
     .submenu a {
-        font-size: 18px; /* Fonte do submenu um pouco menor que o principal */
+        font-size: clamp(16px, 3.5vw, 20px);
+        /* Fonte do submenu um pouco menor que o principal */
     }
 
     .nav-right {
