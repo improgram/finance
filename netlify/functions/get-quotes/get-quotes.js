@@ -153,7 +153,8 @@ exports.handler = async (event, context) => {
     const ALL = ETF_LIST.concat(tickersB3);
     const allResults = [];
 
-    // ⚡ REQUEST SEQUENCIAL CONTROLADO: 1 ativo por vez com delay
+    // REQUEST SEQUENCIAL CONTROLADO: 1 ativo por vez com delay
+    // Aparece nos logs da function na netlify
     console.log(`Buscando ${ALL.length} ativos sequencialmente...`);
 
     for (const symbol of ALL) {   // range=3y nao disponivel
