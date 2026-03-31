@@ -10,8 +10,8 @@
 
 const ETF_LIST = [
   "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-  "IVVB11","LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
-  "SPXB11","SPXI11","SPXR11","UTLL11","5PRE11"
+  "LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
+  "UTLL11","5PRE11"
 ];
 
 const tickersB3 = [
@@ -111,6 +111,19 @@ const getBestPrice = (hist, quotePrice) => {
       return quotePrice;
 };
 
+const getVariationFromArray = (arr) => {
+  if (!Array.isArray(arr) || arr.length < 2) return null;
+
+  const last = arr[arr.length - 1];
+
+  for (let i = arr.length - 2; i >= 0; i--) {
+    if (arr[i] !== last) {
+      return ((last - arr[i]) / arr[i]) * 100;
+    }
+  }
+  return 0;
+};
+
 
 exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -186,7 +199,7 @@ exports.handler = async (event, context) => {
         const last90 = getCloses(hist.slice(-90) || [] );
         const last365Raw = hist.slice(-365);
         const last365 = last365Raw.length ? getCloses(last365Raw) : closes;
-
+        const variation30d = getVariationFromArray(last30);
         const variation = getVariation(hist);
 
         results.push({
@@ -204,6 +217,7 @@ exports.handler = async (event, context) => {
           min30d: getMin(last30) ?? null,
           min90d: getMin(last90) ?? null,
           min365: getMin(last365) ?? null,
+          variation30d: variation30d,
           historicalAvailable: closes.length > 0
         });
     }

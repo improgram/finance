@@ -87,11 +87,18 @@ const getDayRange = (obj) =>
         ? `${formatNumber(obj.regularMarketDayLow)} - ${formatNumber(obj.regularMarketDayHigh)}`
         : '-';
 
+const getVariacao30d = (obj) =>
+    typeof obj.variation30d === "number"
+        ? obj.variation30d
+        : null;
+
+
 // Primeira Tabela
 const renderTable = (data) => {
     const container = document.getElementById('quotes-container');
     container.innerHTML = data.map(quote => {
         const variacao = getVariacao(quote);
+        const variacao30d = getVariacao30d(quote);
         return `
             <tr>
                 <td><strong>${quote.symbol || 'N/A'}</strong></td>
@@ -105,17 +112,23 @@ const renderTable = (data) => {
                 </td>
                 <td>${getDayRange(quote)}</td>
                 <td>${formatNumber(quote.min7d)}</td>
-                <td>${formatNumber(quote.min30d)}</td>
-                <td>${formatNumber(quote.min90d)}</td>
-                <td class="price">
-                    ${quote.fiftyTwoWeekLow != null
-                        ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
+                <td class="${variacao30d !== null ? aplicarCor(variacao30d) : ''}">
+                    ${variacao30d !== null ? formatPercent(variacao30d) + '%' : '---'}
                 </td>
+                <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
     }).join('');
 };
+
+/*
+<td>${formatNumber(quote.min90d)}</td>
+<td class="price">
+    ${quote.fiftyTwoWeekLow != null
+    ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
+</td>
+*/
 
 
 // Segunda Tabela
@@ -123,6 +136,7 @@ const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');
     tbody.innerHTML = data.map(acao => {
         const variacao = getVariacao(acao);
+        const variacao30d = getVariacao30d(acao);
         // Usar o logourl que o backend já preparou
         const logoUrl = acao.logourl;
         return `
@@ -142,13 +156,17 @@ const renderAcoes = (data) => {
                 <td>${getDayRange(acao)}</td>
                 <td>${formatNumber(acao.min7d)}</td>
                 <td>${formatNumber(acao.min30d)}</td>
-                <td>${formatNumber(acao.min90d)}</td>
+                <td class="${variacao30d !== null ? aplicarCor(variacao30d) : ''}">
+                    ${variacao30d !== null ? formatPercent(variacao30d) + '%' : '---'}
+                </td>
                 <td>${formatNumber(acao.fiftyTwoWeekLow)}</td>
                 <td>${formatNumber(acao.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
     }).join('');
 };
+
+/* <td>${formatNumber(acao.min90d)}</td> */
 
 const fetchQuotes = async () => {
     const statusEl = document.getElementById('status');     // Mostrar loading real
