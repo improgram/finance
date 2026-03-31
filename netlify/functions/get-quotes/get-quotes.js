@@ -111,17 +111,15 @@ const getBestPrice = (hist, quotePrice) => {
       return quotePrice;
 };
 
-const getVariationFromArray = (arr) => {
+const getVariation30d = (arr) => {
   if (!Array.isArray(arr) || arr.length < 2) return null;
 
-  const last = arr[arr.length - 1];
+  const first = arr[0]; // 👈 preço mais antigo (30 dias atrás)
+  const last = arr[arr.length - 1]; // 👈 preço atual
 
-  for (let i = arr.length - 2; i >= 0; i--) {
-    if (arr[i] !== last) {
-      return ((last - arr[i]) / arr[i]) * 100;
-    }
-  }
-  return 0;
+  if (!first || !last) return null;
+
+  return ((last - first) / first) * 100;
 };
 
 
@@ -196,11 +194,11 @@ exports.handler = async (event, context) => {
 
         const closes = getCloses(hist);
         const last7 = getCloses(hist.slice(-7) || [] );
-        const last30 = getCloses(hist.slice(-30) || [] );
+        const last30 = getCloses(hist.slice(-22) || [] ); // 22 dias uteis
         const last90 = getCloses(hist.slice(-90) || [] );
         const last365Raw = hist.slice(-365);
         const last365 = last365Raw.length ? getCloses(last365Raw) : closes;
-        const variation30d = getVariationFromArray(last30);
+        const variation30d = getVariation30d(last30);
         const variation = getVariation(hist);
 
         results.push({
