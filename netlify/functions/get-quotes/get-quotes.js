@@ -84,19 +84,6 @@ const filterByDays = (validHist, daysAgo) => {
 };
 
 
-const getVariation = (validHist) => {
-  const closes = getCloses(validHist);
-  if (closes.length < 2) return null;
-  const last = closes[closes.length - 1];
-
-  for (let i = closes.length - 2; i >= 0; i--) {
-      if (closes[i] !== last) {
-        return ((last - closes[i]) / closes[i]) * 100;
-      }
-  }
-  return 0;
-};
-
 const getBestPrice = (validHist, quotePrice) => {
       const closes = getCloses(validHist);
       if (!closes.length && quotePrice > 0) return quotePrice;
@@ -192,20 +179,25 @@ exports.handler = async (event, context) => {
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
 
+
         const validHist = getValidHist(hist);
         // Separa os históricos por tempo exato (7 e 30 dias corridos)
         const hist7 = filterByDays(validHist, 7);
         const hist30 = filterByDays(validHist, 30);
 
-        const closes = getCloses(hist);
-        const last7 = closes.slice(-5);   // Últimos 5 pregões válidos (~7 dias corridos)
+        // Extrai apenas os preços limpos das janelas de tempo corretas
+        /*const closes = getCloses(hist);*/
+        const last7 = getCloses(hist7);   // Últimos 5 pregões válidos (~7 dias corridos)
         const last30 = getCloses(hist30);
         const last365 = getCloses(validHist); // Todo o histórico retornado pelo range=3mo
 
         // CÁLCULOS FINANCEIROS
         const currentPrice = getBestPrice(validHist, result.regularMarketPrice);
         const variation30d = getVariation30d(hist30, currentPrice);
-        const variation = getVariation(validHist);
+
+        // Usa a variação diária oficial da API (se falhar, retorna null para o frontend mostrar "---")
+        const dailyVariation = result.regularMarketChangePercent ?? null;
+        const variation = getVariation(validHist);    /*  ?? Validar se precisa  ?? */
 
         results.push({
           logourl: logoAtivo,
@@ -213,7 +205,7 @@ exports.handler = async (event, context) => {
           name: result.longName || result.shortName || result.symbol,
           description,
           regularMarketPrice: currentPrice,
-          regularMarketChangePercent: variation !== null ? variation : result.regularMarketChangePercent ?? null,
+          regularMarketChangePercent: dailyVariation,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
           fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMin(last365) ?? null,
