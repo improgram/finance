@@ -97,17 +97,25 @@ const getBestPrice = (validHist, quotePrice) => {
       return quotePrice;
 };
 
-// 4. Calcula a variação usando o preço ATUAL exato contra o preço de 30 dias atrás
-const getVariation30d = (hist30d, currentPrice) => {
-  if (!hist30d || hist30d.length === 0) return null;
-
-  // Como o array está em ordem cronológica, o índice [0] é o pregão mais antigo dentro dos últimos 30 dias
-  const firstPrice = hist30d[0].close;
-  if (!firstPrice || !currentPrice) return null;
-
-  return ((currentPrice - firstPrice) / firstPrice) * 100;
+// 4. Calcula a variação de 30 dias corridos pegando o fechamento do pregão base
+const getVariation30d = (validHist, currentPrice) => {
+  if (!validHist || validHist.length < 2) return null;
+  // Data de 30 dias atrás em segundos
+  const nowSec = Math.floor(Date.now() / 1000);
+  const targetDate = nowSec - (30 * 24 * 60 * 60);
+  // Busca o último pregão que ocorreu ANTES ou EXATAMENTE na data alvo.
+  // Isso ancora o preço antes das variações começarem a contar.
+  let basePrice = validHist[0].close; // Fallback para o mais antigo
+  for (let i = validHist.length - 1; i >= 0; i--) {
+    if (validHist[i].date <= targetDate) {
+      basePrice = validHist[i].close;
+      break;
+    }
+  }
+  if (!basePrice || !currentPrice) return null;
+  return ((currentPrice - basePrice) / basePrice) * 100;
 };
-
+/* FiM da getVariation30d */
 
 exports.handler = async (event, context) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -179,21 +187,20 @@ exports.handler = async (event, context) => {
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
 
-
         const validHist = getValidHist(hist);
-        // Separa os históricos por tempo exato (7 e 30 dias corridos)
+        // Separa os históricos por tempo exato (apenas para extrair os mínimos/máximos)
         const hist7 = filterByDays(validHist, 7);
         const hist30 = filterByDays(validHist, 30);
 
-        // Extrai apenas os preços limpos das janelas de tempo corretas
-        /*const closes = getCloses(hist);*/
+        // Extrai apenas os preços limpos
         const last7 = getCloses(hist7);   // Últimos 5 pregões válidos (~7 dias corridos)
         const last30 = getCloses(hist30);
         const last365 = getCloses(validHist); // Todo o histórico retornado pelo range=3mo
 
         // CÁLCULOS FINANCEIROS
         const currentPrice = getBestPrice(validHist, result.regularMarketPrice);
-        const variation30d = getVariation30d(hist30, currentPrice);
+        // Passamos o validHist inteiro. A função achará a âncora correta.
+        const variation30d = getVariation30d(validHist, currentPrice);
 
         // Usa a variação diária oficial da API (se falhar, retorna null para o frontend mostrar "---")
         const dailyVariation = result.regularMarketChangePercent ?? null;
