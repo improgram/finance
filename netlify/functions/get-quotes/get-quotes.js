@@ -197,7 +197,6 @@ exports.handler = async (event, context) => {
 
         // Usa a variação diária oficial da API (se falhar, retorna null para o frontend mostrar "---")
         const dailyVariation = result.regularMarketChangePercent ?? null;
-        const variation = getVariation(validHist);    /*  ?? Validar se precisa  ?? */
 
         results.push({
           logourl: logoAtivo,
@@ -210,8 +209,8 @@ exports.handler = async (event, context) => {
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
           fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? getMin(last365) ?? null,
           fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? getMax(last365) ?? null,
-          min7d: getMin(last7) ?? null,
-          min30d: getMin(last30) ?? null,
+          min7d: getMin(last7) ?? null,     /* ?? considera string vazia como falso */
+          min30d: getMin(last30) ?? null,   /* ?? considera apenas null ou undefined*/
           min365: getMin(last365) ?? null,
           variation30d: variation30d,
           historicalAvailable: validHist.length > 0
