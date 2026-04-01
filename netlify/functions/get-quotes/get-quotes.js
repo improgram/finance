@@ -63,25 +63,29 @@ const fetchWithRetry = async (url, retries = 2, delay = 400) => {
 };
 
 // 📉 helpers
-const getCloses = (hist) => // remove zeros inválidos
-  hist.filter(d => d && typeof d.close === "number" && d.close > 0 && isFinite(d.close))
-      .map(d => d.close);
+// 1. Filtra dados válidos e mantém a DATA para podermos calcular os dias corridos reais
+const getValidHist = (hist) =>
+  (Array.isArray(hist) ? hist : []).filter(d =>
+    d && typeof d.date === "number" && typeof d.close === "number" && d.close > 0 && isFinite(d.close)
+  );
 
+// 2. Extrai apenas os preços de fechamento
+const getCloses = (validHist) => validHist.map(d => d.close);
 const getMin = (arr) => Array.isArray(arr) && arr.length ? Math.min(...arr) : null;
 const getMax = (arr) => Array.isArray(arr) && arr.length ? Math.max(...arr) : null;
 
-const getLastValid = (hist) => {
-  const closes = getCloses(hist);
-  if (!closes.length) return null;
-  const last = closes[closes.length - 1];
-  for (let i = closes.length - 2; i >= 0; i--) {
-    if (closes[i] !== last) return last;
-  }
-  return last;
+// 3. Filtra os registros comparando a data do histórico com a data de hoje (em segundos)
+const filterByDays = (validHist, daysAgo) => {
+  if (!validHist.length) return [];
+  const nowSec = Math.floor(Date.now() / 1000);
+  const targetDate = nowSec - (daysAgo * 24 * 60 * 60);
+  // Retorna apenas os pregões que ocorreram dentro da janela de X dias atrás
+  return validHist.filter(d => d.date >= targetDate);
 };
 
-const getVariation = (hist) => {
-  const closes = getCloses(hist);
+
+const getVariation = (validHist) => {
+  const closes = getCloses(validHist);
   if (closes.length < 2) return null;
   const last = closes[closes.length - 1];
 
@@ -93,8 +97,8 @@ const getVariation = (hist) => {
   return 0;
 };
 
-const getBestPrice = (hist, quotePrice) => {
-      const closes = getCloses(hist);
+const getBestPrice = (validHist, quotePrice) => {
+      const closes = getCloses(validHist);
       if (!closes.length && quotePrice > 0) return quotePrice;
       const lastHist = closes[closes.length - 1];
 
@@ -102,20 +106,19 @@ const getBestPrice = (hist, quotePrice) => {
       if (!quotePrice || quotePrice <= 0) return lastHist;
 
       const diff = Math.abs((quotePrice - lastHist) / lastHist) * 100;
-
       if (diff < 2) return lastHist;
       return quotePrice;
 };
 
-const getVariation30d = (arr) => {
-  if (!Array.isArray(arr) || arr.length < 2) return null;
+4. Calcula a variação usando o preço ATUAL exato contra o preço de 30 dias atrás
+const getVariation30d = (hist30d, currentPrice) => {
+  if (!hist30d || hist30d.length === 0) return null;
 
-  const first = arr[0]; // 👈 preço mais antigo (30 dias atrás)
-  const last = arr[arr.length - 1]; // 👈 preço atual
+  // Como o array está em ordem cronológica, o índice [0] é o pregão mais antigo dentro dos últimos 30 dias
+  const firstPrice = hist30d[0].close;
+  if (!firstPrice || !currentPrice) return null;
 
-  if (!first || !last) return null;
-
-  return ((last - first) / first) * 100;
+  return ((currentPrice - firstPrice) / firstPrice) * 100;
 };
 
 
@@ -189,20 +192,27 @@ exports.handler = async (event, context) => {
         const hist = Array.isArray(result.historicalDataPrice) ? result.historicalDataPrice : [];
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
 
+        const validHist = getValidHist(hist);
+        // Separa os históricos por tempo exato (7 e 30 dias corridos)
+        const hist7 = filterByDays(validHist, 7);
+        const hist30 = filterByDays(validHist, 30);
+
         const closes = getCloses(hist);
         const last7 = closes.slice(-5);   // Últimos 5 pregões válidos (~7 dias corridos)
-        const last30 = closes.slice(-22); // Últimos 22 pregões válidos (~30 dias corridos)
-        const last90 = closes.slice(-64); // Últimos 64 pregões válidos (~90 dias corridos)
-        const last365 = closes;
-        const variation30d = getVariation30d(last30);
-        const variation = getVariation(hist);
+        const last30 = getCloses(hist30);
+        const last365 = getCloses(validHist); // Todo o histórico retornado pelo range=3mo
+
+        // CÁLCULOS FINANCEIROS
+        const currentPrice = getBestPrice(validHist, result.regularMarketPrice);
+        const variation30d = getVariation30d(hist30, currentPrice);
+        const variation = getVariation(validHist);
 
         results.push({
           logourl: logoAtivo,
           symbol: result.symbol,
           name: result.longName || result.shortName || result.symbol,
           description,
-          regularMarketPrice: getBestPrice(hist,result.regularMarketPrice),
+          regularMarketPrice: currentPrice,
           regularMarketChangePercent: variation !== null ? variation : result.regularMarketChangePercent ?? null,
           regularMarketDayLow: result.regularMarketDayLow ?? getMin(last7) ?? null,
           regularMarketDayHigh: result.regularMarketDayHigh ?? getMax(last7) ?? null,
@@ -210,10 +220,9 @@ exports.handler = async (event, context) => {
           fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? getMax(last365) ?? null,
           min7d: getMin(last7) ?? null,
           min30d: getMin(last30) ?? null,
-          min90d: getMin(last90) ?? null,
           min365: getMin(last365) ?? null,
           variation30d: variation30d,
-          historicalAvailable: closes.length > 0
+          historicalAvailable: validHist.length > 0
         });
     }
 
