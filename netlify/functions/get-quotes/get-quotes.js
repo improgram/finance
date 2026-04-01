@@ -26,15 +26,11 @@ const ETF_INFO = {
   GOAT11: { description: "IMAB11: Inflação (80%) e S&P (19%)" },
   IMAB11: { description: "NTN-Bs Inflação de media e longa duração" },
   IRFM11: { description: "Pre-Fixados: LTN 26/29/31 e NTN-B Inflaçao" },
-  IVVB11: { description: "S&P 500 (500 Maiores dos EUA)" },
   LFTB11: { description: "Tesouro Selic (LFT 27/28/29/30/2060)" },
   NBIT11: { description: "Futuros Nu Nasdaq Brazil Bitcoin" },
   NDIV11: { description: "Dividendos de grandes empresas" },
   POSB11: { description: "Tesouro Selic (LFT) (91%) e IPCA longo(9%)" },
   SMAL11: { description: "Small caps brasileiras" },
-  SPXB11: { description: "S&P 500 (500 Maiores dos EUA)" },
-  SPXI11: { description: "S&P 500 (500 Maiores dos EUA)" },
-  SPXR11: { description: "Tesouro Selic (LFT) 2026/27/28/29" },
   UTLL11: { description: "Sabesp Axia, Equatorial, Copel, Eneva, Cemig, Engie, Sanepar" },
 "5PRE11": { description: "Pre-Fixados: NTN-F(49%) e Pre-Fix:LTN 2029 (51%)" }
 };
@@ -169,7 +165,8 @@ exports.handler = async (event, context) => {
         console.error(`Falha ao buscar ticker ${symbol}:`, err.message);
       }
 
-      // ⏱️ Pausa de 150ms entre cada requisição para evitar Erro 429 (Too Many Requests)
+      // ⏱️ Pausa de 150ms entre cada requisição
+      // para evitar Erro 429 (Too Many Requests)
       await sleep(150);
     }
 
@@ -193,11 +190,10 @@ exports.handler = async (event, context) => {
         if (!hist.length) console.warn(`Sem histórico para ${result.symbol}`);
 
         const closes = getCloses(hist);
-        const last7 = getCloses(hist.slice(-7) || [] );
-        const last30 = getCloses(hist.slice(-22) || [] ); // 22 dias uteis
-        const last90 = getCloses(hist.slice(-90) || [] );
-        const last365Raw = hist.slice(-365);
-        const last365 = last365Raw.length ? getCloses(last365Raw) : closes;
+        const last7 = closes.slice(-5);   // Últimos 5 pregões válidos (~7 dias corridos)
+        const last30 = closes.slice(-22); // Últimos 22 pregões válidos (~30 dias corridos)
+        const last90 = closes.slice(-64); // Últimos 64 pregões válidos (~90 dias corridos)
+        const last365 = closes;
         const variation30d = getVariation30d(last30);
         const variation = getVariation(hist);
 
