@@ -97,22 +97,35 @@ const getBestPrice = (validHist, quotePrice) => {
       return quotePrice;
 };
 
-// 4. Calcula a variação de 30 dias corridos pegando o fechamento do pregão base
+// 4. Calcula a variação de 1 mês calendário (estilo Google Finance)
 const getVariation30d = (validHist, currentPrice) => {
-  if (!validHist || validHist.length < 2) return null;
-  // Data de 30 dias atrás em segundos
-  const nowSec = Math.floor(Date.now() / 1000);
-  const targetDate = nowSec - (30 * 24 * 60 * 60);
-  // Busca o último pregão que ocorreu ANTES ou EXATAMENTE na data alvo.
-  // Isso ancora o preço antes das variações começarem a contar.
-  let basePrice = validHist[0].close; // Fallback para o mais antigo
+  if (!validHist || validHist.length < 2 || !currentPrice) return null;
+  // loop garante que estamos pegando o preço de fechamento que o mercado usa
+  // 1. Const com a data de "Hoje" zerando as horas (importante para bater com a API)
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  // 2. Voltamos exatamente 1 mês no calendário (Ex: 01/Abr -> 01/Mar)
+  const targetDate = new Date(now);
+  targetDate.setMonth(targetDate.getMonth() - 1);
+
+  // Converter para segundos (padrão da brapi)
+  const targetTimestamp = Math.floor(targetDate.getTime() / 1000);
+
+  let basePrice = null;
+
+  // 3. Procuramos o fechamento do dia alvo.
+  // Se o dia alvo foi fim de semana, o loop pega o último pregão ANTES dele.
   for (let i = validHist.length - 1; i >= 0; i--) {
-    if (validHist[i].date <= targetDate) {
+    if (validHist[i].date <= targetTimestamp) {
       basePrice = validHist[i].close;
       break;
     }
   }
-  if (!basePrice || !currentPrice) return null;
+
+  // Fallback: se o histórico for menor que 1 mês, usa o registro mais antigo
+  if (!basePrice) basePrice = validHist[0].close;
+
   return ((currentPrice - basePrice) / basePrice) * 100;
 };
 /* FiM da getVariation30d */
@@ -258,3 +271,8 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+/*
+Se o mercado estiver aberto, a API Brapi atualiza o regularMarketPrice em tempo real,
+enquanto o historicalDataPrice só atualiza após o fechamento.
+*/
