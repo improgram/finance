@@ -79,7 +79,7 @@ const filterByDays = (validHist, daysAgo) => {
   if (!validHist.length) return [];
   const nowSec = Math.floor(Date.now() / 1000);
   const targetDate = nowSec - (daysAgo * 24 * 60 * 60);
-  // Retorna apenas os pregões que ocorreram dentro da janela de X dias atrás
+// Retorna apenas os pregões que ocorreram dentro da janela de X dias atrás
   return validHist.filter(d => d.date >= targetDate);
 };
 
@@ -110,7 +110,7 @@ const getBestPrice = (validHist, quotePrice) => {
       return quotePrice;
 };
 
-4. Calcula a variação usando o preço ATUAL exato contra o preço de 30 dias atrás
+// 4. Calcula a variação usando o preço ATUAL exato contra o preço de 30 dias atrás
 const getVariation30d = (hist30d, currentPrice) => {
   if (!hist30d || hist30d.length === 0) return null;
 
