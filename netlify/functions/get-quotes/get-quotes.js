@@ -4,20 +4,18 @@
 // import { getStore } from "@netlify/blobs";
 const { getStore } = require("@netlify/blobs");
 
-export async function handler() {
+exports.handler = async function () {
   try {
 
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
-    const store = getStore("quotes");
 
-    /*
     const store = getStore({
       name: "quotes",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
-    */
+
     const data = await store.get("latest");
 
     // 🔥 fallback seguro
@@ -51,7 +49,7 @@ export async function handler() {
       })
     };
   }
-}
+};
 
 
 //  Código rodará no lado do servidor ou serverless (netlify) NAO no navegador

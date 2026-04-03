@@ -10,14 +10,12 @@ const { getStore } = require("@netlify/blobs");
 
 console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
 console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
-const store = getStore("quotes");
-/*
+
 const store = getStore({
   name: "quotes",
   siteID: process.env.NETLIFY_SITE_ID,
   token: process.env.NETLIFY_BLOBS_TOKEN
 });
-*/
 
 export const config = {
   schedule: "*/15 * * * *" // roda a cada 15 minutos
@@ -79,7 +77,7 @@ const getCloses = (h) => h.map(d => d.close);
 const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
-export async function handler() {
+exports.handler = async function() {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   console.log("Iniciando update-quote...");
 
