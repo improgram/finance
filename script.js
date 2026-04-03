@@ -197,7 +197,6 @@ window.addEventListener('DOMContentLoaded', fetchQuotes);
 
 
 /*
-
 Fluxo do sistema:
 Brapi API
    ↓
