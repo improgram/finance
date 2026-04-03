@@ -6,6 +6,12 @@
 
 import { getStore } from "@netlify/blobs";
 
+const store = getStore({
+  name: "quotes",
+  siteID: process.env.NETLIFY_SITE_ID,
+  token: process.env.NETLIFY_BLOBS_TOKEN
+});
+
 export const config = {
   schedule: "*/15 * * * *" // roda a cada 15 minutos
 };
@@ -68,6 +74,7 @@ const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
 export async function handler() {
   const API_TOKEN = process.env.BRAPI_TOKEN;
+  console.log("Iniciando atualização...");
 
   if (!API_TOKEN) {
     return { statusCode: 500, body: "Token não configurado" };
@@ -126,6 +133,7 @@ export async function handler() {
   // 💾 salva no Netlify Blobs
   const store = getStore("quotes");
   await store.set("latest", JSON.stringify(payload));
+  console.log("Salvando no Blobs...");
 
   return {
     statusCode: 200,

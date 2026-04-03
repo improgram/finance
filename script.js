@@ -122,15 +122,6 @@ const renderTable = (data) => {
     }).join('');
 };
 
-/*
-<td>${formatNumber(quote.min90d)}</td>
-<td class="price">
-    ${quote.fiftyTwoWeekLow != null
-    ? formatNumber(quote.fiftyTwoWeekLow) : '---'}
-</td>
-*/
-
-
 // Segunda Tabela
 const renderAcoes = (data) => {
     const tbody = document.getElementById('corpoTabela2');

@@ -5,8 +5,23 @@ import { getStore } from "@netlify/blobs";
 
 export async function handler() {
   try {
-    const store = getStore("quotes");
+    const store = getStore({
+      name: "quotes",
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_BLOBS_TOKEN
+    });
     const data = await store.get("latest");
+
+    // 🔥 fallback seguro
+    if (!data) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          data: { etfs: [], acoes: [] },
+          meta: { empty: true, message: "Sem dados ainda" }
+        })
+      };
+    }
 
     return {
       statusCode: 200,
@@ -14,16 +29,18 @@ export async function handler() {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60"
       },
-      body: data || JSON.stringify({
-        data: { etfs: [], acoes: [] },
-        meta: { empty: true }
-      })
+      body: data
     };
 
   } catch (err) {
+    console.error("Erro real:", err);
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Erro ao ler dados" })
+      statusCode: 200, // 🔥 nunca 500
+      body: JSON.stringify({
+        data: { etfs: [], acoes: [] },
+        meta: { error: true }
+      })
     };
   }
 }
