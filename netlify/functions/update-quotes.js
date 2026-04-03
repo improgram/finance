@@ -74,7 +74,7 @@ const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
 export async function handler() {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  console.log("Iniciando atualização...");
+  console.log("Iniciando update-quote...");
 
   if (!API_TOKEN) {
     return { statusCode: 500, body: "Token não configurado" };

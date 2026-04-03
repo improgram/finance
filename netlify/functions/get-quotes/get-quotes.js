@@ -5,6 +5,10 @@ import { getStore } from "@netlify/blobs";
 
 export async function handler() {
   try {
+
+    console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
+    console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
+    
     const store = getStore({
       name: "quotes",
       siteID: process.env.NETLIFY_SITE_ID,
