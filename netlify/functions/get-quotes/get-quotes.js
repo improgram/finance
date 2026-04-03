@@ -5,6 +5,7 @@
 const { getStore } = require("@netlify/blobs");
 
 exports.handler = async function () {
+  console.log("📥 get-quotes chamado");
   try {
 
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
@@ -16,10 +17,13 @@ exports.handler = async function () {
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
+    console.log("🔎 Buscando dados no Blobs...");
+
     const data = await store.get("latest");
 
     // 🔥 fallback seguro
     if (!data) {
+      console.warn("⚠️ Nenhum dado encontrado no Blobs");
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -28,6 +32,8 @@ exports.handler = async function () {
         })
       };
     }
+
+    console.log("✅ Dados encontrados");
 
     return {
       statusCode: 200,
@@ -39,7 +45,7 @@ exports.handler = async function () {
     };
 
   } catch (err) {
-    console.error("Erro real:", err);
+    console.error("Erro get-quotes:", err);
 
     return {
       statusCode: 200, // 🔥 nunca 500
