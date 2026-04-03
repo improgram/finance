@@ -186,7 +186,6 @@ const fetchQuotes = async () => {
 window.addEventListener('DOMContentLoaded', fetchQuotes);
 
 
-
 /*
 Fluxo do sistema:
 Brapi API

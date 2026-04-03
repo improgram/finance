@@ -5,7 +5,7 @@
 // salvamento no Blobs
 
 import { getStore } from "@netlify/blobs";
-
+// process.env.BRAPI_TOKEN;
 const store = getStore({
   name: "quotes",
   siteID: process.env.NETLIFY_SITE_ID,

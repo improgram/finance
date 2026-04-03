@@ -38,7 +38,7 @@ body {
     justify-content: space-between;
     align-items: center;
     width: 100%;            /* ocupa toda largura da tela */
-    padding: 2px 25px;      /* Menu superior parte preta */
+    padding: 3px 25px;      /* Menu superior parte preta */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
