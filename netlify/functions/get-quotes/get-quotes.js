@@ -8,12 +8,15 @@ export async function handler() {
 
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
+    const store = getStore("quotes");
     
+    /*
     const store = getStore({
       name: "quotes",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
+    */
     const data = await store.get("latest");
 
     // 🔥 fallback seguro
