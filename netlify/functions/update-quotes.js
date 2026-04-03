@@ -6,11 +6,17 @@
 
 import { getStore } from "@netlify/blobs";
 // process.env.BRAPI_TOKEN;
+
+console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
+console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
+const store = getStore("quotes");
+/*
 const store = getStore({
   name: "quotes",
   siteID: process.env.NETLIFY_SITE_ID,
   token: process.env.NETLIFY_BLOBS_TOKEN
 });
+*/
 
 export const config = {
   schedule: "*/15 * * * *" // roda a cada 15 minutos
@@ -76,9 +82,10 @@ export async function handler() {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   console.log("Iniciando update-quote...");
 
-  if (!API_TOKEN) {
-    return { statusCode: 500, body: "Token não configurado" };
-  }
+  if (!API_TOKEN) { return { statusCode: 500, body: "Token API_TOKEN não configurado" };  }
+  if () { return { statusCode: 500, body: "Token não configurado" }; }
+  console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
+  console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
 
   const ALL = [...ETF_LIST, ...tickersB3];
   const allResults = [];
