@@ -1,7 +1,8 @@
 // Busca no storage (Blobs) assim a API fica leve
 // retorna JSON
 
-import { getStore } from "@netlify/blobs";
+// import { getStore } from "@netlify/blobs";
+const { getStore } = require("@netlify/blobs");
 
 export async function handler() {
   try {
@@ -9,7 +10,7 @@ export async function handler() {
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
     const store = getStore("quotes");
-    
+
     /*
     const store = getStore({
       name: "quotes",

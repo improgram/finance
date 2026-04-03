@@ -5,6 +5,7 @@
 // salvamento no Blobs
 
 import { getStore } from "@netlify/blobs";
+// const { getStore } = require("@netlify/blobs");
 // process.env.BRAPI_TOKEN;
 
 console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
