@@ -139,7 +139,7 @@ const renderAcoes = (data) => {
                     alt="logo">
                 </td>
                 <td><strong>${acao.symbol || 'N/A'}</strong></td>
-                <td>${acao.name}</td>
+                <td>${acao.longName}</td>
                 <td class="price">R$ ${formatPrice(acao.regularMarketPrice)}</td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
                     ${variacao !== null ? formatPercent(variacao) + '%' : '---'}

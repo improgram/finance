@@ -162,8 +162,8 @@ exports.handler = async function () {
 
       return {
           symbol: r.symbol,
-          shortName: r.shortName || r.symbol,
-          longName: r.longName || r.shortName || r.symbol,
+          shortName: r.shortName,
+          longName: r.longName,
           description: ETF_INFO[r.symbol]?.description || "",
 
           regularMarketPrice: currentPrice,
