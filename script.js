@@ -69,7 +69,7 @@ const br = new Intl.NumberFormat('pt-BR', {
 });
 
 const formatNumber = (value) =>
-    typeof value === 'number' ? br.format(value) : '---';
+    typeof value === 'number' ? br.format(value) : 'Sem histórico';
 
 const formatPrice = (value) =>
     value != null ? br.format(value) : '---';
