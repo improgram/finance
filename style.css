@@ -222,7 +222,7 @@ table {
     background: white;
     overflow: hidden;
     color: MidnightBlue;
-    font-size: clamp(0.85rem, 1.1vw, 1.2rem);
+    font-size: clamp(0.80rem, 0.9vw, 1.1rem);
     margin-top: 10px;
     position: relative;
     border-radius: 8px;
@@ -260,7 +260,7 @@ th {                            /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
     text-transform: uppercase;
-    font-size: clamp(0.85rem, 1.1vw, 0.8rem);
+    font-size: clamp(0.9rem, 1.1vw, 1.2rem);
     letter-spacing: 0.5px;
     font-weight: bold;
 }

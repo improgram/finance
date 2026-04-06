@@ -173,8 +173,8 @@ exports.handler = async function () {
             (r.regularMarketDayLow != null && r.regularMarketDayHigh != null)
               ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
               : null,
-          min7d: getMin(closes7),
-          min30d: getMin(closes30),
+          min7d: getMin(closes7) ?? "Sem histórico",
+          min30d: getMin(closes30) ?? "Sem histórico",
           variation30d: getVariation30d(hist, currentPrice),
 
           // compatibilidade com frontend
