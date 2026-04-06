@@ -112,10 +112,10 @@ const renderTable = (data) => {
                 </td>
                 <td>${getDayRange(quote)}</td>
                 <td>${formatNumber(quote.min7d)}</td>
+                <td>${formatNumber(quote.min30d)}</td>
                 <td class="${variacao30d !== null ? aplicarCor(variacao30d) : ''}">
                     ${variacao30d !== null ? formatPercent(variacao30d) + '%' : '---'}
                 </td>
-                <td>${formatNumber(quote.min30d)}</td>
                 <td>${formatNumber(quote.fiftyTwoWeekHigh)}</td>
             </tr>
         `;
@@ -157,7 +157,6 @@ const renderAcoes = (data) => {
     }).join('');
 };
 
-/* <td>${formatNumber(acao.min90d)}</td> */
 
 const fetchQuotes = async () => {
     const statusEl = document.getElementById('status');     // Mostrar loading real

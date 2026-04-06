@@ -79,7 +79,7 @@ exports.handler = async function () {
 
     const ETF_LIST = [
         "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-        "LFTB11","NBIT11","NDIV11","POSB11","SMAL11",
+        "IVVB11", "LFTB11","NBIT11","NDIV11","SMAL11",
         "UTLL11","5PRE11"
     ];
 
@@ -95,10 +95,10 @@ exports.handler = async function () {
         GOAT11: { description: "Inflação + S&P" },
         IMAB11: { description: "NTN-B longo" },
         IRFM11: { description: "Pré-fixado" },
+        IVVB11: { description: "S&P 500 dos EUA" },
         LFTB11: { description: "Selic" },
         NBIT11: { description: "Bitcoin Nasdaq" },
         NDIV11: { description: "Dividendos" },
-        POSB11: { description: "Selic + IPCA" },
         SMAL11: { description: "Small caps" },
         UTLL11: { description: "Utilities" },
         "5PRE11": { description: "Pré-fixado" }
@@ -153,39 +153,40 @@ exports.handler = async function () {
     // Processamento e filtros dos dados
     const processed = results.map(r => {
 
-    const hist = getValidHist(r.historicalDataPrice || []);
+      const hist = getValidHist(r.historicalDataPrice || []);
+      const hist7 = filterByDays(hist, 7);
+      const hist30 = filterByDays(hist, 30);
+      const closes7 = getCloses(hist7);
+      const closes30 = getCloses(hist30);
+      const currentPrice = r.regularMarketPrice ?? null;
 
-    const hist7 = filterByDays(hist, 7);
-    const hist30 = filterByDays(hist, 30);
+      return {
+          symbol: r.symbol,
+          shortName: r.shortName || r.symbol,
+          longName: r.longName || r.shortName || r.symbol,
+          description: ETF_INFO[r.symbol]?.description || "",
 
-    const closes7 = getCloses(hist7);
-    const closes30 = getCloses(hist30);
+          regularMarketPrice: currentPrice,
+          regularMarketChangePercent: r.regularMarketChangePercent ?? null,
 
-    const currentPrice = r.regularMarketPrice ?? null;
+          regularMarketDayRange:
+            (r.regularMarketDayLow != null && r.regularMarketDayHigh != null)
+              ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
+              : null,
+          min7d: getMin(closes7),
+          min30d: getMin(closes30),
+          variation30d: getVariation30d(hist, currentPrice),
 
-    return {
-        symbol: r.symbol,
-        name: r.longName || r.shortName || r.symbol,
-        description: ETF_INFO[r.symbol]?.description || "",
+          // compatibilidade com frontend
+          regularMarketDayLow: r.regularMarketDayLow ?? null,
+          regularMarketDayHigh: r.regularMarketDayHigh ?? null,
+          fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
+          fiftyTwoWeekHigh: r.fiftyTwoWeekHigh ?? null,
 
-        regularMarketPrice: currentPrice,
-        regularMarketChangePercent: r.regularMarketChangePercent ?? null,
-
-        // 🔥 NOVOS CAMPOS
-        min7d: getMin(closes7),
-        min30d: getMin(closes30),
-        variation30d: getVariation30d(hist, currentPrice),
-
-        // compatibilidade com frontend
-        regularMarketDayLow: r.regularMarketDayLow ?? null,
-        regularMarketDayHigh: r.regularMarketDayHigh ?? null,
-        fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
-        fiftyTwoWeekHigh: r.fiftyTwoWeekHigh ?? null,
-
-        logourl: r.logourl || `https://icons.brapi.dev/icons/${r.symbol}.svg`
-        };
-    });
-// Final do processamento
+          logourl: r.logourl || `https://icons.brapi.dev/icons/${r.symbol}.svg`
+          };
+      });
+  // Final do processamento
 
 
     const payload = {
@@ -258,6 +259,6 @@ store.set()
    2.3 constantes (listas, helpers)
    2.4 FETCH (loop ALL)
    2.5 PROCESSAMENTO (map)
-   2.6 salvar no Blobs
+   2.6 salvar no cache Blobs
 }
 */
