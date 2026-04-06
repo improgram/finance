@@ -222,7 +222,7 @@ table {
     background: white;
     overflow: hidden;
     color: MidnightBlue;
-    font-size: clamp(0.77rem, 0.8vw, 0.9rem);
+    font-size: clamp(0.85rem, 1.1vw, 1.2rem);
     margin-top: 10px;
     position: relative;
     border-radius: 8px;
@@ -246,21 +246,21 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 48px;                /* da segunda tabela tera 40px nos logos*/
+    width: 50px;                /* da segunda tabela(tableAcoes) tera 40px nos logos*/
     text-align: center;
 }
 
-table td:nth-child(2) {
-    max-width: 200px;     /* Limitar largura máxima das colunas das tabelas */
-    white-space: normal;
-    word-wrap: break-word;
+table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
+    max-width: 150px;       /* apenas na segunda célula (td) de cada linha de uma tabela */
+    white-space: normal;    /* se chegar ao limite da largura, ele pula para a linha de baixo*/
+    word-wrap: break-word;  /* navegador força a quebra da palavra */
 }
 
 th {                            /* cabeçalho tabela */
     background-color: #BFF;
     color: MidnightBlue;
     text-transform: uppercase;
-    font-size: clamp(0.75rem, 0.7vw, 0.8rem);
+    font-size: clamp(0.85rem, 1.1vw, 0.8rem);
     letter-spacing: 0.5px;
     font-weight: bold;
 }
@@ -270,7 +270,7 @@ td {
 }
 
 td, th {
-    padding: clamp(4px, 0.5vw, 8px);    /* espaçamento interno da célula */
+    padding: clamp(2px, 0.5vw, 8px);        /* espaçamento interno da célula */
     text-align: left;                       /* E (distância do conteúdo até a borda da célula).*/
     border-bottom: 1.5px solid #008080;
 }
