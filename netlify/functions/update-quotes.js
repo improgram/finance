@@ -26,6 +26,8 @@ const { getStore } = require("@netlify/blobs");
     return hist.filter(d => d.date >= limit);
     };
 
+    const hasEnoughHist = hist.length >= 10;    // (minimo 10 dias)
+
     // variação 30 dias estilo Google
     const getVariation30d = (hist, currentPrice) => {
     if (!hist.length || !currentPrice) return null;
@@ -175,7 +177,9 @@ exports.handler = async function () {
               : null,
           min7d: getMin(closes7),
           min30d: getMin(closes30),
-          variation30d: getVariation30d(hist, currentPrice),
+          variation30d: hasEnoughHist
+            ? getVariation30d(hist, currentPrice)
+            : null,
 
           // compatibilidade com frontend
           regularMarketDayLow: r.regularMarketDayLow ?? null,
