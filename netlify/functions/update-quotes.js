@@ -26,32 +26,36 @@ const { getStore } = require("@netlify/blobs");
     return hist.filter(d => d.date >= limit);
     };
 
-    const hasEnoughHist = hist.length >= 10;    // (minimo 10 dias)
+    const hasEnoughHist = (hist) => hist.length >= 10; // (minimo 10 dias)
 
-    // variação 30 dias estilo Google
+    const safeValue = (value) => {            // Fallback "N/E"
+      return (value === null || value === undefined || Number.isNaN(value))
+        ? "N/E"
+        : value;
+    };
+
+    const fallbackMin = (fallback) => {
+      if (fallback !== null && fallback !== undefined) return fallback;
+      return "N/E";
+    };
+
+    // variação 30 dias
     const getVariation30d = (hist, currentPrice) => {
-    if (!hist.length || !currentPrice) return null;
-
-    const now = new Date();
-    now.setHours(0,0,0,0);
-
-    const target = new Date(now);
-    target.setMonth(target.getMonth() - 1);
-
-    const targetTs = Math.floor(target.getTime() / 1000);
-
-    let base = null;
-
-    for (let i = hist.length - 1; i >= 0; i--) {
+      if (!hist.length || currentPrice == null) return null;
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const target = new Date(now);
+      target.setMonth(target.getMonth() - 1);
+      const targetTs = Math.floor(target.getTime() / 1000);
+      let base = null;
+      for (let i = hist.length - 1; i >= 0; i--) {
         if (hist[i].date <= targetTs) {
         base = hist[i].close;
         break;
         }
-    }
-
-    if (!base) base = hist[0].close;
-
-    return ((currentPrice - base) / base) * 100;
+      }
+      if (!base) base = hist[0].close;
+      return ((currentPrice - base) / base) * 100;
     };
     // Final dos calculos
 
@@ -95,12 +99,13 @@ exports.handler = async function () {
         BOVA11: { description: "Ibovespa" },
         B5P211: { description: "NTN-B curto" },
         GOAT11: { description: "Inflação + S&P" },
-        IMAB11: { description: "NTN-B longo" },
+        IMAB11: { description: "NTN-B medio/longo" },
         IRFM11: { description: "Pré-fixado" },
         IVVB11: { description: "S&P 500 dos EUA" },
         LFTB11: { description: "Selic" },
         NBIT11: { description: "Bitcoin Nasdaq" },
         NDIV11: { description: "Dividendos" },
+        PACB11: { description: "NTN-B longo" },
         SMAL11: { description: "Small caps" },
         UTLL11: { description: "Utilities" },
         "5PRE11": { description: "Pré-fixado" }
@@ -156,6 +161,11 @@ exports.handler = async function () {
     const processed = results.map(r => {
 
       const hist = getValidHist(r.historicalDataPrice || []);
+      const noHist = hist.length === 0;
+      if (noHist) {
+        console.warn(`📭 Sem histórico: ${r.symbol}`);
+      }
+
       const hist7 = filterByDays(hist, 7);
       const hist30 = filterByDays(hist, 30);
       const closes7 = getCloses(hist7);
@@ -163,23 +173,28 @@ exports.handler = async function () {
       const currentPrice = r.regularMarketPrice ?? null;
 
       return {
+          hasHistory: !noHist,
           symbol: r.symbol,
           shortName: r.shortName,
           longName: r.longName,
           description: ETF_INFO[r.symbol]?.description || "",
 
-          regularMarketPrice: currentPrice,
-          regularMarketChangePercent: r.regularMarketChangePercent ?? null,
+          regularMarketPrice: safeValue(currentPrice),
+          regularMarketChangePercent: safeValue(r.regularMarketChangePercent),
 
           regularMarketDayRange:
             (r.regularMarketDayLow != null && r.regularMarketDayHigh != null)
               ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
               : null,
-          min7d: getMin(closes7),
-          min30d: getMin(closes30),
-          variation30d: hasEnoughHist
-            ? getVariation30d(hist, currentPrice)
-            : null,
+          min7d: noHist
+              ? fallbackMin(r.fiftyTwoWeekLow)
+              : safeValue(getMin(closes7)),
+          min30d: noHist
+            ? fallbackMin(null, r.fiftyTwoWeekLow)
+            : safeValue(getMin(closes30)),
+          variation30d: (!noHist && hasEnoughHist(hist))
+            ? safeValue(getVariation30d(hist, currentPrice))
+            : "N/E",
 
           // compatibilidade com frontend
           regularMarketDayLow: r.regularMarketDayLow ?? null,
