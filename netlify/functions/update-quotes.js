@@ -9,6 +9,45 @@ const { getStore } = require("@netlify/blobs");
 // Helper para atraso (evita 429 Too Many Requests)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Function horario de mercado financeiro
+const isMarketOpen = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0 = domingo
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+
+  // fim de semana
+  if (day === 0 || day === 6) return false;
+  const current = hour * 60 + minute;
+  const open = 10 * 60;      // 10:00
+  const close = 18 * 60 + 55; // 18:55
+  return current >= open && current <= close;
+};
+
+// Cache antes de bater na API
+const existing = await store.get("latest");
+if (existing) {
+  const parsed = JSON.parse(existing);
+  const lastUpdate = parsed?.meta?.updatedAt || 0;
+  const now = Date.now();
+  const diffMinutes = (now - lastUpdate) / 60000;
+  const marketOpen = isMarketOpen();
+  const limit = marketOpen ? 10 : 60; // 🔥 ajuste fino
+
+  if (diffMinutes < limit) {
+    console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        skipped: true,
+        reason: "cache válido",
+        minutes: diffMinutes
+      })
+    };
+  }
+}
+
+
 // Helpers
     // Calculos do historico
     const getValidHist = (hist) =>
@@ -58,14 +97,13 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       if (!base) base = hist[0].close;
       return ((currentPrice - base) / base) * 100;
     };
-    // Final dos calculos
+// Final dos calculos
 
 
 exports.handler = async function () {
     console.log("🚀 Iniciando update-quotes");
 
   try {
-
     // 🔐 valida variáveis
     console.log("🔑 BRAPI_TOKEN existe?", !!process.env.BRAPI_TOKEN);
     console.log("🔑 SITE_ID existe?", !!process.env.NETLIFY_SITE_ID);
@@ -116,55 +154,58 @@ exports.handler = async function () {
 
 
     // Plano gratuito tem limite de requisições
-    // requisição em lote e Não é feito loop for pesado sequencial
-    // 🚀 FETCH EM LOTE
-    const chunkSize = 3;
-    const chunkArray = (arr, size) => {
-      const chunks = [];
-      for (let i = 0; i < arr.length; i += size) {
-        chunks.push(arr.slice(i, i + size));
-      }
-      return chunks;
-    };
-    const chunks = chunkArray(ALL, chunkSize); // 3 por request
+    // requisição em lote nao é aceita pela API brapi
+    // Não pode ser feito loop for pesado sequencial
+
+        const fetchWithRetry = async (symbol, retries = 2) => {
+          const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+          try {
+            const res = await fetch(url);
+            if (res.status === 429) {
+              throw new Error("RATE_LIMIT");
+            }
+            if (res.status >= 500) {
+              throw new Error("SERVER_ERROR");
+            }
+            if (!res.ok) {
+              const text = await res.text();
+              console.warn(`⚠️ ${symbol}:`, text);
+              return null;
+            }
+            const json = await res.json();
+            return json?.results?.[0] || null;
+          } catch (err) {
+            if (retries === 0) {
+              console.error(`❌ Falha final ${symbol}`);
+              return null;
+            }
+            const delay =
+              err.message === "RATE_LIMIT"
+                ? 1000   // espera maior
+                : 400;
+            console.warn(`🔁 Retry ${symbol} em ${delay}ms`);
+            await new Promise(r => setTimeout(r, delay));
+            return fetchWithRetry(symbol, retries - 1);
+          }
+          console.log(`📦 Total Recebidos: ${results.length}`);
+        };
+
+
+    // Final do Retry
+
+
+    // Concorrencia controlada
+    const CONCURRENCY = 3;
     const results = [];
 
-    for (const group of chunks) {
-      const symbols = group.join(",");
-      const url = `https://brapi.dev/api/quote/${symbols}?range=1mo&interval=1d&token=${API_TOKEN}`;
-      console.log(`🌐 Buscando lote: ${symbols}`);
+    for (let i = 0; i < ALL.length; i += CONCURRENCY) {
+      const slice = ALL.slice(i, i + CONCURRENCY);
 
-      try {
-        const res = await fetch(url);
+      const batch = await Promise.all(
+        slice.map(symbol => fetchWithRetry(symbol))
+      );
 
-                    // Se lote falhar → tenta individual
-                    if (!res.ok) {
-                      const errorText = await res.text();
-                      console.warn(`⚠️ Falha lote (${res.status}):`, symbols, errorText);
-                      for (const symbol of group) {
-                        try {
-                          const singleUrl = `https://brapi.dev/api/quote/${symbol}?token=${API_TOKEN}`;
-                          const r = await fetch(singleUrl);
-                          if (!r.ok) continue;
-                            const j = await r.json();
-                            if (j?.results?.[0]) {
-                              results.push(j.results[0]);
-                            }
-                          } catch {}
-                      }
-                      continue;
-                    }   // Final do teste do Lote
-        const json = await res.json();
-
-        if (json?.results?.length) {
-          results.push(...json.results);
-        } else {
-          console.warn("⚠️ Lote vazio:", symbols);
-        }
-      } catch (error) {     // catch está fora do try
-          console.error(`❌ Erro ao buscar o lote ${symbols}:`, error);
-      }
-      console.log(`📦 Total Recebidos: ${results.length}`);
+      results.push(...batch.filter(Boolean));
     }
 
 
