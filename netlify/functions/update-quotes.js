@@ -97,15 +97,15 @@ exports.handler = async function () {
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
         BOVA11: { description: "Ibovespa" },
-        B5P211: { description: "NTN-B curto" },
+        B5P211: { description: "NTN-B (inflação) Curto/Medio" },
         GOAT11: { description: "Inflação + S&P" },
-        IMAB11: { description: "NTN-B medio/longo" },
+        IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
         IRFM11: { description: "Pré-fixado" },
         IVVB11: { description: "S&P 500 dos EUA" },
         LFTB11: { description: "Selic" },
         NBIT11: { description: "Bitcoin Nasdaq" },
         NDIV11: { description: "Dividendos" },
-        PACB11: { description: "NTN-B longo" },
+        PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
         SMAL11: { description: "Small caps" },
         UTLL11: { description: "Utilities" },
         "5PRE11": { description: "Pré-fixado" }
