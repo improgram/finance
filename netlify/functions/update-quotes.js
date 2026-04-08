@@ -6,6 +6,9 @@
 
 const { getStore } = require("@netlify/blobs");
 
+// Helper para atraso (evita 429 Too Many Requests)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Helpers
     // Calculos do historico
     const getValidHist = (hist) =>
@@ -115,7 +118,7 @@ exports.handler = async function () {
     // Plano gratuito tem limite de requisições
     // requisição em lote e Não é feito loop for pesado sequencial
     // 🚀 FETCH EM LOTE
-    const chunkSize = 5;
+    const chunkSize = 3;
     const chunkArray = (arr, size) => {
       const chunks = [];
       for (let i = 0; i < arr.length; i += size) {
@@ -123,7 +126,7 @@ exports.handler = async function () {
       }
       return chunks;
     };
-    const chunks = chunkArray(ALL, chunkSize); // 5 por request
+    const chunks = chunkArray(ALL, chunkSize); // 3 por request
     const results = [];
 
     for (const group of chunks) {
@@ -133,10 +136,24 @@ exports.handler = async function () {
 
       try {
         const res = await fetch(url);
-        if (!res.ok) {
-          console.warn("⚠️ Falha lote:", symbols);
-          continue;
-        }
+
+                    // Se lote falhar → tenta individual
+                    if (!res.ok) {
+                      const errorText = await res.text();
+                      console.warn(`⚠️ Falha lote (${res.status}):`, symbols, errorText);
+                      for (const symbol of group) {
+                        try {
+                          const singleUrl = `https://brapi.dev/api/quote/${symbol}?token=${API_TOKEN}`;
+                          const r = await fetch(singleUrl);
+                          if (!r.ok) continue;
+                            const j = await r.json();
+                            if (j?.results?.[0]) {
+                              results.push(j.results[0]);
+                            }
+                          } catch {}
+                      }
+                      continue;
+                    }   // Final do teste do Lote
         const json = await res.json();
 
         if (json?.results?.length) {
