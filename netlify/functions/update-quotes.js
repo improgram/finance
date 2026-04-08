@@ -115,7 +115,7 @@ exports.handler = async function () {
     // Plano gratuito tem limite de requisições
     // requisição em lote e Não é feito loop for pesado sequencial
     // 🚀 FETCH EM LOTE
-    const chunkSize = 10;
+    const chunkSize = 5;
     const chunkArray = (arr, size) => {
       const chunks = [];
       for (let i = 0; i < arr.length; i += size) {
@@ -123,7 +123,7 @@ exports.handler = async function () {
       }
       return chunks;
     };
-    const chunks = chunkArray(ALL, chunkSize); // 10 por request
+    const chunks = chunkArray(ALL, chunkSize); // 5 por request
     const results = [];
 
     for (const group of chunks) {
@@ -133,14 +133,18 @@ exports.handler = async function () {
 
       try {
         const res = await fetch(url);
+
         if (!res.ok) {
           console.warn("⚠️ Falha lote:", symbols);
           continue;
         }
         const json = await res.json();
-        if (json?.results) {
-          results.push(...json.results);
+
+        if (!json || !Array.isArray(json.results)) {
+          console.error("❌ API inválida:", json);
+          continue;
         }
+        results.push(...json.results);
       } catch (err) {
         console.warn("⚠️ Erro fetch lote:", symbols);
       }
