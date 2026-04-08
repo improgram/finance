@@ -140,13 +140,11 @@ exports.handler = async function () {
         }
         const json = await res.json();
 
-        if (!json || !Array.isArray(json.results)) {
-          console.error("❌ API inválida:", json);
-          continue;
+        if (json?.results?.length) {
+          results.push(...json.results);
+        } else {
+          console.warn("⚠️ Lote vazio:", symbols);
         }
-        results.push(...json.results);
-      } catch (err) {
-        console.warn("⚠️ Erro fetch lote:", symbols);
       }
     }
     console.log(`📦 Total Recebidos: ${results.length}`);
