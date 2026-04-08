@@ -1,13 +1,10 @@
-// schedule (cron)
+// schedule (cron) (Pendente)
 // lógica completa
 // chamada da Brapi
 // processamento
 // salvamento no Blobs
 
 const { getStore } = require("@netlify/blobs");
-
-// Helper para atraso (evita 429 Too Many Requests)
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Function horario de mercado financeiro
 const isMarketOpen = () => {
@@ -23,29 +20,6 @@ const isMarketOpen = () => {
   const close = 18 * 60 + 55; // 18:55
   return current >= open && current <= close;
 };
-
-// Cache antes de bater na API
-const existing = await store.get("latest");
-if (existing) {
-  const parsed = JSON.parse(existing);
-  const lastUpdate = parsed?.meta?.updatedAt || 0;
-  const now = Date.now();
-  const diffMinutes = (now - lastUpdate) / 60000;
-  const marketOpen = isMarketOpen();
-  const limit = marketOpen ? 10 : 60; // 🔥 ajuste fino
-
-  if (diffMinutes < limit) {
-    console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        skipped: true,
-        reason: "cache válido",
-        minutes: diffMinutes
-      })
-    };
-  }
-}
 
 
 // Helpers
@@ -114,6 +88,31 @@ exports.handler = async function () {
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
+
+
+      // Cache antes de bater na API
+      const existing = await store.get("latest");
+      if (existing) {
+        const parsed = JSON.parse(existing);
+        const lastUpdate = parsed?.meta?.updatedAt || 0;
+        const now = Date.now();
+        const diffMinutes = (now - lastUpdate) / 60000;
+        const marketOpen = isMarketOpen();
+        const limit = marketOpen ? 10 : 60; // 🔥 ajuste fino
+
+        if (diffMinutes < limit) {
+          console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              skipped: true,
+              reason: "cache válido",
+              minutes: diffMinutes
+            })
+          };
+        }
+      }
+      // Final existing
 
     const API_TOKEN = process.env.BRAPI_TOKEN;
 
@@ -184,13 +183,10 @@ exports.handler = async function () {
                 ? 1000   // espera maior
                 : 400;
             console.warn(`🔁 Retry ${symbol} em ${delay}ms`);
-            await new Promise(r => setTimeout(r, delay));
+            await new Promise(r => setTimeout(r, delay));   // Evitar erro 429 too many requests
             return fetchWithRetry(symbol, retries - 1);
           }
-          console.log(`📦 Total Recebidos: ${results.length}`);
         };
-
-
     // Final do Retry
 
 
@@ -296,21 +292,6 @@ exports.handler = async function () {
 
 
 /*
-    return {
-      symbol: r.symbol,
-      name: r.longName || r.shortName || r.symbol,
-      description: ETF_INFO[r.symbol]?.description || "",
-      regularMarketPrice: r.regularMarketPrice ?? null,
-      regularMarketChangePercent: r.regularMarketChangePercent ?? null,
-      min7d: getMin(closes),
-      max30d: getMax(closes),
-      logourl: r.logourl || `https://icons.brapi.dev/icons/${r.symbol}.svg`
-    };
-  });
-*/
-
-
-/*
 helpers (fora da função)
         ↓
 handler()
@@ -330,7 +311,7 @@ store.set()
    2.1 logs iniciais
    2.2 validações
    2.3 constantes (listas, helpers)
-   2.4 FETCH (loop ALL)
+   2.4 FETCH ou loop ALL
    2.5 PROCESSAMENTO (map)
    2.6 salvar no cache Blobs
 }
