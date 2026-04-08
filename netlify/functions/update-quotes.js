@@ -26,7 +26,7 @@ const { getStore } = require("@netlify/blobs");
 
     const hasEnoughHist = (hist) => hist.length >= 10; // (minimo 10 dias)
 
-    const safeValue = (value) => {            // Fallback "N/E"
+    const safeValue = (value) => {                  // Fallback "N/E"
       return (value === null || value === undefined || Number.isNaN(value))
         ? "N/E"
         : value;
@@ -108,48 +108,44 @@ exports.handler = async function () {
         UTLL11: { description: "Utilities" },
         "5PRE11": { description: "Pré-fixado" }
     };
-
     const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    const fetchWithRetry = async (url, symbol, retries = 2) => {
-      try {
-        const res = await fetch(url);
-        if (res.status === 429) {
-          throw new Error("retry");
-        }
-        if (!res.ok) {
-          console.warn(`⚠️ Falha ${symbol}`);
-          return null;
-        }
-        const json = await res.json();
-        return json;
-      } catch (err) {
-        console.warn(`🔁 Retry ${symbol} (${retries})`);
-        if (retries === 0) {
-          console.error(`❌ Falha definitiva ${symbol}`);
-          return null;
-        }
-        await sleep(300);
-        return fetchWithRetry(url, symbol, retries - 1);
+
+    // Plano gratuito tem limite de requisições
+    // requisição em lote e Não é feito loop for pesado sequencial
+    // 🚀 FETCH EM LOTE
+    const chunkSize = 10;
+    const chunkArray = (arr, size) => {
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
       }
+      return chunks;
     };
-
+    const chunks = chunkArray(ALL, chunkSize); // 10 por request
     const results = [];
 
-    for (const symbol of ALL) {
-      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-      const res = await fetchWithRetry(url, symbol);
-      if (res?.results?.[0]) {
-        console.log(`✅ OK: ${symbol}`);
-        results.push(res.results[0]);
-      } else {
-        console.warn(`⚠️ Sem dados: ${symbol}`);
+    for (const group of chunks) {
+      const symbols = group.join(",");
+      const url = `https://brapi.dev/api/quote/${symbols}?range=1mo&interval=1d&token=${API_TOKEN}`;
+      console.log(`🌐 Buscando lote: ${symbols}`);
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          console.warn("⚠️ Falha lote:", symbols);
+          continue;
+        }
+        const json = await res.json();
+        if (json?.results) {
+          results.push(...json.results);
+        }
+      } catch (err) {
+        console.warn("⚠️ Erro fetch lote:", symbols);
       }
-      await sleep(150);
     }
-    console.log(`📦 Total retornado: ${results.length}`);
+    console.log(`📦 Total Recebidos: ${results.length}`);
 
 
     // Processamento e filtros dos dados
@@ -160,7 +156,6 @@ exports.handler = async function () {
       if (noHist) {
         console.warn(`📭 Sem histórico: ${r.symbol}`);
       }
-
       const hist7 = filterByDays(hist, 7);
       const hist30 = filterByDays(hist, 30);
       const closes7 = getCloses(hist7);
@@ -203,6 +198,7 @@ exports.handler = async function () {
   // Final do processamento
 
 
+  // Payload
     const payload = {
         data: {
             etfs: processed.filter(r => ETF_LIST.includes(r.symbol)),
@@ -214,6 +210,8 @@ exports.handler = async function () {
         }
     };
 
+
+     // 💾 CACHE
     console.log("💾 Salvando no Blobs...");
     await store.set("latest", JSON.stringify(payload));
     console.log("✅ Salvo com sucesso!");
