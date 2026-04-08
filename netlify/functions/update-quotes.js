@@ -4,9 +4,7 @@
 // processamento
 // salvamento no Blobs
 
-// import { getStore } from "@netlify/blobs";
 const { getStore } = require("@netlify/blobs");
-// process.env.BRAPI_TOKEN;
 
 // Helpers
     // Calculos do historico
@@ -85,7 +83,7 @@ exports.handler = async function () {
 
     const ETF_LIST = [
         "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-        "IVVB11", "LFTB11","NBIT11","NDIV11","SMAL11",
+        "IVVB11", "LFTB11","NBIT11","NDIV11", "PACB11", "SMAL11",
         "UTLL11","5PRE11"
     ];
 
@@ -117,10 +115,8 @@ exports.handler = async function () {
 
     const fetchWithRetry = async (url, symbol, retries = 2) => {
       try {
-        console.log(`🌐 Buscando: ${symbol}`);
         const res = await fetch(url);
-        console.log(`📡 Status ${symbol}:`, res.status);
-        if (res.status === 429 || res.status >= 500) {
+        if (res.status === 429) {
           throw new Error("retry");
         }
         if (!res.ok) {
