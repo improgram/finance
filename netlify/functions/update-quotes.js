@@ -144,10 +144,8 @@ exports.handler = async function () {
         } else {
           console.warn("⚠️ Lote vazio:", symbols);
         }
-        catch (error) {
-          // ERRO CORRIGIDO: O bloco catch foi adicionado aqui!
+      } catch (error) {     // catch está fora do try
           console.error(`❌ Erro ao buscar o lote ${symbols}:`, error);
-        }
       }
       console.log(`📦 Total Recebidos: ${results.length}`);
     }
@@ -184,9 +182,9 @@ exports.handler = async function () {
           min7d: noHist
               ? fallbackMin(r.fiftyTwoWeekLow)
               : safeValue(getMin(closes7)),
-          min30d: noHist
-            ? fallbackMin(null, r.fiftyTwoWeekLow)
-            : safeValue(getMin(closes30)),
+          min30d:
+            noHist ? fallbackMin(r.fiftyTwoWeekLow)
+            : safeValue(getMin(getCloses(hist30))),
           variation30d: (!noHist && hasEnoughHist(hist))
             ? safeValue(getVariation30d(hist, currentPrice))
             : "N/E",
