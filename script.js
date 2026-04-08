@@ -24,7 +24,6 @@ document.addEventListener("click", (e) => {
     }
 });
 
-
 let allEtfs = [];
 let allAcoes = [];
 

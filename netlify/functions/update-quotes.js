@@ -115,7 +115,6 @@ exports.handler = async function () {
     console.log(`📊 Total de ativos: ${ALL.length}`);
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-
     const fetchWithRetry = async (url, symbol, retries = 2) => {
       try {
         console.log(`🌐 Buscando: ${symbol}`);
