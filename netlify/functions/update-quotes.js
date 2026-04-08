@@ -7,20 +7,19 @@
 const { getStore } = require("@netlify/blobs");
 
 // Function horario de mercado financeiro
-const isMarketOpen = () => {
-  const now = new Date();
-  const day = now.getDay(); // 0 = domingo
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+      const isMarketOpen = () => {
+        const now = new Date();
+        const day = now.getDay(); // 0 = domingo
+        const hour = now.getHours();
+        const minute = now.getMinutes();
 
-  // fim de semana
-  if (day === 0 || day === 6) return false;
-  const current = hour * 60 + minute;
-  const open = 10 * 60;      // 10:00
-  const close = 18 * 60 + 55; // 18:55
-  return current >= open && current <= close;
-};
-
+        // fim de semana
+        if (day === 0 || day === 6) return false;
+        const current = hour * 60 + minute;
+        const open = 10 * 60;      // 10:00
+        const close = 18 * 60 + 55; // 18:55
+        return current >= open && current <= close;
+      };
 
 // Helpers
     // Calculos do historico
@@ -98,9 +97,11 @@ exports.handler = async function () {
         const now = Date.now();
         const diffMinutes = (now - lastUpdate) / 60000;
         const marketOpen = isMarketOpen();
-        const limit = marketOpen ? 10 : 60; // 🔥 ajuste fino
-
-        if (diffMinutes < limit) {
+        const limit = marketOpen ? 10 : 60;
+        const isEmpty =
+          !parsed?.data?.etfs?.length &&
+          !parsed?.data?.acoes?.length;
+        if (!isEmpty && diffMinutes < limit) {
           console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
           return {
             statusCode: 200,
@@ -111,7 +112,11 @@ exports.handler = async function () {
             })
           };
         }
+        if (isEmpty) {   // debug útil
+          console.log("⚠️ Cache vazio → forçando atualização");
+        }
       }
+
       // Final existing
 
     const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -196,11 +201,9 @@ exports.handler = async function () {
 
     for (let i = 0; i < ALL.length; i += CONCURRENCY) {
       const slice = ALL.slice(i, i + CONCURRENCY);
-
       const batch = await Promise.all(
         slice.map(symbol => fetchWithRetry(symbol))
       );
-
       results.push(...batch.filter(Boolean));
     }
 
@@ -269,25 +272,28 @@ exports.handler = async function () {
 
 
      // 💾 CACHE
-    console.log("💾 Salvando no Blobs...");
-    await store.set("latest", JSON.stringify(payload));
-    console.log("✅ Salvo com sucesso!");
-
+     if (!processed.length) {
+        console.warn("⚠️ Nenhum dado retornado → não salvando cache");
+      } else {
+        await store.set("latest", JSON.stringify(payload));
+      }
     return {
       statusCode: 200,
       body: JSON.stringify({ ok: true, total: results.length })
     };
-
-  } catch (err) {
-    console.error("🔥 ERRO GERAL:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Falha no update",
-        message: err.message
-      })
-    };
-  }
+    } catch (err) {
+      console.error("🔥 ERRO GERAL:", err);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: "Falha no update",
+          message: err.message
+        })
+      };
+    }
+    console.log("💾 Salvando no Blobs...");
+    await store.set("latest", JSON.stringify(payload));
+    console.log("✅ Salvo com sucesso!");
 };
 
 
