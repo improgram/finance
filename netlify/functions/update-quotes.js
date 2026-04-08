@@ -133,7 +133,6 @@ exports.handler = async function () {
 
       try {
         const res = await fetch(url);
-
         if (!res.ok) {
           console.warn("⚠️ Falha lote:", symbols);
           continue;
@@ -145,9 +144,13 @@ exports.handler = async function () {
         } else {
           console.warn("⚠️ Lote vazio:", symbols);
         }
+        catch (error) {
+          // ERRO CORRIGIDO: O bloco catch foi adicionado aqui!
+          console.error(`❌ Erro ao buscar o lote ${symbols}:`, error);
+        }
       }
+      console.log(`📦 Total Recebidos: ${results.length}`);
     }
-    console.log(`📦 Total Recebidos: ${results.length}`);
 
 
     // Processamento e filtros dos dados
