@@ -4,6 +4,9 @@
 // processamento
 // salvamento no Blobs
 
+// mudar de CommonJS (require) para ES Modules (import/export),
+//      permite o objeto de configuração simplificado.
+
 const { getStore } = require("@netlify/blobs");
 
 // Helpers de mercado
@@ -54,9 +57,7 @@ const getVariation30d = (hist, currentPrice) => {
 
 exports.handler = async function () {
   console.log("🚀 Iniciando update-quotes");
-
-  try {
-    // Validações
+  try {                       // Validações
     const API_TOKEN = process.env.BRAPI_TOKEN;
     if (!API_TOKEN) {
       console.error("❌ Token da API ausente");
@@ -105,7 +106,6 @@ exports.handler = async function () {
       const diffMinutes = (now - lastUpdate) / 60000;
       const marketOpen = isMarketOpen();
       const limit = marketOpen ? 10 : 60;
-
       const isEmpty =
         !parsed?.data?.etfs?.length && !parsed?.data?.acoes?.length;
 
@@ -129,7 +129,7 @@ exports.handler = async function () {
       try {
         const res = await fetch(url);
         if (res.status === 429) throw new Error("RATE_LIMIT");
-        if (res.status >= 500) throw new Error("SERVER_ERROR");
+        if (res.status >= 500) throw new Error("SERVER_ERROR 500");
         if (!res.ok) {
           console.warn(`⚠️ ${symbol}:`, await res.text());
           return null;
@@ -210,16 +210,30 @@ exports.handler = async function () {
       console.warn("⚠️ Nenhum dado válido → cache NÃO atualizado");
     } else {
       console.log("💾 Salvando cache com dados válidos...");
-      await store.set("latest", JSON.stringify(payload));
+      await store.set("latest", JSON.stringify(payload));   // salva no Blobs
       console.log("✅ Cache salvo com sucesso!");
     }
 
-    return { statusCode: 200, body: JSON.stringify({ ok: true, total: results.length }) };
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ ok: true, total: results.length })};
 
   } catch (err) {
     console.error("🔥 ERRO GERAL:", err);
     return { statusCode: 500, body: JSON.stringify({ error: "Falha no update", message: err.message }) };
   }
+};
+
+// --- Configuração do Schedule (Cron) ---
+// const { schedule } = require("@netlify/functions");
+  // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
+export const config = {
+  schedule: "*/30 13-22 * * 1-5"
 };
 
 

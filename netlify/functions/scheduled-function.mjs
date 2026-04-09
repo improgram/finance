@@ -7,5 +7,9 @@ export default async (req) => {
 }
 
 export const config = {
-    schedule: "@hourly"
+    //schedule: "@hourly"
+    schedule: "*/30 13-22 * * 1-5"
 }
+
+// Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
+// schedule: "*/30 13-22 * * 1-5"

@@ -39,7 +39,10 @@ exports.handler = async function () {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60"
+        "Cache-Control": "public, max-age=60",
+        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
       },
       body: data
     };
