@@ -181,6 +181,9 @@ export default async (req, context) => {
         shortName: r.shortName,
         longName: r.longName,
         description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
+        updatedAt: Date.now(),                          // Timestamp para lógica de front-end
+        updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
+
         regularMarketPrice: safeValue(currentPrice),
         regularMarketChangePercent: safeValue(r.regularMarketChangePercent),
         regularMarketDayRange:
