@@ -86,62 +86,66 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "AUPO11","BOVA11"
+      "IMAB11", "IRFM11", "IVVB11",
+      "NBIT11", "PACB11"
     ];
-    /*
-    ,"B5P211","GOAT11","IMAB11","IRFM11",
-      "IVVB11", "LFTB11","NBIT11","NDIV11", "PACB11", "SMAL11",
-      "UTLL11","5PRE11"
-    */
-    const tickersB3 = [
-      "ALPA4","ASAI3"
-      /*
-      "BBDC4","CAML3","DXCO3","KLBN4",
-      "GRND3","JALL3","RAIL3","SIMH3","SLCE3"
-      */
-    ];
+
+    const tickersB3 = [ "BBDC4", "RAIL3" ];
+      /* "ALPA4","ASAI3", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
+
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
-      BOVA11: { description: "Ibovespa" }
-    };
-
-/*
+      BOVA11: { description: "Ibovespa" },
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
-      GOAT11: { description: "Inflação + S&P" },
       IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
       IRFM11: { description: "Pré-fixado" },
       IVVB11: { description: "S&P 500 dos EUA" },
-      LFTB11: { description: "Selic" },
       NBIT11: { description: "Bitcoin Nasdaq" },
       NDIV11: { description: "Dividendos" },
       PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
       SMAL11: { description: "Small caps" },
       UTLL11: { description: "Utilities" },
       "5PRE11": { description: "Pré-fixado" }
-*/
+    };
 
     const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
+    // 🔥 Captura do parâmetro de URL para forçar atualização
+    const url = new URL(req.url);
+    const forceUpdate = url.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
     const existing = await store.get("latest");
-    if (existing) {
+    if (!forceUpdate && existing) {
       const parsed = JSON.parse(existing);
-      const lastUpdate = parsed?.meta?.updatedAt || 0;
-      const now = Date.now();
-      const diffMinutes = (now - lastUpdate) / 60000;
-      const marketOpen = isMarketOpen();
-      const limit = marketOpen ? 10 : 60;
-      if (parsed?.data?.etfs?.length && diffMinutes < limit) {
+      const lastUpdate = parsed?.meta?.updatedAt || 0;          // Quando foi a ultima Att
+      const now = Date.now();                                   // Que horas são agora?
+      const diffMinutes = (now - lastUpdate) / 60000;           // Há quantos minutos atualizei?
+      const marketOpen = isMarketOpen();                        // Mercado Fechado: Os preços não mudam
+      const limit = marketOpen ? 10 : 60;                       // Mercado Aberto: cache só vale por 10 minutos.
+
+      const cachedEtfs = (parsed?.data?.etfs || []).map(item => item.symbol);
+      const cachedAcoes = (parsed?.data?.acoes || []).map(item => item.symbol);
+      const cachedAll = [...cachedEtfs, ...cachedAcoes];
+
+      // Checa se as listas têm tamanhos diferentes ou ativos diferentes
+      const hasDifferentTickers = ALL.length !== cachedAll.length || ALL.some(symbol => !cachedAll.includes(symbol));
+
+      if (!hasDifferentTickers && parsed?.data?.etfs?.length && diffMinutes < limit) {
         console.log(`⏱️ Cache válido ( ${diffMinutes.toFixed(1)} min)`);
         return new Response(JSON.stringify( { skipped: true, reason: "cache válido" }, null, 2 ), {
-          status: 200,
+          status: 200,                      // retorna resposta atualização foi pulada (skipped)
           headers: { "Content-Type": "application/json" }
         });
+      } else if (hasDifferentTickers) {
+        console.log("🔄 Lista de ativos alterada no código! Ignorando o tempo de cache.");
       }
+    } else if (forceUpdate) {
+      // Se caiu aqui, é porque você passou ?force=true na URL
+      console.log("⚠️ Atualização forçada via parâmetro URL (?force=true). Ignorando cache.");
     }
-    
+
 
     // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
     const results = [];
@@ -259,7 +263,7 @@ export default async (req, context) => {
 // const { schedule } = require("@netlify/functions");
   // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
 export const config = {
-  schedule: "*/30 13-22 * * 1-5"
+  schedule: "*/60 13-22 * * 1-5"
 };
 
 
