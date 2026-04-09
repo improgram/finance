@@ -246,8 +246,21 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 50px;                /* da segunda tabela(tableAcoes) tera 40px nos logos*/
+    width: 50px;                /* da segunda tabela(tableAcoes) tera 50px nos logos*/
+    height: 50px;      /* Define uma altura fixa para a célula ser quadrada */
+    padding: 1px;      /* Pequeno respiro para o logo não colar nas bordas */
+    vertical-align: middle;
     text-align: center;
+}
+
+/* Regra para a imagem ocupar o espaço total */
+.img-logo-tabela {
+    width: 100%;       /* Ocupa toda a largura da célula (descontando o padding) */
+    height: 100%;      /* Ocupa toda a altura da célula */
+    object-fit: contain; /* Garante que o logo não seja distorcido */
+    border-radius: 4px;
+    display: block;    /* Remove espaços vazios abaixo da imagem */
+    margin: 0 auto;
 }
 
 table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
