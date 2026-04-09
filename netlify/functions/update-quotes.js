@@ -86,16 +86,22 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
+      "AUPO11"
+    ];
+    /*
+    "BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
       "IVVB11", "LFTB11","NBIT11","NDIV11", "PACB11", "SMAL11",
       "UTLL11","5PRE11"
-    ];
+    */
     const tickersB3 = [
       "ALPA4","ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
       "GRND3","JALL3","RAIL3","SIMH3","SLCE3"
     ];
     const ETF_INFO = {
-      AUPO11: { description: "NTN-B + Selic" },
+      AUPO11: { description: "NTN-B + Selic" }
+    };
+/*
+
       BOVA11: { description: "Ibovespa" },
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
       GOAT11: { description: "Inflação + S&P" },
@@ -109,7 +115,8 @@ export default async (req, context) => {
       SMAL11: { description: "Small caps" },
       UTLL11: { description: "Utilities" },
       "5PRE11": { description: "Pré-fixado" }
-    };
+*/
+
     const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
