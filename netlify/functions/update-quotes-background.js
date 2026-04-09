@@ -72,6 +72,7 @@ const getVariation30d = (hist, currentPrice) => {
 };
 
 export default async (req, context) => {
+  const startTime = Date.now();    // ⏱️ Início do cronômetro
   console.log("🚀 Iniciando update-quotes");
   try {                       // Validações
     const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -112,8 +113,8 @@ export default async (req, context) => {
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
     // 🔥 Captura do parâmetro de URL para forçar atualização
-    const url = new URL(req.url);
-    const forceUpdate = url.searchParams.get("force") === "true";
+    const urlParams = new URL(req.url);
+    const forceUpdate = urlParams.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
     const existing = await store.get("latest");
@@ -152,12 +153,18 @@ export default async (req, context) => {
     for (const symbol of ALL) {
       console.log(`Buscando: ${symbol}`);
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+      const elapsed = Date.now() - startTime;
+            if (elapsed > 800000) { // 13 minutos (margem de segurança dos 15min)
+                console.warn("⚠️ Tempo limite de background atingindo. Finalizando com o que temos.");
+                break;
+            }
+            console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
 
       try {
         const res = await fetch(url);
         if (res.status === 429) {
-          console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 2s...`);
-          await sleep(2000); // Espera extra se bater no limite
+          console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 5s...`);
+          await sleep(5000); // Espera extra se bater no limite
           continue;
         }
 
@@ -176,7 +183,7 @@ export default async (req, context) => {
       } catch (err) {
         console.error(`❌ Erro em ${symbol}:`, err.message);
       }
-      await sleep(400); // Delay de segurança entre requisições
+      await sleep(1500); // Delay de segurança entre requisições
     }
 
     // 4️⃣ Processamento
@@ -226,7 +233,8 @@ export default async (req, context) => {
       meta: {
         updatedAt: Date.now(),                  // Timestamp para cálculos
         updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
-        total: processed.length
+        total: processed.length,
+        partial: results.length < ALL.length // Indica se o dado está incompleto
       }
     };
     // Para exibir formatado no LOG:
