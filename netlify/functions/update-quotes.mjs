@@ -5,23 +5,9 @@
 // salvamento no Blobs
 
 // mudar de CommonJS (require) para ES Modules (import/export),
-// permite o objeto de configuração simplificado.
-// const { getStore } = require("@netlify/blobs");
-import { getStore } from "@netlify/blobs";
+//      permite o objeto de configuração simplificado.
 
-
-// Helper para formatar a data/hora no padrão brasileiro (Brasília)
-const getFormattedDateTime = () => {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date());
-};
+const { getStore } = require("@netlify/blobs");
 
 // Helpers de mercado
 const isMarketOpen = () => {
@@ -38,8 +24,6 @@ const isMarketOpen = () => {
 };
 
 // Helpers de processamento
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
 const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
 );
@@ -71,13 +55,13 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
-export default async (req, context) => {
+exports.handler = async function () {
   console.log("🚀 Iniciando update-quotes");
   try {                       // Validações
     const API_TOKEN = process.env.BRAPI_TOKEN;
     if (!API_TOKEN) {
       console.error("❌ Token da API ausente");
-      return new Response("Token não configurado", { status: 500 });
+      return { statusCode: 500, body: "Token não configurado" };
     }
     const store = getStore({
       name: "quotes",
@@ -113,7 +97,6 @@ export default async (req, context) => {
     const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
-
     // 1️⃣ Cache antes de bater na API
     const existing = await store.get("latest");
     if (existing) {
@@ -123,46 +106,55 @@ export default async (req, context) => {
       const diffMinutes = (now - lastUpdate) / 60000;
       const marketOpen = isMarketOpen();
       const limit = marketOpen ? 10 : 60;
-      if (parsed?.data?.etfs?.length && diffMinutes < limit) {
+      const isEmpty =
+        !parsed?.data?.etfs?.length && !parsed?.data?.acoes?.length;
+
+      if (!isEmpty && diffMinutes < limit) {
         console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        return new Response(JSON.stringify({ skipped: true, reason: "cache válido" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            skipped: true,
+            reason: "cache válido",
+            minutes: diffMinutes
+          })
+        };
       }
+      if (isEmpty) console.log("⚠️ Cache vazio → forçando atualização");
     }
 
-
-    // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
-    const results = [];
-    for (const symbol of ALL) {
-      console.log(`Buscando: ${symbol}`);
+    // 2️⃣ Fetch com retry inteligente
+    const fetchWithRetry = async (symbol, retries = 2) => {
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-
       try {
         const res = await fetch(url);
-        if (res.status === 429) {
-          console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 2s...`);
-          await sleep(2000); // Espera extra se bater no limite
-          continue;
+        if (res.status === 429) throw new Error("RATE_LIMIT");
+        if (res.status >= 500) throw new Error("SERVER_ERROR 500");
+        if (!res.ok) {
+          console.warn(`⚠️ ${symbol}:`, await res.text());
+          return null;
         }
-
-        if (res.status === 502) {
-          console.error(`❌ Erro 502 (Bad Gateway) em ${symbol}: O servidor da Brapi está instável ou offline.`);
-          continue; // Pula para o próximo ticker
-        }
-
-        if (!res.ok) {
-          console.error(`❌ Erro HTTP ${res.status} em ${symbol}: Falha inesperada.`);
-          continue;
-        }
-
         const json = await res.json();
-        if (json.results?.[0]) results.push(json.results[0]);
+        return json?.results?.[0] || null;
       } catch (err) {
-        console.error(`❌ Erro em ${symbol}:`, err.message);
+        if (retries === 0) {
+          console.error(`❌ Falha final ${symbol}`);
+          return null;
+        }
+        const delay = err.message === "RATE_LIMIT" ? 1000 : 400;
+        console.warn(`🔁 Retry ${symbol} em ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
+        return fetchWithRetry(symbol, retries - 1);
       }
-      await sleep(400); // Delay de segurança entre requisições
+    };
+
+    // 3️⃣ Concorrência controlada
+    const CONCURRENCY = 3;
+    const results = [];
+    for (let i = 0; i < ALL.length; i += CONCURRENCY) {
+      const slice = ALL.slice(i, i + CONCURRENCY);
+      const batch = await Promise.all(slice.map(s => fetchWithRetry(s)));
+      results.push(...batch.filter(Boolean));
     }
 
     // 4️⃣ Processamento
@@ -180,7 +172,7 @@ export default async (req, context) => {
         symbol: r.symbol,
         shortName: r.shortName,
         longName: r.longName,
-        description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
+        description: ETF_INFO[r.symbol]?.description || "",
         regularMarketPrice: safeValue(currentPrice),
         regularMarketChangePercent: safeValue(r.regularMarketChangePercent),
         regularMarketDayRange:
@@ -207,36 +199,33 @@ export default async (req, context) => {
         acoes: processed.filter(r => tickersB3.includes(r.symbol))
       },
       meta: {
-        updatedAt: Date.now(),                  // Timestamp para cálculos
-        updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
+        updatedAt: Date.now(),
         total: processed.length
       }
     };
 
     // 6️⃣ Salvamento seguro no Blobs
-    if (processed.length > 0) {
+    const totalValid = payload.data.etfs.length + payload.data.acoes.length;
+    if (totalValid === 0) {
+      console.warn("⚠️ Nenhum dado válido → cache NÃO atualizado");
+    } else {
+      console.log("💾 Salvando cache com dados válidos...");
       await store.set("latest", JSON.stringify(payload));   // salva no Blobs
       console.log("✅ Cache salvo com sucesso!");
     }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      updatedAt: payload.meta.updatedLabel,
-      total: results.length
-    }), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: {
-        "Access-Control-Allow-Origin": "*",             // Permite chamadas de qualquer origem
+        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
         "Access-Control-Allow-Headers": "Content-Type",
         "Content-Type": "application/json"
       },
-    });
-    } catch (err) {
-      console.error("🔥 ERRO GERAL:", err);
-      return new Response(JSON.stringify({ error: "Falha no update", message: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+      body: JSON.stringify({ ok: true, total: results.length })};
+
+  } catch (err) {
+    console.error("🔥 ERRO GERAL:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: "Falha no update", message: err.message }) };
   }
 };
 

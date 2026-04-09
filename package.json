@@ -1,4 +1,6 @@
 {
+  "name": "Ativos da Bolsa",
+  "type": "module",
   "dependencies": {
     "@netlify/blobs": "^10.7.4",
     "@netlify/functions": "^5.2.0"
