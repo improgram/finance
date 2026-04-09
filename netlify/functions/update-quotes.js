@@ -224,6 +224,8 @@ export default async (req, context) => {
         total: processed.length
       }
     };
+    // Para exibir formatado no LOG:
+    console.log("Resultado: ", JSON.stringify(payload, null, 2));
 
     // 6️⃣ Salvamento seguro no Blobs
     if (processed.length > 0) {
@@ -235,7 +237,7 @@ export default async (req, context) => {
       ok: true,
       updatedAt: payload.meta.updatedLabel,
       total: results.length
-    }), {
+    } , null, 2), {   // O '2' adiciona 2 espaços de indentação na string resultante
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",             // Permite chamadas de qualquer origem
