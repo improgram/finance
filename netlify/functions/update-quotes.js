@@ -86,25 +86,26 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "AUPO11"
+      "AUPO11","BOVA11"
     ];
     /*
-    "BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
+    ,"B5P211","GOAT11","IMAB11","IRFM11",
       "IVVB11", "LFTB11","NBIT11","NDIV11", "PACB11", "SMAL11",
       "UTLL11","5PRE11"
     */
     const tickersB3 = [
-      "ALPA4"
-      /*,"ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
+      "ALPA4","ASAI3"
+      /*
+      "BBDC4","CAML3","DXCO3","KLBN4",
       "GRND3","JALL3","RAIL3","SIMH3","SLCE3"
       */
     ];
     const ETF_INFO = {
-      AUPO11: { description: "NTN-B + Selic" }
+      AUPO11: { description: "NTN-B + Selic" },
+      BOVA11: { description: "Ibovespa" }
     };
-/*
 
-      BOVA11: { description: "Ibovespa" },
+/*
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
       GOAT11: { description: "Inflação + S&P" },
       IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
@@ -133,14 +134,14 @@ export default async (req, context) => {
       const marketOpen = isMarketOpen();
       const limit = marketOpen ? 10 : 60;
       if (parsed?.data?.etfs?.length && diffMinutes < limit) {
-        console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        return new Response(JSON.stringify({ skipped: true, reason: "cache válido" }), {
+        console.log(`⏱️ Cache válido ( ${diffMinutes.toFixed(1)} min)`);
+        return new Response(JSON.stringify( { skipped: true, reason: "cache válido" }, null, 2 ), {
           status: 200,
           headers: { "Content-Type": "application/json" }
         });
       }
     }
-
+    
 
     // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
     const results = [];
