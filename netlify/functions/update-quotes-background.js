@@ -9,6 +9,7 @@
 // const { getStore } = require("@netlify/blobs");
 import { getStore } from "@netlify/blobs";
 
+ const CACHE_VERSION = 1;
 
 // Helper para formatar a data/hora no padrão brasileiro (Brasília)
 const getFormattedDateTime = () => {
@@ -129,6 +130,10 @@ export default async (req, context) => {
       const marketOpen = isMarketOpen();                // Mercado Fechado: Os preços não mudam
       const limit = marketOpen ? 10 : 60;               // Mercado Aberto: cache só vale por 10 minutos
 
+      const isDifferentVersion = parsed?.meta?.version !== CACHE_VERSION;
+      if (isDifferentVersion) {
+        console.log("⚠️ Versão do cache mudou → forçando atualização");
+      }
       const cachedAll = [
         ...(parsed?.data?.etfs || []).map(i => i.symbol),
         ...(parsed?.data?.acoes || []).map(i => i.symbol)
@@ -144,8 +149,8 @@ export default async (req, context) => {
         [...allSet].some(symbol => !cachedSet.has(symbol));
 
       const isPartial = parsed?.meta?.partial;
-
-      if (!isPartial && !hasDifferentTickers && diffMinutes < limit) {      // Detecta cache parcial
+      // Detecta cache parcial
+      if (!isPartial && !hasDifferentTickers && !isDifferentVersion && diffMinutes < limit) {
         console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
         return new Response(
           JSON.stringify(
@@ -166,7 +171,6 @@ export default async (req, context) => {
         console.log("🔄 Lista de ativos mudou → forçando atualização");
       }
     }
-
 
     // Parse do cache = Se cálculo falhar → usa valor antigo
     let previousData = {};
@@ -289,6 +293,7 @@ export default async (req, context) => {
         acoes: processed.filter(r => tickersB3.includes(r.symbol))
       },
       meta: {
+        version: CACHE_VERSION,
         updatedAt: Date.now(),                  // Timestamp para cálculos
         updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
         total: processed.length,
