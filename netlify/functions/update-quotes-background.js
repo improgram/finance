@@ -94,7 +94,7 @@ export default async (req, context) => {
       "NBIT11", "PACB11", "5PRE11"
     ];
 
-    const tickersB3 = [ "ASAI3", "BBDC4", "RAIL3" ];
+    const tickersB3 = [ "ASAI3", "BBDC4", "JALL3", "RAIL3" ];
       /* "ALPA4", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
 
     const ETF_INFO = {
@@ -172,7 +172,7 @@ export default async (req, context) => {
     // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
     const results = [];
     for (const symbol of ALL) {
-      console.log(`Buscando: ${ symbol }`);
+      console.log(` 🔎  Buscando: [${ symbol }]`);
       if (
         !symbol ||
         typeof symbol !== "string" ||
@@ -181,7 +181,8 @@ export default async (req, context) => {
         console.warn("⚠️ Symbol inválido, pulando...");
         continue;
       }
-      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+      const safeSymbol = encodeURIComponent(symbol);
+      const url = `https://brapi.dev/api/quote/${safeSymbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
       const elapsed = Date.now() - startTime;
           if (elapsed > 800000) { // 13 minutos (margem de segurança dos 15min)
               console.warn("⚠️ Tempo limite de background atingindo. Finalizando com o que temos.");
@@ -210,7 +211,7 @@ export default async (req, context) => {
         const json = await res.json();
         if (json.results?.[0]) results.push(json.results[0]);
       } catch (err) {
-        console.error(`❌ Erro em ${symbol}:`, err.message);
+        console.error(`❌ Erro em [${symbol}:]`, err.message);
       }
       await sleep(1500); // Delay de segurança entre requisições
     }

@@ -19,7 +19,7 @@ exports.handler = async function () {
 
     console.log("🔎 Buscando dados no Blobs...");
 
-    const data = await store.get("latest");
+    const data = await store.get("latest", { type: "json" });
 
     // 🔥 fallback seguro
     if (!data) {
@@ -29,11 +29,12 @@ exports.handler = async function () {
         body: JSON.stringify({
           data: { etfs: [], acoes: [] },
           meta: { empty: true, message: "Sem dados ainda" }
-        })
+        }, null, 2)
       };
     }
 
     console.log("✅ Dados encontrados");
+    const responseBody = typeof data === 'string' ? JSON.parse(data) : data;
 
     return {
       statusCode: 200,
@@ -44,7 +45,7 @@ exports.handler = async function () {
         "Access-Control-Allow-Headers": "Content-Type",
         "Content-Type": "application/json"
       },
-      body: data
+      body: JSON.stringify(responseBody, null, 2)
     };
 
   } catch (err) {
@@ -54,8 +55,8 @@ exports.handler = async function () {
       statusCode: 200, // 🔥 nunca 500
       body: JSON.stringify({
         data: { etfs: [], acoes: [] },
-        meta: { error: true }
-      })
+        meta: { error: true, message: err.message }
+      }, null, 2)
     };
   }
 };
