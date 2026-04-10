@@ -87,7 +87,7 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "IMAB11", "IRFM11", "IVVB11",
+      "BOVA11", "IMAB11", "IRFM11", "IVVB11",
       "NBIT11", "PACB11", "5PRE11"
     ];
 
@@ -269,9 +269,9 @@ export default async (req, context) => {
 
 // --- Configuração do Schedule (Cron) ---
 // const { schedule } = require("@netlify/functions");
-  // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
+// Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
 export const config = {
-  schedule: "*/60 13-22 * * 1-5"
+  schedule: "*/30 13-22 * * 1-5"
 };
 
 
