@@ -246,9 +246,9 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 45px;                /* da segunda tabela(tableAcoes) tera 50px nos logos*/
-    height: 45px;      /* Define uma altura fixa para a célula ser quadrada */
-    padding: 0.5px;      /* Pequeno respiro para o logo não colar nas bordas */
+    width: 40px;                /* da segunda tabela(tableAcoes) tera 50px nos logos*/
+    height: 40px;      /* Define uma altura fixa para a célula ser quadrada */
+    padding: 0.1px;      /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
     text-align: center;
 }

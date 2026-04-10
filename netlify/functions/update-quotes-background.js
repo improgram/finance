@@ -53,6 +53,9 @@ const filterByDays = (hist, days) => {
 const hasEnoughHist = (hist) => hist.length >= 10;
 const safeValue = (value) => (value == null || Number.isNaN(value)) ? "N/E" : value;
 const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
+const safeWithFallback = (newVal, oldVal) =>
+  (newVal == null || newVal === "N/E") ? oldVal ?? "N/E" : newVal;
+
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
   const now = new Date();
@@ -87,11 +90,11 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "AUPO11", "BOVA11", "IMAB11", "IRFM11", "IVVB11",
+      "AUPO11", "BOVA11", "B5P211", "IMAB11", "IRFM11", "IVVB11",
       "NBIT11", "PACB11", "5PRE11"
     ];
 
-    const tickersB3 = [ ,"ASAI3", "BBDC4", "RAIL3" ];
+    const tickersB3 = [ "ASAI3", "BBDC4", "RAIL3" ];
       /* "ALPA4", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
 
     const ETF_INFO = {
@@ -148,17 +151,43 @@ export default async (req, context) => {
     }
 
 
+    // Parse do cache = Se cálculo falhar → usa valor antigo
+    let previousData = {};
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing);
+        const allPrev = [
+          ...(parsed?.data?.etfs || []),
+          ...(parsed?.data?.acoes || [])
+        ];
+        previousData = Object.fromEntries(
+          allPrev.map(item => [item.symbol, item])
+        );
+      } catch (e) {
+        console.warn("Erro ao parsear cache anterior");
+      }
+    }
+
+
     // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
     const results = [];
     for (const symbol of ALL) {
-      console.log(`Buscando: ${symbol}`);
+      console.log(`Buscando: ${ symbol }`);
+      if (
+        !symbol ||
+        typeof symbol !== "string" ||
+        !symbol.trim()
+      ) {
+        console.warn("⚠️ Symbol inválido, pulando...");
+        continue;
+      }
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
       const elapsed = Date.now() - startTime;
-            if (elapsed > 800000) { // 13 minutos (margem de segurança dos 15min)
-                console.warn("⚠️ Tempo limite de background atingindo. Finalizando com o que temos.");
-                break;
-            }
-            console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
+          if (elapsed > 800000) { // 13 minutos (margem de segurança dos 15min)
+              console.warn("⚠️ Tempo limite de background atingindo. Finalizando com o que temos.");
+              break;
+          }
+          console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
 
       try {
         const res = await fetch(url);
@@ -195,6 +224,16 @@ export default async (req, context) => {
       const closes7 = getCloses(hist7);
       const closes30 = getCloses(hist30);
       const currentPrice = r.regularMarketPrice ?? null;
+      const prev = previousData[r.symbol] || {};
+      const newVariation =
+        (!noHist && hasEnoughHist(hist))
+          ? safeValue(getVariation30d(hist, currentPrice))
+          : null;
+
+      const variation30d =
+        (newVariation == null || newVariation === "N/E")
+          ? prev.variation30d ?? "N/E"
+          : newVariation;
 
       return {
         hasHistory: !noHist,
@@ -205,7 +244,10 @@ export default async (req, context) => {
         updatedAt: Date.now(),                          // Timestamp para lógica de front-end
         updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
 
-        regularMarketPrice: safeValue(currentPrice),
+        regularMarketPrice: safeWithFallback(
+          safeValue(currentPrice),
+          prev.regularMarketPrice
+        ),
         regularMarketChangePercent: safeValue(r.regularMarketChangePercent),
         regularMarketDayRange:
           r.regularMarketDayLow != null && r.regularMarketDayHigh != null
@@ -213,9 +255,7 @@ export default async (req, context) => {
             : null,
         min7d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
         min30d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
-        variation30d: (!noHist && hasEnoughHist(hist))
-          ? safeValue(getVariation30d(hist, currentPrice))
-          : "N/E",
+        variation30d,
         regularMarketDayLow: r.regularMarketDayLow ?? null,
         regularMarketDayHigh: r.regularMarketDayHigh ?? null,
         fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
@@ -234,16 +274,21 @@ export default async (req, context) => {
         updatedAt: Date.now(),                  // Timestamp para cálculos
         updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
         total: processed.length,
-        partial: results.length < ALL.length // Indica se o dado está incompleto
+        partial: results.length < ALL.length    // Indica se o dado está incompleto
       }
     };
     // Para exibir formatado no LOG:
     console.log("Resultado: ", JSON.stringify(payload, null, 2));
 
     // 6️⃣ Salvamento seguro no Blobs
-    if (processed.length > 0) {
-      await store.set("latest", JSON.stringify(payload));   // salva no Blobs
-      console.log("✅ Cache salvo com sucesso!");
+    const MIN_VALID = Math.ceil(ALL.length * 0.7);    // 70% o total original com sucesso
+    if (processed.length >= MIN_VALID) {
+      if (!payload.meta.partial) {
+        await store.set("latest", JSON.stringify(payload));
+      }
+      console.log("✅ Cache salvo com qualidade!");
+    } else {
+      console.warn("⚠️ Poucos dados válidos — mantendo cache anterior");
     }
 
     return new Response(JSON.stringify({
@@ -261,8 +306,8 @@ export default async (req, context) => {
     } catch (err) {
       console.error("🔥 ERRO GERAL:", err);
       return new Response(JSON.stringify({ error: "Falha no update", message: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
+        status: 500,
+        headers: { "Content-Type": "application/json" }
     });
   }
 };
