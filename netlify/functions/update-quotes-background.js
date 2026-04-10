@@ -94,8 +94,8 @@ export default async (req, context) => {
       "NBIT11", "PACB11", "5PRE11"
     ];
 
-    const tickersB3 = [ "ASAI3", "BBDC4", "JALL3", "RAIL3" ];
-      /* "ALPA4", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
+    const tickersB3 = [ "ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3" ];
+      /* "ALPA4", "DXCO3","KLBN4", "GRND3","SLCE3" */
 
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
@@ -120,34 +120,51 @@ export default async (req, context) => {
     const forceUpdate = urlParams.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
-    const existing = await store.get("latest");
+
     if (!forceUpdate && existing) {
       const parsed = JSON.parse(existing);
-      const lastUpdate = parsed?.meta?.updatedAt || 0;          // Quando foi a ultima Att
-      const now = Date.now();                                   // Que horas são agora?
-      const diffMinutes = (now - lastUpdate) / 60000;           // Há quantos minutos atualizei?
-      const marketOpen = isMarketOpen();                        // Mercado Fechado: Os preços não mudam
-      const limit = marketOpen ? 10 : 60;                       // Mercado Aberto: cache só vale por 10 minutos.
+      const lastUpdate = parsed?.meta?.updatedAt || 0;  // Quando foi a ultima Att
+      const now = Date.now();                           // Que horas são agora?
+      const diffMinutes = (now - lastUpdate) / 60000;   // Há quantos minutos atualizei ?
+      const marketOpen = isMarketOpen();                // Mercado Fechado: Os preços não mudam
+      const limit = marketOpen ? 10 : 60;               // Mercado Aberto: cache só vale por 10 minutos
 
-      const cachedEtfs = (parsed?.data?.etfs || []).map(item => item.symbol);
-      const cachedAcoes = (parsed?.data?.acoes || []).map(item => item.symbol);
-      const cachedAll = [...cachedEtfs, ...cachedAcoes];
+      const cachedAll = [
+        ...(parsed?.data?.etfs || []).map(i => i.symbol),
+        ...(parsed?.data?.acoes || []).map(i => i.symbol)
+      ];
 
-      // Checa se as listas têm tamanhos diferentes ou ativos diferentes
-      const hasDifferentTickers = ALL.length !== cachedAll.length || ALL.some(symbol => !cachedAll.includes(symbol));
+      const cachedSet = new Set(cachedAll);             // Usa Set (comparação correta)
+      const allSet = new Set(
+        ALL.filter(s => typeof s === "string" && s.trim())
+      );
 
-      if (!hasDifferentTickers && parsed?.data?.etfs?.length && diffMinutes < limit) {
-        console.log(`⏱️ Cache válido ( ${diffMinutes.toFixed(1)} min)`);
-        return new Response(JSON.stringify( { skipped: true, reason: "cache válido" }, null, 2 ), {
-          status: 200,                      // retorna resposta atualização foi pulada (skipped)
-          headers: { "Content-Type": "application/json" }
-        });
-      } else if (hasDifferentTickers) {
-        console.log("🔄 Lista de ativos alterada no código! Ignorando o tempo de cache.");
+      const hasDifferentTickers =
+        cachedSet.size !== allSet.size ||
+        [...allSet].some(symbol => !cachedSet.has(symbol));
+
+      const isPartial = parsed?.meta?.partial;
+
+      if (!isPartial && !hasDifferentTickers && diffMinutes < limit) {      // Detecta cache parcial
+        console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
+        return new Response(
+          JSON.stringify(
+            { skipped: true, reason: "cache válido" },
+            null,
+            2
+          ),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
       }
-    } else if (forceUpdate) {
-      // Se caiu aqui, é porque você passou ?force=true na URL
-      console.log("⚠️ Atualização forçada via parâmetro URL (?force=true). Ignorando cache.");
+      if (isPartial) {
+        console.log("⚠️ Cache parcial → forçando atualização");
+      }
+      if (hasDifferentTickers) {
+        console.log("🔄 Lista de ativos mudou → forçando atualização");
+      }
     }
 
 
