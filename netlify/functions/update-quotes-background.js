@@ -91,8 +91,8 @@ export default async (req, context) => {
       "NBIT11", "PACB11", "5PRE11"
     ];
 
-    const tickersB3 = [ "BBDC4", "RAIL3" ];
-      /* "ALPA4","ASAI3", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
+    const tickersB3 = [ ,"ASAI3", "BBDC4", "RAIL3" ];
+      /* "ALPA4", "DXCO3","KLBN4", "GRND3","JALL3","SIMH3","SLCE3" */
 
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
