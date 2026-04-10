@@ -9,7 +9,7 @@
 // const { getStore } = require("@netlify/blobs");
 import { getStore } from "@netlify/blobs";
 
- const CACHE_VERSION = 1;
+ const CACHE_VERSION = 2;
 
 // Helper para formatar a data/hora no padrão brasileiro (Brasília)
 const getFormattedDateTime = () => {
@@ -121,6 +121,7 @@ export default async (req, context) => {
     const forceUpdate = urlParams.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
+    const existing = await store.get("latest");
 
     if (!forceUpdate && existing) {
       const parsed = JSON.parse(existing);
