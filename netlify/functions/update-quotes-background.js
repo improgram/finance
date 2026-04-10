@@ -9,7 +9,7 @@
 // const { getStore } = require("@netlify/blobs");
 import { getStore } from "@netlify/blobs";
 
- const CACHE_VERSION = 2;
+const CACHE_VERSION = 1;
 
 // Helper para formatar a data/hora no padrão brasileiro (Brasília)
 const getFormattedDateTime = () => {
@@ -90,6 +90,8 @@ export default async (req, context) => {
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
+    const STORE_KEY = `latest-v${CACHE_VERSION}`;
+
     const ETF_LIST = [
       "AUPO11", "BOVA11", "B5P211", "IMAB11", "IRFM11", "IVVB11",
       "NBIT11", "PACB11", "5PRE11"
@@ -113,7 +115,10 @@ export default async (req, context) => {
       "5PRE11": { description: "Pré-fixado" }
     };
 
-    const ALL = [...ETF_LIST, ...tickersB3];
+    const ALL = [...new Set(
+      [...ETF_LIST, ...tickersB3]
+        .filter(s => typeof s === "string" && s.trim())
+    )];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
     // 🔥 Captura do parâmetro de URL para forçar atualização
@@ -121,7 +126,7 @@ export default async (req, context) => {
     const forceUpdate = urlParams.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
-    const existing = await store.get("latest");
+    const existing = await store.get(STORE_KEY);
 
     if (!forceUpdate && existing) {
       const parsed = JSON.parse(existing);
@@ -213,7 +218,10 @@ export default async (req, context) => {
           console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
 
       try {
-        const res = await fetch(url);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
         if (res.status === 429) {
           console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 5s...`);
           await sleep(5000); // Espera extra se bater no limite
@@ -233,7 +241,7 @@ export default async (req, context) => {
         const json = await res.json();
         if (json.results?.[0]) results.push(json.results[0]);
       } catch (err) {
-        console.error(`❌ Erro em [${symbol}:]`, err.message);
+        console.error(`❌ Erro em [${symbol}]`, err);
       }
       await sleep(1500); // Delay de segurança entre requisições
     }
@@ -308,9 +316,11 @@ export default async (req, context) => {
     const MIN_VALID = Math.ceil(ALL.length * 0.7);    // 70% o total original com sucesso
     if (processed.length >= MIN_VALID) {
       if (!payload.meta.partial) {
-        await store.set("latest", JSON.stringify(payload));
+        await store.set(STORE_KEY, JSON.stringify(payload));
+        console.log("✅ Cache salvo com qualidade!");
+      } else {
+      console.warn("⚠️ Poucos dados válidos — mantendo cache anterior");
       }
-      console.log("✅ Cache salvo com qualidade!");
     } else {
       console.warn("⚠️ Poucos dados válidos — mantendo cache anterior");
     }
@@ -329,7 +339,7 @@ export default async (req, context) => {
     });
     } catch (err) {
       console.error("🔥 ERRO GERAL:", err);
-      return new Response(JSON.stringify({ error: "Falha no update", message: err.message }), {
+      return new Response(JSON.stringify({ error: "Falha no update", err }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
     });
