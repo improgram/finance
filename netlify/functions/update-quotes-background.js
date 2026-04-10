@@ -87,7 +87,7 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "BOVA11", "IMAB11", "IRFM11", "IVVB11",
+      "AUPO11", "BOVA11", "IMAB11", "IRFM11", "IVVB11",
       "NBIT11", "PACB11", "5PRE11"
     ];
 
