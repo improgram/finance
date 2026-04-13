@@ -158,6 +158,7 @@ const renderAcoes = (data) => {
     }).join('');
 };
 
+document.getElementById('status-atualizacao').innerText = "Atualizando dados...";
 
 const fetchQuotes = async () => {
     const statusEl = document.getElementById('status');     // Mostrar loading real
@@ -167,9 +168,9 @@ const fetchQuotes = async () => {
         statusEl.innerText = 'Carregando...';
         const res = await fetch('/.netlify/functions/get-quotes');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        allEtfs = data.data?.etfs || [];
-        allAcoes = data.data?.acoes || [];
+        const json = await res.json();
+        allEtfs = json.data?.etfs || [];
+        allAcoes = json.data?.acoes || [];
         renderTable(allEtfs);
         renderAcoes(allAcoes);
         // ESCONDE loading depois de renderizar
@@ -177,7 +178,8 @@ const fetchQuotes = async () => {
 
         if (json.meta && json.meta.updatedLabel) {
             const lastUpdated = json.meta.updatedLabel;
-            document.getElementById('status-atualizacao').innerText = `Última atualização: ${lastUpdated}`;
+            document.getElementById('status-atualizacao').innerText =
+                `Última atualização: ${lastUpdated}`;
         }
 
     } catch (err) {
