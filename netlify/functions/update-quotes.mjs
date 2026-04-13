@@ -4,8 +4,16 @@
 // processamento
 // salvamento no Blobs
 
+// Está tentando rodar sua função no formato tradicional:
+//   (V1 / CommonJS)
+//    e está procurando por um exports.handler.
+
+//  No entanto, você construiu o script utilizando o padrão
+//   de módulos ES (export default / Netlify Functions V2).
+
 // mudar de CommonJS (require) para ES Modules (import/export),
 //      permite o objeto de configuração simplificado.
+console.log("Update-quotes CARREGADA");
 
 const { getStore } = require("@netlify/blobs");
 
@@ -55,7 +63,7 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
-exports.handler = async function () {
+export default async (req, context) => {
   console.log("🚀 Iniciando update-quotes");
   try {                       // Validações
     const API_TOKEN = process.env.BRAPI_TOKEN;

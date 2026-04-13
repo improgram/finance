@@ -1,3 +1,4 @@
+console.log("FUNCTION script CARREGADA");
 // menu hamburguer
 const hamburger = document.getElementById("hamburger");
 const navMenu = document.getElementById("nav-menu");

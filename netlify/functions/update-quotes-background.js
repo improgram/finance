@@ -7,6 +7,11 @@
 // mudar de CommonJS (require) para ES Modules (import/export),
 // permite o objeto de configuração simplificado.
 // const { getStore } = require("@netlify/blobs");
+
+
+console.log("Update-quotes-background CARREGADA");
+
+
 import { getStore } from "@netlify/blobs";
 
 const CACHE_VERSION = 1;
@@ -219,7 +224,7 @@ export default async (req, context) => {
 
       try {
         const controller = new AbortController();
-        //const timeout = setTimeout(() => controller.abort(), 15000);
+        const timeout = setTimeout(() => controller.abort(), 25000);
         const res = await fetch(url, {
           signal: controller.signal,
         });
