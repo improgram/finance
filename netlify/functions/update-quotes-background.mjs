@@ -262,7 +262,7 @@ export default async (req, context) => {
       const closes7 = getCloses(hist7);
       const closes30 = getCloses(hist30);
       const currentPrice = r.regularMarketPrice ?? null;
-      const normalizeSymbol = (s) => s?.replace(".SA", "").toUpperCase();
+      const normalizeSymbol = (r) => r?.replace(".SA", "").toUpperCase();
       const prev = previousData[r.symbol] || {};
       const newVariation =
         (!noHist && hasEnoughHist(hist))

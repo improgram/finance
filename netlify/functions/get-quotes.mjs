@@ -1,11 +1,12 @@
 // Busca no storage (Blobs) assim a API fica leve
 // retorna JSON
 
-// import { getStore } from "@netlify/blobs";
-const { getStore } = require("@netlify/blobs");
+import { getStore } from "@netlify/blobs";
+// Na V2, você deve usar import em vez de require
+// const { getStore } = require("@netlify/blobs");
 
 export default async (req, context) => {
-  console.log("📥 get-quotes chamado");
+  console.log("📥 get-quotes chamado (V2)");
   try {
 
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
@@ -36,7 +37,7 @@ export default async (req, context) => {
     console.log("✅ Dados encontrados");
     const responseBody = typeof data === 'string' ? JSON.parse(data) : data;
 
-    return {
+    return new Response(JSON.stringify(data), {     // null, 2
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
@@ -44,20 +45,28 @@ export default async (req, context) => {
         "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
         "Access-Control-Allow-Headers": "Content-Type",
         "Content-Type": "application/json"
-      },
-      body: JSON.stringify(responseBody, null, 2)
-    };
+      }
+    });
 
   } catch (err) {
     console.error("Erro get-quotes:", err);
 
-    return {
-      statusCode: 200, // 🔥 nunca 500
-      body: JSON.stringify({
+    return new Response (
+      JSON.stringify({
         data: { etfs: [], acoes: [] },
         meta: { error: true, message: err.message }
-      }, null, 2)
-    };
+      }),
+      {
+        status: 200, // 🔥 nunca 500
+        headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
+        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Content-Type": "application/json"
+        }
+      }
+    );
   }
 };
 
