@@ -119,20 +119,18 @@ export default async (req, context) => {
 
       if (!isEmpty && diffMinutes < limit) {
         console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        return new Response(JSON.stringify({ ok: true, count: processed.length }), {
+        const total =
+          (parsed?.data?.etfs?.length || 0) +
+          (parsed?.data?.acoes?.length || 0);
+        return new Response(JSON.stringify({ ok: true, total }), {
           status: 200,
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*"
           }
         });
-        } catch (err) {
-          console.error("🔥 ERRO:", err);
-          return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-        }
-      };
-
-
+      }
+    }
 
     // 2️⃣ Fetch com retry inteligente
     const fetchWithRetry = async (symbol, retries = 2) => {
