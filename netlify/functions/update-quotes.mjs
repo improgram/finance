@@ -4,9 +4,7 @@
 // processamento
 // salvamento no Blobs
 
-// Está tentando rodar sua função no formato tradicional:
-//   (V1 / CommonJS)
-//    e está procurando por um exports.handler.
+// formato tradicional: (V1 / CommonJS) procura exports.handler.
 
 //  No entanto, você construiu o script utilizando o padrão
 //   de módulos ES (export default / Netlify Functions V2).

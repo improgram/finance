@@ -223,12 +223,8 @@ export default async (req, context) => {
           console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
 
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 25000);
-        const res = await fetch(url, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
+        const res = await fetch(url, { AbortSignal.timeout(25000), });
+
         if (res.status === 429) {
           console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 5s...`);
           await sleep(20000); // Espera extra se bater no limite
@@ -248,6 +244,9 @@ export default async (req, context) => {
         const json = await res.json();
         if (json.results?.[0]) results.push(json.results[0]);
       } catch (err) {
+        if (err.name === 'AbortError') {
+          console.error(`⏱️ Timeout atingido em [${symbol}]`);
+        } else {
         console.error(`❌ Erro em [${symbol}]`, err);
       }
       await sleep(2000); // Delay de segurança entre requisições
@@ -262,7 +261,6 @@ export default async (req, context) => {
       const closes7 = getCloses(hist7);
       const closes30 = getCloses(hist30);
       const currentPrice = r.regularMarketPrice ?? null;
-      const normalizeSymbol = (r) => r?.replace(".SA", "").toUpperCase();
       const prev = previousData[r.symbol] || {};
       const newVariation =
         (!noHist && hasEnoughHist(hist))
@@ -276,7 +274,7 @@ export default async (req, context) => {
 
       return {
         hasHistory: !noHist,
-        symbol: normalizeSymbol(r.symbol),
+        symbol: r.symbol,
         shortName: r.shortName,
         longName: r.longName,
         description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
@@ -307,7 +305,7 @@ export default async (req, context) => {
     const payload = {
       data: {
         etfs: processed.filter(r => ETF_LIST.includes(r.symbol)),
-        acoes: processed.filter(r => tickersB3.includes(normalizeSymbol(r.symbol)) )
+        acoes: processed.filter(r => tickersB3.includes(r.symbol))
       },
       meta: {
         version: CACHE_VERSION,
