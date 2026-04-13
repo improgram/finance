@@ -13,7 +13,9 @@
 //      permite o objeto de configuração simplificado.
 console.log("Update-quotes CARREGADA");
 
-const { getStore } = require("@netlify/blobs");
+// const { getStore } = require("@netlify/blobs");
+// Na V2 deve usar import em vez de require
+import { getStore } from "@netlify/blobs";
 
 // Helpers de mercado
 const isMarketOpen = () => {
@@ -67,7 +69,7 @@ export default async (req, context) => {
     const API_TOKEN = process.env.BRAPI_TOKEN;
     if (!API_TOKEN) {
       console.error("❌ Token da API ausente");
-      return { statusCode: 500, body: "Token não configurado" };
+      return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
       name: "quotes",
@@ -117,17 +119,20 @@ export default async (req, context) => {
 
       if (!isEmpty && diffMinutes < limit) {
         console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            skipped: true,
-            reason: "cache válido",
-            minutes: diffMinutes
-          })
-        };
-      }
-      if (isEmpty) console.log("⚠️ Cache vazio → forçando atualização");
-    }
+        return new Response(JSON.stringify({ ok: true, count: processed.length }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
+        } catch (err) {
+          console.error("🔥 ERRO:", err);
+          return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+        }
+      };
+
+
 
     // 2️⃣ Fetch com retry inteligente
     const fetchWithRetry = async (symbol, retries = 2) => {
@@ -220,19 +225,18 @@ export default async (req, context) => {
       console.log("✅ Cache salvo com sucesso!");
     }
 
-    return {
-      statusCode: 200,
+    return new Response (JSON.stringify({ ok: true, total: processed.length }), {
+      status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
         "Access-Control-Allow-Headers": "Content-Type",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ ok: true, total: results.length })};
-
-  } catch (err) {
-    console.error("🔥 ERRO GERAL:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: "Falha no update", message: err.message }) };
-  }
+    });
+    } catch (err) {
+      console.error("🔥 ERRO GERAL:", err);
+      return new Response (JSON.stringify({ error: err.message }), { status: 500 });
+    }
 };
 
 // --- Configuração do Schedule (Cron) ---

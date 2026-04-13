@@ -2,7 +2,7 @@
 // retorna JSON
 
 import { getStore } from "@netlify/blobs";
-// Na V2, você deve usar import em vez de require
+// Na V2 deve usar import em vez de require
 // const { getStore } = require("@netlify/blobs");
 
 export default async (req, context) => {
