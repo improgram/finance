@@ -1,4 +1,4 @@
-// schedule (cron) (Pendente)
+// schedule (cron)
 // lógica completa
 // chamada da Brapi
 // processamento

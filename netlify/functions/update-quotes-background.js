@@ -219,12 +219,14 @@ export default async (req, context) => {
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(url, { signal: controller.signal });
+        //const timeout = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(url, {
+          signal: controller.signal,
+        });
         clearTimeout(timeout);
         if (res.status === 429) {
           console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 5s...`);
-          await sleep(5000); // Espera extra se bater no limite
+          await sleep(20000); // Espera extra se bater no limite
           continue;
         }
 
@@ -243,7 +245,7 @@ export default async (req, context) => {
       } catch (err) {
         console.error(`❌ Erro em [${symbol}]`, err);
       }
-      await sleep(1500); // Delay de segurança entre requisições
+      await sleep(2000); // Delay de segurança entre requisições
     }
 
     // 4️⃣ Processamento
@@ -255,6 +257,7 @@ export default async (req, context) => {
       const closes7 = getCloses(hist7);
       const closes30 = getCloses(hist30);
       const currentPrice = r.regularMarketPrice ?? null;
+      const normalizeSymbol = (s) => s?.replace(".SA", "").toUpperCase();
       const prev = previousData[r.symbol] || {};
       const newVariation =
         (!noHist && hasEnoughHist(hist))
@@ -268,7 +271,7 @@ export default async (req, context) => {
 
       return {
         hasHistory: !noHist,
-        symbol: r.symbol,
+        symbol: normalizeSymbol(r.symbol),
         shortName: r.shortName,
         longName: r.longName,
         description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
@@ -299,14 +302,14 @@ export default async (req, context) => {
     const payload = {
       data: {
         etfs: processed.filter(r => ETF_LIST.includes(r.symbol)),
-        acoes: processed.filter(r => tickersB3.includes(r.symbol))
+        acoes: processed.filter(r => tickersB3.includes(normalizeSymbol(r.symbol)) )
       },
       meta: {
         version: CACHE_VERSION,
         updatedAt: Date.now(),                  // Timestamp para cálculos
         updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
         total: processed.length,
-        partial: results.length < ALL.length    // Indica se o dado está incompleto
+        partial: processed.length < ALL.length    // Indica se o dado está incompleto
       }
     };
     // Para exibir formatado no LOG:
@@ -315,14 +318,8 @@ export default async (req, context) => {
     // 6️⃣ Salvamento seguro no Blobs
     const MIN_VALID = Math.ceil(ALL.length * 0.7);    // 70% o total original com sucesso
     if (processed.length >= MIN_VALID) {
-      if (!payload.meta.partial) {
         await store.set(STORE_KEY, JSON.stringify(payload));
-        console.log("✅ Cache salvo com qualidade!");
-      } else {
-      console.warn("⚠️ Poucos dados válidos — mantendo cache anterior");
-      }
-    } else {
-      console.warn("⚠️ Poucos dados válidos — mantendo cache anterior");
+        console.log("✅ Cache salvo !");
     }
 
     return new Response(JSON.stringify({

@@ -4,7 +4,7 @@
 // import { getStore } from "@netlify/blobs";
 const { getStore } = require("@netlify/blobs");
 
-exports.handler = async function () {
+export default async (req, context) => {
   console.log("📥 get-quotes chamado");
   try {
 

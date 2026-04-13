@@ -175,12 +175,19 @@ const fetchQuotes = async () => {
         // ESCONDE loading depois de renderizar
         statusEl.style.display = 'none';
 
+        if (json.meta && json.meta.updatedLabel) {
+            const lastUpdated = json.meta.updatedLabel;
+            document.getElementById('status-atualizacao').innerText = `Última atualização: ${lastUpdated}`;
+        }
+
     } catch (err) {
         console.error('Erro ao buscar quotes:', err);
         statusEl.style.display = 'block';
         statusEl.innerText = 'Erro ao carregar dados';
     }
 };
+
+
 
 // Chame a função quando a página carregar
 window.addEventListener('DOMContentLoaded', fetchQuotes);
