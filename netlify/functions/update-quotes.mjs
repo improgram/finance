@@ -69,6 +69,8 @@ const getVariation30d = (hist, currentPrice) => {
 // Handler Principal V2
 export default async (req, context) => {
   console.log(" 🔄 Cron Iniciando update-quotes");
+  const urlUpdate = new URL(req.url);
+  const forceUpdate = urlUpdate.searchParams.get("force") === "true";
 
   // Validações
   try {
@@ -111,7 +113,7 @@ export default async (req, context) => {
     // Na V2 podemos buscar direto como JSON
     const parsed = await store.get("latest", { type: "json" });
 
-    if (parsed) {
+    if (parsed && !forceUpdate) {
       const lastUpdate = parsed?.meta?.updatedAt || 0;
       const now = Date.now();
       const diffMinutes = (now - lastUpdate) / 60000;
@@ -134,9 +136,9 @@ export default async (req, context) => {
       }
     }
 
-    // 2️⃣ Fetch com retry inteligente
+    // 2️⃣ Fetch com retry inteligente e interval=1h(nao pode)
     const fetchWithRetry = async (symbol, retries = 2) => {
-      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1h&token=${API_TOKEN}`;
+      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
 
       try {
         const res = await fetch(url);       // =>  chamada na Brapi

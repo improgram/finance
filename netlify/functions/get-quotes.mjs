@@ -1,6 +1,6 @@
 // Busca no storage (Blobs) assim a API fica leve
 // retorna JSON
-
+// o que o frontend faz leitura esta aqui
 
 import { getStore } from "@netlify/blobs";
 // Na V2 deve usar import em vez de require
