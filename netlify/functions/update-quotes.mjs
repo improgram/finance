@@ -22,15 +22,16 @@ import { getStore } from "@netlify/blobs";
 
 // Helpers de mercado
 const isMarketOpen = () => {
-  const now = new Date();
-  const day = now.getDay(); // 0 = domingo
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+  // Converte a hora UTC do servidor para o fuso de São Paulo
+  const nowSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const day = nowSP.getDay();
+  const hour = nowSP.getHours();
+  const minute = nowSP.getMinutes();
 
   if (day === 0 || day === 6) return false;
   const current = hour * 60 + minute;
-  const open = 10 * 60;      // 10:00
-  const close = 18 * 60 + 55; // 18:55
+  const open = 10 * 60;       // 10:00
+  const close = 18 * 60 + 55;  // 18:55
   return current >= open && current <= close;
 };
 
@@ -223,15 +224,15 @@ export default async (req, context) => {
     const totalValid = payload.data.etfs.length + payload.data.acoes.length;
     if (totalValid === 0) {
       console.warn("⚠️ Nenhum dado válido → cache NÃO atualizado");
-      return new Response("Nenhum dado atualizado (Erro na Brapi)", { status: 502 });
-    } else {
-      console.log("💾 Salvando cache com dados válidos...");
-      // Vantagem da V2: setJSON resolve direto o parse/stringify por baixo dos panos
-      await store.set("latest", payload);   // salva no Blobs
-      console.log("✅ Cache salvo com sucesso!");
+      return new Response("Erro na Brapi: Nenhum dado atualizado", { status: 502 });
     }
 
-    return new Response (JSON.stringify({ ok: true, total: processed.length }), {
+      console.log(`💾 Salvando cache com ${totalValid} ativos...`);
+      // Vantagem da V2: setJSON resolve direto o parse/stringify por baixo dos panos
+      await store.setJSON("latest", payload);   // salva no Blobs
+      console.log("✅ Cache salvo com sucesso!");
+
+    return new Response (JSON.stringify({ ok: true, total: totalValid }), {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
