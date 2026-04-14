@@ -81,19 +81,15 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "teste1507",
+      name: "teste16",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
-    const ETF_LIST = [
-      "IRFM11", "IVVB11", "NBIT11", "PACB11"
-    ];
+    const ETF_LIST = [ "IRFM11", "IVVB11", "NBIT11", "PACB11" ];
     /* "AUPO11","BOVA11","B5P211","IMAB11",  */
 
-    const tickersB3 = [
-      "ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3"
-    ];
+    const tickersB3 = [ "ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3" ];
     /* "ALPA4", "CAML3", "DXCO3", "GRND3", "KLBN4", "SLCE3" */
 
     const ETF_INFO = {
@@ -112,7 +108,16 @@ export default async (req, context) => {
 
     // 1️⃣ Cache antes de bater na API
     // Na V2 podemos buscar direto como JSON
-    const parsed = await store.get("latest", { type: "json" });
+    let parsed = null;
+    try {
+      // Se forceUpdate for true, nem tentamos ler o cache para evitar erros de parse
+      if (!forceUpdate) {
+        parsed = await store.get("latest", { type: "json" });
+      }
+    } catch (e) {
+      console.warn("⚠️ Cache corrompido ou inválido detectado. Ignorando e buscando novos dados...");
+      parsed = null;
+    }
 
     if (parsed && !forceUpdate) {
       const lastUpdate = parsed?.meta?.updatedAt || 0;
