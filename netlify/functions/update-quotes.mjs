@@ -108,7 +108,9 @@ export default async (req, context) => {
 
     // 1️⃣ Cache antes de bater na API
     // Na V2 podemos buscar direto como JSON
-    let parsed = null;
+    let parsed = await store.get("latest");   // null;
+    console.log("RAW CACHE:", parsedRaw);
+
     try {
       // Se forceUpdate for true, nem tentamos ler o cache para evitar erros de parse
       if (!forceUpdate) {
@@ -150,12 +152,24 @@ export default async (req, context) => {
         const res = await fetch(url);       // =>  chamada na Brapi
         if (res.status === 429) throw new Error("RATE_LIMIT");
         if (res.status >= 500) throw new Error("SERVER_ERROR 500");
-        if (!res.ok) {
-          console.warn(`⚠️ ${symbol}:`, await res.text());
+
+        const text = await res.text(); // 👈 pega como texto primeiro
+
+        let json;
+        try {
+          json = JSON.parse(text); // 👈 parse manual seguro
+        } catch (e) {
+          console.error(`❌ JSON inválido para ${symbol}:`, text.slice(0, 200));
           return null;
         }
-        const json = await res.json();
+
+        if (!res.ok) {
+          console.warn(`⚠️ ${symbol}:`, json);
+          return null;
+        }
+
         return json?.results?.[0] || null;
+
       } catch (err) {
         if (retries === 0) {
           console.error(`❌ Falha final ${symbol}`);
@@ -163,6 +177,7 @@ export default async (req, context) => {
         }
         const delay = err.message === "RATE_LIMIT" ? 1000 : 400;
         console.warn(`🔁 Retry ${symbol} em ${delay}ms`);
+        
         await new Promise(r => setTimeout(r, delay));
         return fetchWithRetry(symbol, retries - 1);
       }
