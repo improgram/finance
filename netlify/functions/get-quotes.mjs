@@ -33,14 +33,18 @@ export default async (req, context) => {
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
 
     const store = getStore({
-      name: "teste1443",
+      name: "teste1507",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
     console.log("🔎 Buscando dados no Blobs...");
-
     const data = await store.get("latest", { type: "json" });
+
+    // Verificação extra para o erro "[object Object]"
+    if (data === "[object Object]") {
+       throw new Error("O Blob esta corrompido. Rode o update-quotes com ?force=true para limpar.");
+    }
 
     // 🔥 fallback seguro
     if (!data) {

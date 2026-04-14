@@ -81,7 +81,7 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "quotes",
+      name: "teste1507",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
