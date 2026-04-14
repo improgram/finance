@@ -13,18 +13,17 @@ export default async (req, context) => {
 
   if (testError) {
     console.warn(`🚨 MODO DE TESTE ATIVO: Simulando erro ${testError}`);
-
-    if (testError === "429") {
-      console.log("❌ [LOG 429] Rate Limit atingido! (Too Many Requests)");
-      return new Response(JSON.stringify({ error: "Rate limit excedido" }), { status: 429, headers: { "Content-Type": "application/json" } });
-    }
-    if (testError === "500") {
-      console.log("❌ [LOG 500] Erro interno do servidor! (Falha no Blobs/Código)");
-      return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: { "Content-Type": "application/json" } });
-    }
-    if (testError === "502") {
-      console.log("❌ [LOG 502] Bad Gateway! (Brapi fora do ar ou Timeout)");
-      return new Response(JSON.stringify({ error: "Bad Gateway" }), { status: 502, headers: { "Content-Type": "application/json" } });
+    const errorResponses = {
+      "429": { msg: "Rate limit excedido", status: 429 },
+      "500": { msg: "Internal Server Error", status: 500 },
+      "502": { msg: "Bad Gateway", status: 502 }
+    };
+    if (errorResponses[testError]) {
+      console.log(`❌ [LOG ${testError}] Simulação ativa.`);
+      return new Response(JSON.stringify({ error: errorResponses[testError].msg }), {
+        status: errorResponses[testError].status,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
     }
   }
 
@@ -34,7 +33,7 @@ export default async (req, context) => {
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
 
     const store = getStore({
-      name: "quotes",
+      name: "teste1443",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
@@ -62,21 +61,20 @@ export default async (req, context) => {
     }
 
     console.log("✅ Dados encontrados no Blobs");
-    const responseBody = typeof data === 'string' ? JSON.parse(data) : data;
 
-    return new Response(JSON.stringify(responseBody), {     // null, 2
+    return new Response(JSON.stringify(data), {     // null, 2
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
         "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
         "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json
       }
     });
 
   } catch (err) {
-    console.error("❌ [LOG 500 REAL] Erro não mapeado em get-quotes:", err);
+    console.error("❌ [LOG 500 REAL] Erro não mapeado em get-quotes:", err.message);
 
     return new Response (
       JSON.stringify({
@@ -90,7 +88,6 @@ export default async (req, context) => {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
         "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
         "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
         }
       }
     );
