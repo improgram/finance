@@ -4,6 +4,8 @@
 // processamento
 // salvamento no Blobs
 
+// Update é responsável por chamar a Brapi e salvar no Blobs (e rodará como um CRON)
+
 // formato tradicional: (V1 / CommonJS) procura exports.handler.
 
 //  No entanto, você construiu o script utilizando o padrão
@@ -15,6 +17,7 @@ console.log("Update-quotes CARREGADA");
 
 // const { getStore } = require("@netlify/blobs");
 // Na V2 deve usar import em vez de require
+
 import { getStore } from "@netlify/blobs";
 
 // Helpers de mercado
@@ -63,9 +66,12 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
+// Handler Principal V2
 export default async (req, context) => {
-  console.log("🚀 Iniciando update-quotes");
-  try {                       // Validações
+  console.log(" 🔄 Cron Iniciando update-quotes");
+
+  // Validações
+  try {
     const API_TOKEN = process.env.BRAPI_TOKEN;
     if (!API_TOKEN) {
       console.error("❌ Token da API ausente");
@@ -78,51 +84,47 @@ export default async (req, context) => {
     });
 
     const ETF_LIST = [
-      "AUPO11","BOVA11","B5P211","GOAT11","IMAB11","IRFM11",
-      "IVVB11", "LFTB11","NBIT11","NDIV11", "PACB11", "SMAL11",
-      "UTLL11","5PRE11"
+      "IRFM11", "IVVB11", "NBIT11", "PACB11"
     ];
+    /* "AUPO11","BOVA11","B5P211","IMAB11",  */
+
     const tickersB3 = [
-      "ALPA4","ASAI3","BBDC4","CAML3","DXCO3","KLBN4",
-      "GRND3","JALL3","RAIL3","SIMH3","SLCE3"
+      "ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3"
     ];
+    /* "ALPA4", "CAML3", "DXCO3", "GRND3", "KLBN4", "SLCE3" */
+
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
       BOVA11: { description: "Ibovespa" },
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
-      GOAT11: { description: "Inflação + S&P" },
       IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
       IRFM11: { description: "Pré-fixado" },
       IVVB11: { description: "S&P 500 dos EUA" },
-      LFTB11: { description: "Selic" },
       NBIT11: { description: "Bitcoin Nasdaq" },
-      NDIV11: { description: "Dividendos" },
       PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
-      SMAL11: { description: "Small caps" },
-      UTLL11: { description: "Utilities" },
-      "5PRE11": { description: "Pré-fixado" }
     };
+
     const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
     // 1️⃣ Cache antes de bater na API
-    const existing = await store.get("latest");
-    if (existing) {
-      const parsed = JSON.parse(existing);
+    // Na V2 podemos buscar direto como JSON
+    const parsed = await store.get("latest", { type: "json" });
+
+    if (parsed) {
       const lastUpdate = parsed?.meta?.updatedAt || 0;
       const now = Date.now();
       const diffMinutes = (now - lastUpdate) / 60000;
       const marketOpen = isMarketOpen();
-      const limit = marketOpen ? 10 : 60;
-      const isEmpty =
-        !parsed?.data?.etfs?.length && !parsed?.data?.acoes?.length;
+      const limit = marketOpen ? 10 : 60; // 10 min se mercado aberto, 60 min se fechado
+
+      const isEmpty = !parsed?.data?.etfs?.length && !parsed?.data?.acoes?.length;
 
       if (!isEmpty && diffMinutes < limit) {
-        console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        const total =
-          (parsed?.data?.etfs?.length || 0) +
-          (parsed?.data?.acoes?.length || 0);
-        return new Response(JSON.stringify({ ok: true, total }), {
+        console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min). Nenhuma chamada feita.`);
+        const total = (parsed?.data?.etfs?.length || 0) + (parsed?.data?.acoes?.length || 0);
+
+        return new Response(JSON.stringify({ ok: true, cached: true, total }), {
           status: 200,
           headers: {
             "Content-Type": "application/json",
@@ -134,9 +136,10 @@ export default async (req, context) => {
 
     // 2️⃣ Fetch com retry inteligente
     const fetchWithRetry = async (symbol, retries = 2) => {
-      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1h&token=${API_TOKEN}`;
+
       try {
-        const res = await fetch(url);
+        const res = await fetch(url);       // =>  chamada na Brapi
         if (res.status === 429) throw new Error("RATE_LIMIT");
         if (res.status >= 500) throw new Error("SERVER_ERROR 500");
         if (!res.ok) {
@@ -157,13 +160,14 @@ export default async (req, context) => {
       }
     };
 
-    // 3️⃣ Concorrência controlada
-    const CONCURRENCY = 3;
+    // 3️⃣ Buscar tickers com sequencial e delay obrigatório:
     const results = [];
-    for (let i = 0; i < ALL.length; i += CONCURRENCY) {
-      const slice = ALL.slice(i, i + CONCURRENCY);
-      const batch = await Promise.all(slice.map(s => fetchWithRetry(s)));
-      results.push(...batch.filter(Boolean));
+    for (const symbol of ALL) {
+      const data = await fetchWithRetry(symbol);
+      if (data) results.push(data);
+
+      // 🔥 delay obrigatório pra não tomar 429 na Brapi
+      await new Promise(r => setTimeout(r, 1200));
     }
 
     // 4️⃣ Processamento
@@ -217,9 +221,11 @@ export default async (req, context) => {
     const totalValid = payload.data.etfs.length + payload.data.acoes.length;
     if (totalValid === 0) {
       console.warn("⚠️ Nenhum dado válido → cache NÃO atualizado");
+      return new Response("Nenhum dado atualizado (Erro na Brapi)", { status: 502 });
     } else {
       console.log("💾 Salvando cache com dados válidos...");
-      await store.set("latest", JSON.stringify(payload));   // salva no Blobs
+      // Vantagem da V2: setJSON resolve direto o parse/stringify por baixo dos panos
+      await store.set("latest", payload);   // salva no Blobs
       console.log("✅ Cache salvo com sucesso!");
     }
 
@@ -231,15 +237,20 @@ export default async (req, context) => {
         "Content-Type": "application/json"
       },
     });
-    } catch (err) {
+
+  } catch (err) {
       console.error("🔥 ERRO GERAL:", err);
-      return new Response (JSON.stringify({ error: err.message }), { status: 500 });
-    }
+      return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 };
 
 // --- Configuração do Schedule (Cron) ---
 // const { schedule } = require("@netlify/functions");
   // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
+
 export const config = {
   schedule: "*/30 13-22 * * 1-5"
 };

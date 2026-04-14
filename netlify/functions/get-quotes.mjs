@@ -1,12 +1,33 @@
 // Busca no storage (Blobs) assim a API fica leve
 // retorna JSON
 
+
 import { getStore } from "@netlify/blobs";
 // Na V2 deve usar import em vez de require
 // const { getStore } = require("@netlify/blobs");
 
 export default async (req, context) => {
   console.log("📥 get-quotes chamado (V2)");
+  const url = new URL(req.url);
+  const testError = url.searchParams.get("test_error");
+
+  if (testError) {
+    console.warn(`🚨 MODO DE TESTE ATIVO: Simulando erro ${testError}`);
+
+    if (testError === "429") {
+      console.log("❌ [LOG 429] Rate Limit atingido! (Too Many Requests)");
+      return new Response(JSON.stringify({ error: "Rate limit excedido" }), { status: 429, headers: { "Content-Type": "application/json" } });
+    }
+    if (testError === "500") {
+      console.log("❌ [LOG 500] Erro interno do servidor! (Falha no Blobs/Código)");
+      return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    }
+    if (testError === "502") {
+      console.log("❌ [LOG 502] Bad Gateway! (Brapi fora do ar ou Timeout)");
+      return new Response(JSON.stringify({ error: "Bad Gateway" }), { status: 502, headers: { "Content-Type": "application/json" } });
+    }
+  }
+
   try {
 
     console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
@@ -25,20 +46,26 @@ export default async (req, context) => {
     // 🔥 fallback seguro
     if (!data) {
       console.warn("⚠️ Nenhum dado encontrado no Blobs");
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
+      return new Response(
+        JSON.stringify({
           data: { etfs: [], acoes: [] },
           meta: { empty: true, message: "Sem dados ainda" }
-        }, null, 2)
-      };
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          }
+        }
+      );
     }
 
-    console.log("✅ Dados encontrados");
+    console.log("✅ Dados encontrados no Blobs");
     const responseBody = typeof data === 'string' ? JSON.parse(data) : data;
 
-    return new Response(JSON.stringify(data), {     // null, 2
-      statusCode: 200,
+    return new Response(JSON.stringify(responseBody), {     // null, 2
+      status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
@@ -49,7 +76,7 @@ export default async (req, context) => {
     });
 
   } catch (err) {
-    console.error("Erro get-quotes:", err);
+    console.error("❌ [LOG 500 REAL] Erro não mapeado em get-quotes:", err);
 
     return new Response (
       JSON.stringify({
@@ -57,7 +84,7 @@ export default async (req, context) => {
         meta: { error: true, message: err.message }
       }),
       {
-        status: 200, // 🔥 nunca 500
+        status: 200,      // 🔥 nunca 500
         headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
