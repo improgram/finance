@@ -33,7 +33,7 @@ export default async (req, context) => {
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
 
     const store = getStore({
-      name: "teste16",
+      name: "teste18",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });

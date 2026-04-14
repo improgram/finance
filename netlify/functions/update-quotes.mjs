@@ -81,7 +81,7 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "teste16",
+      name: "teste18",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
@@ -108,8 +108,14 @@ export default async (req, context) => {
 
     // 1️⃣ Cache antes de bater na API
     // Na V2 podemos buscar direto como JSON
-    let parsed = await store.get("latest");   // null;
-    console.log("RAW CACHE:", parsedRaw);
+    let parsed =  null;
+    console.log("RAW CACHE:", parsed);
+
+    // limpeza manual via ?force=true
+     if (forceUpdate) {
+      console.log("🧹 Limpando cache manualmente...");
+      await store.delete("latest");
+    }
 
     try {
       // Se forceUpdate for true, nem tentamos ler o cache para evitar erros de parse
@@ -117,7 +123,8 @@ export default async (req, context) => {
         parsed = await store.get("latest", { type: "json" });
       }
     } catch (e) {
-      console.warn("⚠️ Cache corrompido ou inválido detectado. Ignorando e buscando novos dados...");
+      console.warn("⚠️ Cache corrompido. Limpando");
+      await store.delete("latest");
       parsed = null;
     }
 
@@ -177,7 +184,7 @@ export default async (req, context) => {
         }
         const delay = err.message === "RATE_LIMIT" ? 1000 : 400;
         console.warn(`🔁 Retry ${symbol} em ${delay}ms`);
-        
+
         await new Promise(r => setTimeout(r, delay));
         return fetchWithRetry(symbol, retries - 1);
       }
