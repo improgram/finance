@@ -5,13 +5,10 @@
 import { getStore } from "@netlify/blobs";
 // Na V2 deve usar import em vez de require
 // const { getStore } = require("@netlify/blobs");
-const VERSION = 1;
-import { getStore } from "@netlify/blobs";
+const VERSION = 2;
 
-const VERSION = 1;
-
-const ETF_LIST = ["IRFM11", "IVVB11", "NBIT11", "PACB11"];
-const ACOES = ["ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3"];
+const ETF_LIST = ["PACB11"]; /* "IRFM11", "IVVB11", "NBIT11",  */
+const ACOES = ["ASAI3"];  /* , "BBDC4", "JALL3", "RAIL3", "SIMH3" */
 const ALL = [...ETF_LIST, ...ACOES];
 
 export default async (req) => {
@@ -43,7 +40,7 @@ export default async (req) => {
 
   try {
     const store = getStore({
-      name: "teste19",
+      name: "teste20",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });

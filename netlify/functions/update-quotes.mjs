@@ -20,7 +20,7 @@ import { getStore } from "@netlify/blobs";
 
 console.log("🔄 update-quotes carregado");
 
-const VERSION = 1;
+const VERSION = 2;
 
 const ETF_LIST = ["IRFM11", "IVVB11", "NBIT11", "PACB11"];
 const ACOES = ["ASAI3", "BBDC4", "JALL3", "RAIL3", "SIMH3"];
@@ -77,7 +77,7 @@ const fetchWithRetry = async (symbol, token, retries = 2) => {
 // --- handler ---
 export default async (req) => {
   const store = getStore({
-    name: "teste19",
+    name: "teste20",
     siteID: process.env.NETLIFY_SITE_ID,
     token: process.env.NETLIFY_BLOBS_TOKEN
   });
@@ -104,40 +104,31 @@ export default async (req) => {
   try {
     cursor = await store.get("meta:cursor", { type: "json" }) || 0;
   } catch {}
-
   const symbol = ALL[cursor];
   const nextCursor = (cursor + 1) % ALL.length;
-
   await store.setJSON("meta:cursor", nextCursor);
-
   console.log(`➡️ Atualizando: ${symbol}`);
-
   const data = await fetchWithRetry(symbol, API_TOKEN);
 
   // 🛟 fallback
   if (!data) {
     const cached = await store.get(`ticker:${symbol}`, { type: "json" });
-
     if (cached) {
       console.log("⚠️ fallback usado");
       return Response.json({ ok: true, fallback: true, symbol });
     }
-
     return new Response("Erro API", { status: 502 });
   }
-
   const processed = processTicker(data);
-
   await store.setJSON(`ticker:${symbol}`, {
     version: VERSION,
     data: processed,
     updatedAt: Date.now()
   });
-
   console.log(`✅ ${symbol} atualizado`);
-
   return Response.json({ ok: true, symbol });
 };
+
 
 // ⏱️ cron ideal
 export const config = {
