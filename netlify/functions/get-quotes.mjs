@@ -35,14 +35,14 @@ export default async (req, context) => {
     console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
 
     const store = getStore({
-      name: "test12hs",
+      name: "test18hs",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
     console.log("🔎 Buscando dados no Blobs...");
 
-    const data = await store.get("latest-v1", { type: "json" });
+    const data = await store.get("latest", { type: "json" });
 
     // 🔥 fallback seguro
     if (!data) {

@@ -13,7 +13,7 @@ console.log("Update-quotes-background CARREGADA");
 
 import { getStore } from "@netlify/blobs";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 // Helper para formatar a data/hora no padrão brasileiro (Brasília)
 const getFormattedDateTime = () => {
@@ -31,14 +31,14 @@ const getFormattedDateTime = () => {
 // Helpers de mercado
 const isMarketOpen = () => {
   const now = new Date();
-  const day = now.getDay(); // 0 = domingo
+  const day = now.getDay();     // 0 = domingo, 6 = sábado
   const hour = now.getHours();
   const minute = now.getMinutes();
 
   if (day === 0 || day === 6) return false;
   const current = hour * 60 + minute;
-  const open = 10 * 60;      // 10:00
-  const close = 18 * 60 + 55; // 18:55
+  const open = 10 * 60;                     // 10:00
+  const close = 18 * 60 + 55;               // 18:55
   return current >= open && current <= close;
 };
 
@@ -51,8 +51,7 @@ const getValidHist = (hist) => (hist || []).filter(d =>
 const getCloses = (hist) => hist.map(d => d.close);
 const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const filterByDays = (hist, days) => {
-  const now = Math.floor(Date.now() / 1000);
-  const limit = now - (days * 24 * 60 * 60);
+  const limit = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
   return hist.filter(d => d.date >= limit);
 };
 const hasEnoughHist = (hist) => hist.length >= 10;
@@ -61,14 +60,15 @@ const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
 const safeWithFallback = (newVal, oldVal) =>
   (newVal == null || newVal === "N/E") ? oldVal ?? "N/E" : newVal;
 
+
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
   const now = new Date();
-  now.setHours(0,0,0,0);
+        now.setHours(0,0,0,0);
   const target = new Date(now);
-  target.setMonth(target.getMonth() - 1);
-  const targetTs = Math.floor(target.getTime() / 1000);
-  let base = null;
+        target.setMonth(target.getMonth() - 1);
+  const targetTs = Math.floor((Date.now() - (30 * 24 * 60 * 60 * 1000)) / 1000);
+  let base = hist.find(d => d.date >= targetTs)?.close || hist[0].close;
   for (let i = hist.length - 1; i >= 0; i--) {
     if (hist[i].date <= targetTs) {
       base = hist[i].close;
@@ -89,12 +89,12 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "test12hs",
+      name: "test18hs",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
-    const STORE_KEY = `latest-v${CACHE_VERSION}`;
+    // const STORE_KEY = `latest${CACHE_VERSION}`;
 
     const ETF_LIST = [ "IVVB11" ];
       /* "B5P211", "IRFM11", "NBIT11", "PACB11", "5PRE11" */
@@ -127,7 +127,7 @@ export default async (req, context) => {
     const forceUpdate = urlParams.searchParams.get("force") === "true";
 
     // 1️⃣ Cache antes de bater na API
-    const existing = await store.get(STORE_KEY);
+    //const existing = await store.get(STORE_KEY);
 
     if (!forceUpdate && existing) {
       const parsed = JSON.parse(existing);
@@ -241,6 +241,8 @@ export default async (req, context) => {
 
         const json = await res.json();
         if (json.results?.[0]) results.push(json.results[0]);
+        await sleep(3000);        // Delay de 3s para segurança entre requisições
+
       } catch (err) {
         if (err.name === 'AbortError') {
           console.error(`⏱️ Timeout atingido em [${symbol}]`);
@@ -248,7 +250,7 @@ export default async (req, context) => {
         console.error(`❌ Erro em [${symbol}]`, err);
       }
     }
-    await sleep(3000); // Delay de 3s para segurança entre requisições
+
 
     // 4️⃣ Processamento
     const processed = results.map(r => {
@@ -307,8 +309,8 @@ export default async (req, context) => {
       },
       meta: {
         version: CACHE_VERSION,
-        updatedAt: Date.now(),                  // Timestamp para cálculos
-        updatedLabel: getFormattedDateTime(),   // Ex: "09/04/2026 15:30:00"
+        updatedAt: Date.now(),                    // Timestamp para cálculos
+        updatedLabel: getFormattedDateTime(),     // Ex: "09/04/2026 15:30:00"
         total: processed.length,
         partial: processed.length < ALL.length    // Indica se o dado está incompleto
       }
@@ -334,7 +336,7 @@ export default async (req, context) => {
     const MIN_VALID = Math.ceil(ALL.length * 0.9);  // 90% o total original com sucesso
 
     if (validProcessed.length >= MIN_VALID) {
-      await store.set(STORE_KEY, JSON.stringify(payload));
+      // await store.set(STORE_KEY, JSON.stringify(payload));
       console.log(`✅ Cache salvo! (${validProcessed.length}/${ALL.length} válidos)`);
     } else {
       console.warn(`⚠️ Cache NÃO salvo (${validProcessed.length}/${ALL.length} válidos)`);
