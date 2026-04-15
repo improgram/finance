@@ -89,7 +89,7 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "test11hs",
+      name: "test12hs",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
@@ -316,12 +316,30 @@ export default async (req, context) => {
     // Para exibir formatado no LOG:
     console.log("Resultado: ", JSON.stringify(payload, null, 2));
 
+
     // 6️⃣ Salvamento seguro no Blobs
-    const MIN_VALID = Math.ceil(ALL.length * 0.7);    // 70% o total original com sucesso
-    if (processed.length >= MIN_VALID) {
-        await store.set(STORE_KEY, JSON.stringify(payload));
-        console.log("✅ Cache salvo !");
+    const validProcessed = processed.filter(item => {
+      if (!item || !item.symbol) return false;
+      const hasPrice =
+        item.regularMarketPrice !== "N/E" &&
+        item.regularMarketPrice != null;
+      if (!hasPrice) return false;
+      // exige mais qualidade com mercado aberto
+      if (isMarketOpen()) {
+        return item.variation30d !== "N/E";
+      }
+      return true;
+    });
+
+    const MIN_VALID = Math.ceil(ALL.length * 0.9);  // 90% o total original com sucesso
+
+    if (validProcessed.length >= MIN_VALID) {
+      await store.set(STORE_KEY, JSON.stringify(payload));
+      console.log(`✅ Cache salvo! (${validProcessed.length}/${ALL.length} válidos)`);
+    } else {
+      console.warn(`⚠️ Cache NÃO salvo (${validProcessed.length}/${ALL.length} válidos)`);
     }
+
 
     return new Response(JSON.stringify({
       ok: true,
