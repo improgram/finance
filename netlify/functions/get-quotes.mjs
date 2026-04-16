@@ -84,7 +84,7 @@ export default async (req) => {
       meta: {
         total: etfs.length + acoes.length,
         updatedAt: Date.now(),
-        collectedAtFull: formatHHMM(Date.now())
+        collectedAtFull: formatFullTime(Date.now())
       }
     }), {
       status: 200,
