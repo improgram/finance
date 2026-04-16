@@ -35,9 +35,13 @@ const getFormattedDateTime = () => {
 // Helpers de mercado
 const isMarketOpen = () => {
   const now = new Date();
-  const day = now.getDay();     // 0 = domingo, 6 = sábado
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+  const brTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
+  );
+
+  const day = brTime.getDay();     // 0 = domingo, 6 = sábado
+  const hour = brTime.getHours();
+  const minute = brTime.getMinutes();
 
   if (day === 0 || day === 6) return false;
   const current = hour * 60 + minute;
@@ -356,8 +360,9 @@ export default async (req) => {
 // const { schedule } = require("@netlify/functions");
 // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
 export const config = {
-  schedule: "*/10 13-22 * * 1-5"
+  schedule: "*/30 13-22 * * 1-5"
 };
+console.log("CRON VERSION: 16/04-update-quotes");
 
 
 /*

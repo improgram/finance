@@ -8,6 +8,15 @@ import { getStore } from "@netlify/blobs";
 // const { getStore } = require("@netlify/blobs");
 
 
+const formatFullTime = (timestamp) => {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(timestamp));
+};
+
 export default async (req) => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
@@ -47,6 +56,8 @@ export default async (req) => {
         if (!raw) continue;
 
         const item = JSON.parse(raw);
+        // adiciona hora formatada da coleta
+        item.collectedAtFull = formatFullTime(item.updatedAt);
 
         if (!item?.symbol) continue;
 
@@ -72,7 +83,8 @@ export default async (req) => {
       data: { etfs, acoes },
       meta: {
         total: etfs.length + acoes.length,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
+        collectedAtFull: formatHHMM(Date.now())
       }
     }), {
       status: 200,
@@ -88,7 +100,8 @@ export default async (req) => {
 
     return new Response(JSON.stringify({
       data: { etfs: [], acoes: [] },
-      meta: { error: true }
+      meta: { error: true },
+      collectedAtFull: formatHHMM(Date.now())
     }), {
       status: 200,
       headers: {
