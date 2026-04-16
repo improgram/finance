@@ -101,7 +101,7 @@ export default async (req) => {
     return new Response(JSON.stringify({
       data: { etfs: [], acoes: [] },
       meta: { error: true },
-      collectedAtFull: formatHHMM(Date.now())
+      collectedAtFull: formatFullTime(Date.now())
     }), {
       status: 200,
       headers: {
