@@ -1,19 +1,23 @@
-// schedule (cron) (Pendente)
+// schedule (cron)
 // lógica completa
 // chamada da Brapi
 // processamento
 // salvamento no Blobs
 
-// mudar de CommonJS (require) para ES Modules (import/export),
+// CommonJS (require)  = (antigo)
+// ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
 // const { getStore } = require("@netlify/blobs");
 
-
-console.log("Update-quotes-background CARREGADA");
-
 import { getStore } from "@netlify/blobs";
+import nodeFetch from "node-fetch";
 
-const CACHE_VERSION = 2;
+const fetchFn = globalThis.fetch ?? nodeFetch;
+console.log("Update-quotes CARREGADA");
+
+if (!globalThis.fetch && !nodeFetch) {
+  console.error("❌ Nenhum fetch disponível");
+}
 
 // Helper para formatar a data/hora no padrão brasileiro (Brasília)
 const getFormattedDateTime = () => {
@@ -42,8 +46,39 @@ const isMarketOpen = () => {
   return current >= open && current <= close;
 };
 
-// Helpers de processamento
+
+// Helpers do Fetch (antes de usar a API) = (antes do fetch) = são infraestrutura de rede
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const fetchWithTimeout = async (url, options = {}, timeout = 25000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    return await fetchFn(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(id);
+  }
+};
+
+const fetchWithRetry = async (url, retries = 2) => {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetchWithTimeout(url);
+      if (res && res.status !== 429) return res;
+      console.warn("⏳ Rate limit, aguardando...");
+      await sleep(10000);
+    } catch (err) {
+      console.warn("⚠️ fetch erro:", err);
+      if (i === retries) throw err;
+    }
+  }
+  throw new Error("Rate limit persistente");
+};
+
 
 const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
@@ -79,8 +114,21 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
-export default async (req, context) => {
-  const startTime = Date.now();    // ⏱️ Início do cronômetro
+
+  //  FILA (CRON SAFE)
+const getNextTicker = async (store, list) => {
+  const INDEX_KEY = "ticker-index";
+  let index = Number(await store.get(INDEX_KEY)) || 0;
+  const symbol = list[index % list.length];
+  // incrementa fila circular
+  await store.set(INDEX_KEY, String(index + 1));
+  return symbol;
+};
+
+
+// HANDLER
+export default async (req) => {
+
   console.log("🚀 Iniciando update-quotes");
   try {                       // Validações
     const API_TOKEN = process.env.BRAPI_TOKEN;
@@ -89,7 +137,7 @@ export default async (req, context) => {
       return new Response("Token não configurado", { status: 500 });
     }
     const store = getStore({
-      name: "test18hs",
+      name: "test16abr",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
@@ -116,283 +164,267 @@ export default async (req, context) => {
       "5PRE11": { description: "Pré-fixado" }
     };
 
-    const ALL = [...new Set(
-      [...ETF_LIST, ...tickersB3]
-        .filter(s => typeof s === "string" && s.trim())
-    )];
+    const ALL = [...ETF_LIST, ...tickersB3];
     console.log(`📊 Total de ativos: ${ALL.length}`);
 
-    // 🔥 Captura do parâmetro de URL para forçar atualização
-    const urlParams = new URL(req.url);
-    const forceUpdate = urlParams.searchParams.get("force") === "true";
 
-    // 1️⃣ Cache antes de bater na API
-    //const existing = await store.get(STORE_KEY);
-
-    if (!forceUpdate && existing) {
-      const parsed = JSON.parse(existing);
-      const lastUpdate = parsed?.meta?.updatedAt || 0;  // Quando foi a ultima Att
-      const now = Date.now();                           // Que horas são agora?
-      const diffMinutes = (now - lastUpdate) / 60000;   // Há quantos minutos atualizei ?
-      const marketOpen = isMarketOpen();                // Mercado Fechado: Os preços não mudam
-      const limit = marketOpen ? 15 : 120;               // Mercado Aberto: cache só vale por 15 minutos
-
-      const isDifferentVersion = parsed?.meta?.version !== CACHE_VERSION;
-      if (isDifferentVersion) {
-        console.log("⚠️ Versão do cache mudou → forçando atualização");
-      }
-      const cachedAll = [
-        ...(parsed?.data?.etfs || []).map(i => i.symbol),
-        ...(parsed?.data?.acoes || []).map(i => i.symbol)
-      ];
-
-      const cachedSet = new Set(cachedAll);             // Usa Set (comparação correta)
-      const allSet = new Set(
-        ALL.filter(s => typeof s === "string" && s.trim())
-      );
-
-      const hasDifferentTickers =
-        cachedSet.size !== allSet.size ||
-        [...allSet].some(symbol => !cachedSet.has(symbol));
-
-      const isPartial = parsed?.meta?.partial;
-      // Detecta cache parcial
-      if (!isPartial && !hasDifferentTickers && !isDifferentVersion && diffMinutes < limit) {
-        console.log(`⏱️ Cache válido (${diffMinutes.toFixed(1)} min)`);
-        return new Response(
-          JSON.stringify(
-            { skipped: true, reason: "cache válido" },
-            null,
-            2
-          ),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      }
-      if (isPartial) {
-        console.log("⚠️ Cache parcial → forçando atualização");
-      }
-      if (hasDifferentTickers) {
-        console.log("🔄 Lista de ativos mudou → forçando atualização");
-      }
-    }
-
-    // Parse do cache = Se cálculo falhar → usa valor antigo
-    let previousData = {};
-    if (existing) {
-      try {
-        const parsed = JSON.parse(existing);
-        const allPrev = [
-          ...(parsed?.data?.etfs || []),
-          ...(parsed?.data?.acoes || [])
-        ];
-        previousData = Object.fromEntries(
-          allPrev.map(item => [item.symbol, item])
-        );
-      } catch (e) {
-        console.warn("Erro ao parsear cache anterior");
-      }
+    // 🔥 Captura do parâmetro de URL para forçar atualização (opcional)
+    let forceUpdate = false;
+    try {
+      const url = new URL(req.url, "https://dummy-base.local");
+      const forceParam = url.searchParams.get("force");
+        forceUpdate = forceParam === "true" || forceParam === "1";
+    } catch (err) {
+      console.warn("URL inválida, ignorando forceUpdate:", err);
     }
 
 
-    // --- 2️⃣ FETCH SEQUENCIAL (Plano Free: 1 por vez) ---
-    const results = [];
-    for (const symbol of ALL) {
-      console.log(` 🔎  Buscando: [${ symbol }]`);
-      if (
-        !symbol ||
-        typeof symbol !== "string" ||
-        !symbol.trim()
-      ) {
-        console.warn("⚠️ Symbol inválido, pulando...");
-        continue;
-      }
-      const safeSymbol = encodeURIComponent(symbol);
-      const url = `https://brapi.dev/api/quote/${safeSymbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-      const elapsed = Date.now() - startTime;
-          if (elapsed > 800000) { // 13 minutos (margem de segurança dos 15min)
-              console.warn("⚠️ Tempo limite de background atingindo. Finalizando com o que temos.");
-              break;
-          }
-          console.log(`Buscando [${symbol}]... Tempo decorrido: ${(elapsed/1000).toFixed(1)}s`);
-
-      try {
-        const res = await fetch(url, {
-           signal: AbortSignal.timeout(25000),
-        });
-
-        if (res.status === 429) {
-          console.warn(`⚠️ Erro 429 (Rate Limit) em ${symbol}: Muitas requisições. Aguardando 5s...`);
-          await sleep(30000); // Espera 30s extra se bater no limite
-          continue;
+    // evitar atualizar fora do horário
+    if (!isMarketOpen() && !forceUpdate) {
+      console.log("🛑 Mercado fechado, pulando...");
+      return new Response(JSON.stringify({ skipped: true }), {
+        status: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",             // Permite chamadas de qualquer origem
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Content-Type": "application/json"
         }
+      });
+    }
 
-        if (res.status === 502) {
-          console.error(`❌ Erro 502 (Bad Gateway) em ${symbol}: O servidor da Brapi está instável ou offline.`);
-          continue; // Pula para o próximo ticker
-        }
 
-        if (!res.ok) {
-          console.error(`❌ Erro HTTP ${res.status} em ${symbol}: Falha inesperada.`);
-          continue;
-        }
+    // --- 2️⃣ Buscar tickers  (Plano Free: 1 por vez) ---
+    const symbol = await getNextTicker(store, ALL);
+    console.log("➡️ ticker:", symbol, forceUpdate ? "(forceUpdate)" : "");
 
-        const json = await res.json();
-        if (json.results?.[0]) results.push(json.results[0]);
-        await sleep(3000);        // Delay de 3s para segurança entre requisições
 
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          console.error(`⏱️ Timeout atingido em [${symbol}]`);
-        } else {
-        console.error(`❌ Erro em [${symbol}]`, err);
+    // -------------------- CACHE KEY --------------------
+
+    const cacheKey = `quote-${symbol}`;
+
+    // opcional: evitar request se quiser (desligado em force)
+    if (!forceUpdate) {
+      const cached = await store.get(cacheKey, { type: "json" });   // Leitura do cache
+      if (cached?.updatedAt && Date.now() - cached.updatedAt < 5 * 60 * 1000) {
+        console.log("⚡ cache hit:", symbol);
+        return new Response(JSON.stringify({ cached: true, symbol }), {
+          status: 200
+        });
       }
     }
 
 
-    // 4️⃣ Processamento
-    const processed = results.map(r => {
+    // FETCH BRAPI = SEM loop = modo incremental = (SEM Promise.all, SEM results[] ?? )
+
+      const safeSymbol = symbol.trim();
+      const url = `https://brapi.dev/api/quote/${safeSymbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+
+      let res;
+      try {
+        res = await fetchWithRetry(url);
+      } catch (err) {
+        console.error("❌ Erro no fetch:", err);
+        return new Response(JSON.stringify({ error: "fetch failed" }), { status: 500 });
+      }
+
+      // 🔴 fallback extra - opcional
+      if (res.status === 429) {
+        console.warn("⚠️ Ainda em rate limit após retry");
+        return new Response(JSON.stringify({ error: "rate limit" }), { status: 429 });
+      }
+
+      // 🔴 validação obrigatória
+      if (!res || !res.ok) {
+        throw new Error(`HTTP ${res?.status}`);
+      }
+
+      // ✅ AGORA sim pode usar o JSON
+      const json = await res.json();
+      const r = json.results?.[0];
+
+      if (!r) {
+        return new Response(JSON.stringify({ error: "Sem dados" }), { status: 204 });
+      }
+
+       // Helpers processamento dos dados = regra de negócio
       const hist = getValidHist(r.historicalDataPrice || []);
       const noHist = hist.length === 0;
       const hist7 = filterByDays(hist, 7);
       const hist30 = filterByDays(hist, 30);
-      const closes7 = getCloses(hist7);
-      const closes30 = getCloses(hist30);
+      //const closes7 = getCloses(hist7);
+      //const closes30 = getCloses(hist30);
+      //const regularMarketPrice = getCloses;        // Validar
+      //const regularMarketDayLow = getCloses;       // Validar
+      //const regularMarketDayHigh = getCloses;      // Validar
+      //const fiftyTwoWeekLow = getCloses;          // Validar
+      //const logourl = null;                       // Validar
       const currentPrice = r.regularMarketPrice ?? null;
-      const prev = previousData[r.symbol] || {};
-      const newVariation =
-        (!noHist && hasEnoughHist(hist))
-          ? safeValue(getVariation30d(hist, currentPrice))
-          : null;
+      const variation30d = (() => {
+        if (noHist || !hasEnoughHist(hist)) return "N/E";
+        const value30d = getVariation30d(hist, currentPrice);
+        return Number.isFinite(value30d) ? value30d : "N/E";
+      })();
 
-      const variation30d =
-        (newVariation == null || newVariation === "N/E")
-          ? prev.variation30d ?? "N/E"
-          : newVariation;
-
-      return {
-        hasHistory: !noHist,
+    // 4️⃣ Processamento
+      const item = {
+        //hasHistory: !noHist,
         symbol: r.symbol,
-        shortName: r.shortName,
-        longName: r.longName,
-        description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
+        //shortName: r.shortName,
+        //longName: r.longName,
+        //description: ETF_INFO[r.symbol.toUpperCase()]?.description || "",
         updatedAt: Date.now(),                          // Timestamp para lógica de front-end
         updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
 
-        regularMarketPrice: safeWithFallback(
-          safeValue(currentPrice),
-          prev.regularMarketPrice
-        ),
+        regularMarketPrice: safeWithFallback( safeValue(currentPrice), null ),
         regularMarketChangePercent: safeValue(r.regularMarketChangePercent),
-        regularMarketDayRange:
-          r.regularMarketDayLow != null && r.regularMarketDayHigh != null
-            ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
-            : null,
-        min7d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
-        min30d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
         variation30d,
-        regularMarketDayLow: r.regularMarketDayLow ?? null,
-        regularMarketDayHigh: r.regularMarketDayHigh ?? null,
-        fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
-        fiftyTwoWeekHigh: r.fiftyTwoWeekHigh ?? null,
-        logourl: r.logourl || `https://icons.brapi.dev/icons/${r.symbol}.svg`
+       // regularMarketDayRange:
+        //  r.regularMarketDayLow != null && regularMarketDayHigh != null
+        //    ? `${regularMarketDayLow} - ${regularMarketDayHigh}`
+        //    : null,
+       // min7d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
+       // min30d: noHist ? fallbackMin(r.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
+        //regularMarketDayLow: r.regularMarketDayLow ?? null,
+        //regularMarketDayHigh: r.regularMarketDayHigh ?? null,
+        //fiftyTwoWeekLow: r.fiftyTwoWeekLow ?? null,
+        //fiftyTwoWeekHigh: r.fiftyTwoWeekHigh ?? null,
+        //logourl: r.logourl || `https://icons.brapi.dev/icons/${r.symbol}.svg`
       };
-    });
 
-    // 5️⃣ Payload final
-    const payload = {
-      data: {
-        etfs: processed.filter(r => ETF_LIST.includes(r.symbol)),
-        acoes: processed.filter(r => tickersB3.includes(r.symbol))
-      },
-      meta: {
-        version: CACHE_VERSION,
-        updatedAt: Date.now(),                    // Timestamp para cálculos
-        updatedLabel: getFormattedDateTime(),     // Ex: "09/04/2026 15:30:00"
-        total: processed.length,
-        partial: processed.length < ALL.length    // Indica se o dado está incompleto
-      }
-    };
-    // Para exibir formatado no LOG:
-    console.log("Resultado: ", JSON.stringify(payload, null, 2));
+    // Para exibir formatado no LOG: null, 2)
 
 
     // 6️⃣ Salvamento seguro no Blobs
-    const validProcessed = processed.filter(item => {
-      if (!item || !item.symbol) return false;
-      const hasPrice =
-        item.regularMarketPrice !== "N/E" &&
-        item.regularMarketPrice != null;
-      if (!hasPrice) return false;
-      // exige mais qualidade com mercado aberto
-      if (isMarketOpen()) {
-        return item.variation30d !== "N/E";
-      }
-      return true;
-    });
-
-    const MIN_VALID = Math.ceil(ALL.length * 0.9);  // 90% o total original com sucesso
-
-    if (validProcessed.length >= MIN_VALID) {
-      // await store.set(STORE_KEY, JSON.stringify(payload));
-      console.log(`✅ Cache salvo! (${validProcessed.length}/${ALL.length} válidos)`);
+    /*
+    if (!item) {
+      console.warn("⚠️ Nenhum dado processado");
     } else {
-      console.warn(`⚠️ Cache NÃO salvo (${validProcessed.length}/${ALL.length} válidos)`);
+      const key = `quote-${item.symbol}`;
+      const isValid =
+        item.regularMarketPrice !== "N/E" &&
+        item.regularMarketPrice != null &&
+        (!isMarketOpen() || item.variation30d !== "N/E");
+      if (isValid) {
+        await store.set(key, JSON.stringify({
+          symbol: item.symbol,
+          price: item.regularMarketPrice,
+          changePercent: item.regularMarketChangePercent,
+          updatedAt: item.updatedAt
+        }));
+        console.log(`💾 Salvo: ${item.symbol}`);
+      } else {
+        console.warn(`⚠️ Dado inválido: ${item.symbol}`);
+      }
+    }
+*/
+
+     // STORE = salvando
+     if (item?.symbol && item?.regularMarketPrice) {
+        await store.set(cacheKey, JSON.stringify(item));
+        console.log("💾 saved:", symbol);
     }
 
 
-    return new Response(JSON.stringify({
-      ok: true,
-      updatedAt: payload.meta.updatedLabel,
-      total: results.length
-    } , null, 2), {   // O '2' adiciona 2 espaços de indentação na string resultante
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",             // Permite chamadas de qualquer origem
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Content-Type": "application/json"
-      },
-    });
-    } catch (err) {
-      console.error("🔥 ERRO GERAL:", err);
-      return new Response(JSON.stringify({ error: "Falha no update", err }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-    });
-  }
-};
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        symbol: item.symbol,
+          updatedAt: item.updatedLabel,
+          saved: true
+        }, null, 2),
+        {
+          status: 200,
+          headers: {
+            "Access-Control-Allow-Origin": "*",             // Permite chamadas de qualquer origem
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Content-Type": "application/json"
+          },
+        });
+      } catch (err) {
+        console.error("🔥 ERRO GERAL:", err);
+        return new Response(JSON.stringify({
+          error: "Falha no update"
+        }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+    }
+  };
+
 
 // --- Configuração do Schedule (Cron) ---
 // const { schedule } = require("@netlify/functions");
-// Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), Seg a Sex
+// Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
 export const config = {
-  schedule: "*/30 13-22 * * 1-5"
+  schedule: "*/10 13-22 * * 1-5"
 };
 
 
 /*
+fetch → validar → tratar erro → parse JSON → usar dados
+*/
+
+/*
 helpers (fora da função)
-        ↓
 handler()
-   ↓
 fetch API (results)
-   ↓
 processed = map(results)
-   ↓
 payload usa processed
-   ↓
 store.set()
+*/
+
+
+/*
+Dentro do handler:
+1. definir helpers (fetchWithTimeout / fetchWithRetry)
+2. montar URL
+3. fazer request (res)
+4. tratar 429
+5. validar resposta
+6. extrair JSON (json / r)
+7. processar dados
+*/
+
+
+/*
+CRON Netlify (a cada 10 min)
+pega próximo ticker (Blobs index)
+fetch BRAPI (1 ticker)
+transforma dados
+store.set("quote-SYMBOL")
+atualiza índice (fila circular)
+fim (rápido < 10s)
+*/
+
+
+/*
+implementando um padrão chamado: ETL incremental com cache distribuído
+Extract: Brapi
+Transform: backend Netlify
+Load: Blobs
+Serve: get-quotes
+Esse padrão é exatamente o que evita rate limit em APIs gratuitas.
+*/
+
+/*
+getNextTicker
+fetch Brapi (1 ticker)
+process data
+store.set("quote-SYMBOL")
+return
+*/
 
 
 
+
+
+/*
 1. require/import
-2. exports.handler = async function () {
+2. handler async function () {
    2.1 logs iniciais
    2.2 validações
    2.3 constantes (listas, helpers)
-   2.4 FETCH ou loop ALL
+   2.4 FETCH ou loop ALL com 1 ticker por execuçao
    2.5 PROCESSAMENTO (map)
    2.6 salvar no cache Blobs
 }

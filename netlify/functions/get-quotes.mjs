@@ -7,95 +7,97 @@ import { getStore } from "@netlify/blobs";
 // Na V2 deve usar import em vez de require
 // const { getStore } = require("@netlify/blobs");
 
-export default async (req, context) => {
-  console.log("📥 get-quotes chamado (V2)");
-  const url = new URL(req.url);
-  const testError = url.searchParams.get("test_error");
 
-  if (testError) {
-    console.warn(`🚨 MODO DE TESTE ATIVO: Simulando erro ${testError}`);
-
-    if (testError === "429") {
-      console.log("❌ [LOG 429] Rate Limit atingido! (Too Many Requests)");
-      return new Response(JSON.stringify({ error: "Rate limit excedido" }), { status: 429, headers: { "Content-Type": "application/json" } });
-    }
-    if (testError === "500") {
-      console.log("❌ [LOG 500] Erro interno do servidor! (Falha no Blobs/Código)");
-      return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500, headers: { "Content-Type": "application/json" } });
-    }
-    if (testError === "502") {
-      console.log("❌ [LOG 502] Bad Gateway! (Brapi fora do ar ou Timeout)");
-      return new Response(JSON.stringify({ error: "Bad Gateway" }), { status: 502, headers: { "Content-Type": "application/json" } });
-    }
-  }
+export default async (req) => {
+  console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
   try {
-
-    console.log("ID do Site existe?", !!process.env.NETLIFY_SITE_ID);
-    console.log("Token existe?", !!process.env.NETLIFY_BLOBS_TOKEN);
-
     const store = getStore({
-      name: "test18hs",
+      name: "test16abr",
       siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_BLOBS_TOKEN
     });
 
-    console.log("🔎 Buscando dados no Blobs...");
+    console.log("🔎 Listando tickers no Blobs...");
 
-    const data = await store.get("latest", { type: "json" });
+    const list = await store.list({ prefix: "quote-" });
 
-    // 🔥 fallback seguro
-    if (!data) {
-      console.warn("⚠️ Nenhum dado encontrado no Blobs");
-      return new Response(
-        JSON.stringify({
-          data: { etfs: [], acoes: [] },
-          meta: { empty: true, message: "Sem dados ainda" }
-        }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          }
+    if (!list.blobs || list.blobs.length === 0) {
+      return new Response(JSON.stringify({
+        data: { etfs: [], acoes: [] },
+        meta: { empty: true }
+      }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
         }
-      );
+      });
     }
 
-    console.log("✅ Dados encontrados no Blobs");
-    const responseBody = typeof data === 'string' ? JSON.parse(data) : data;
+    const etfs = [];
+    const acoes = [];
 
-    return new Response(JSON.stringify(responseBody), {     // null, 2
+    console.log(`📦 Processando ${list.blobs.length} itens (sequencial)`);
+
+    // 🔥 LEITURA SEQUENCIAL (sem Promise.all)
+    for (const blob of list.blobs) {
+      try {
+        const raw = await store.get(blob.key);
+        if (!raw) continue;
+
+        const item = JSON.parse(raw);
+
+        if (!item?.symbol) continue;
+
+        // separação simples (pode evoluir depois)
+        if (item.symbol.endsWith("11")) {
+          etfs.push(item);
+        } else {
+          acoes.push(item);
+        }
+
+      } catch (err) {
+        console.warn(`⚠️ Erro ao processar ${blob.key}`);
+      }
+    }
+
+    // ordenação opcional
+    etfs.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    acoes.sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+    console.log(`✅ ETFS: ${etfs.length} | Ações: ${acoes.length}`);
+
+    return new Response(JSON.stringify({
+      data: { etfs, acoes },
+      meta: {
+        total: etfs.length + acoes.length,
+        updatedAt: Date.now()
+      }
+    }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
-        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Origin": "*"
       }
     });
 
   } catch (err) {
-    console.error("❌ [LOG 500 REAL] Erro não mapeado em get-quotes:", err);
+    console.error("❌ Erro no get-quotes:", err);
 
-    return new Response (
-      JSON.stringify({
-        data: { etfs: [], acoes: [] },
-        meta: { error: true, message: err.message }
-      }),
-      {
-        status: 200,      // 🔥 nunca 500
-        headers: {
+    return new Response(JSON.stringify({
+      data: { etfs: [], acoes: [] },
+      meta: { error: true }
+    }), {
+      status: 200,
+      headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
-        "Access-Control-Allow-Origin": "*", // Permite chamadas de qualquer origem
-        "Access-Control-Allow-Headers": "Content-Type",
-        }
+        "Access-Control-Allow-Origin": "*"
       }
-    );
+    });
   }
 };
-
 
 
 //  Código rodará no lado do servidor ou serverless (netlify) NAO no navegador
