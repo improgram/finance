@@ -1,6 +1,8 @@
 // Busca no storage (Blobs) assim a API fica leve
 // retorna JSON
 // o que o frontend faz leitura esta aqui
+// (O Distribuidor): É a API que o seu site chama.
+// Ela lê todos os Blobs e entrega um JSON consolidado.
 
 
 import { getStore } from "@netlify/blobs";
@@ -19,9 +21,10 @@ const formatFullTime = (timestamp) => {
 
 export default async () => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
+  let ultimaAtualizacaoGeral = 0;       // Variável para rastrear o timestamp
 
   try {
-    const store = getStore({ name: "get-quotes-Blobs" });
+    const store = getStore({ name: "quotes-blobs" });
 
     console.log("🔎 Listando tickers no Blobs...");
 
@@ -42,7 +45,6 @@ export default async () => {
 
     const etfs = [];
     const acoes = [];
-
     console.log(`📦 Processando ${list.blobs.length} itens (sequencial)`);
 
     // 🔥 LEITURA SEQUENCIAL (sem Promise.all)
@@ -51,12 +53,21 @@ export default async () => {
         const raw = await store.get(blob.key);
         if (!raw) continue;
 
-        const textBlob = typeof raw === "string" ? raw : raw.toString();
+        const textBlob =  typeof raw === "string"
+          ? raw
+          : new TextDecoder().decode(raw);
         const item = JSON.parse(textBlob);
 
-        // adiciona hora formatada da coleta
-        item.collectedAtFull = item.updatedAt
-          ? formatFullTime(item.updatedAt)
+      // RASTREIO DA ÚLTIMA DATA e hora
+      // Compara o updatedAt deste ticker com o maior encontrado até agora
+
+      const ts = Number(item.updatedAt);
+      if (!isNaN(ts) && ts > ultimaAtualizacaoGeral) {
+        ultimaAtualizacaoGeral = ts;
+      }
+
+        item.collectedAtFull = !isNaN(ts)
+          ? formatFullTime(ts)
           : null;
 
         if (!item?.symbol) continue;
@@ -67,7 +78,6 @@ export default async () => {
         } else {
           acoes.push(item);
         }
-
       } catch (err) {
         console.warn(`⚠️ Erro ao processar ${blob.key}`);
       }
@@ -83,8 +93,8 @@ export default async () => {
       data: { etfs, acoes },
       meta: {
         total: etfs.length + acoes.length,
-        updatedAt: Date.now(),
-        collectedAtFull: formatFullTime(Date.now())
+        updatedAt: ultimaAtualizacaoGeral,
+        collectedAtFull: ultimaAtualizacaoGeral > 0 ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
       }
     } , null, 2 ), {
       status: 200,
@@ -100,10 +110,12 @@ export default async () => {
 
     return new Response(JSON.stringify({
       data: { etfs: [], acoes: [] },
-      meta: { error: true },
-      collectedAtFull: formatFullTime(Date.now())
+      meta: {
+        error: true,
+        collectedAtFull: ultimaAtualizacaoGeral > 0 ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+      }
     } , null, 2 ), {
-      status: 200,
+      status: 500,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
@@ -111,6 +123,7 @@ export default async () => {
     });
   }
 };
+
 
 
 //  Código rodará no lado do servidor ou serverless (netlify) NAO no navegador

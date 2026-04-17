@@ -1,4 +1,4 @@
-console.log("FUNCTION script CARREGADA");
+
 // menu hamburguer
 const hamburger = document.getElementById("hamburger");
 const navMenu = document.getElementById("nav-menu");
@@ -41,7 +41,7 @@ document.getElementById('etf-search').addEventListener('input', (e) => {
     // 🔎 filtra AÇÕES
     const acoesFiltradas = allAcoes.filter(acao =>
         (acao.symbol || '').toLowerCase().includes(termo) ||
-        (acao.name || '').toLowerCase().includes(termo)
+        (acao.longName || '').toLowerCase().includes(termo)
     );
 
     // 🔄 renderiza ambos
@@ -140,7 +140,7 @@ const renderAcoes = (data) => {
                     onerror="this.onerror=null;this.src='https://via.placeholder.com/24?text=${acao.symbol[0]}';"
                     alt="logo">
                 </td>
-                <td><strong>${acao.symbol || 'N/A'}</strong></td>
+                <td><strong>${acao.symbol ? acao.symbol[0] : 'N/A'}</strong></td>
                 <td>${acao.longName}</td>
                 <td class="price">R$ ${formatPrice(acao.regularMarketPrice)}</td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">
@@ -159,23 +159,43 @@ const renderAcoes = (data) => {
     }).join('');
 };
 
-document.getElementById('status-atualizacao').innerText = "Atualizando dados...";
+
+
+const statusAtualizacaoEl = document.getElementById('status-atualizacao');
+const statusLoadingEl = document.getElementById('status'); // O loading geral
+
 
 const fetchQuotes = async () => {
-    const statusEl = document.getElementById('status');     // Mostrar loading real
     try {
+
         //  MOSTRA loading antes de buscar
-        statusEl.style.display = 'block';
-        statusEl.innerText = 'Carregando...';
+        if (statusLoadingEl) {
+            statusLoadingEl.style.display = 'block';
+            statusLoadingEl.innerText = 'Carregando dados...';
+        }
+        statusAtualizacaoEl.innerText = "Buscando atualizações...";
+
         const res = await fetch('/.netlify/functions/get-quotes');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const json = await res.json();
+
+        // 3. Alimenta as variáveis globais
         allEtfs = json.data?.etfs || [];
         allAcoes = json.data?.acoes || [];
+
+        // 4. Renderiza as tabelas
         renderTable(allEtfs);
         renderAcoes(allAcoes);
+
+        // 5. Atualiza o timestamp (usando o campo meta que definimos no backend)
+        const dataFormatada = json.meta?.collectedAtFull || json.meta?.updatedLabel;
+        if (dataFormatada) {
+            statusAtualizacaoEl.innerText = `Última atualização: ${dataFormatada}`;
+        }
+
         // ESCONDE loading depois de renderizar
-        statusEl.style.display = 'none';
+        if (statusLoadingEl) statusLoadingEl.style.display = 'none';
 
         if (json.meta && json.meta.updatedLabel) {
             const lastUpdated = json.meta.updatedLabel;
@@ -185,11 +205,13 @@ const fetchQuotes = async () => {
 
     } catch (err) {
         console.error('Erro ao buscar quotes:', err);
-        statusEl.style.display = 'block';
-        statusEl.innerText = 'Erro ao carregar dados';
+        if (statusLoadingEl) {
+            statusLoadingEl.style.display = 'block';
+            statusLoadingEl.innerText = 'Erro ao carregar dados';
+        }
+        statusAtualizacaoEl.innerText = "Erro na atualização.";
     }
 };
-
 
 
 // Chame a função quando a página carregar
@@ -198,7 +220,7 @@ window.addEventListener('DOMContentLoaded', fetchQuotes);
 
 /*
 Fluxo do sistema:
-Brapi API
+Brapi API e yahoo
    ↓
 Netlify Serverless Function
    ↓

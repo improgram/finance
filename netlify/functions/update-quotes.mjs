@@ -8,13 +8,17 @@
 // ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
 // const { getStore } = require("@netlify/blobs");
+// trata se do Coletor) Roda via CRON, busca na Brapi
+// e salva cada ticker individualmente no Blobs
+// com os campos updatedAt e updatedLabel.
+
 
 import { getStore } from "@netlify/blobs";
 
 console.log("Update-quotes CARREGADA");
 
 // -------------------- CONFIG --------------------
-const STORE_NAME = "update-Blobs";
+const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 25 * 1000; // 25s (evita concorrência)
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
@@ -47,7 +51,7 @@ const fetchWithRetry = async (url, retries = 1) => {
       if (res && res.status !== 429) return res;
 
       console.warn("⏳ Rate limit...");
-      await sleep(2000);
+      await sleep(3000);
     } catch (err) {
       console.warn("⚠️ fetch erro:", err);
       if (i === retries) throw err;
@@ -67,7 +71,7 @@ const acquireLock = async (store) => {
     return false;
   }
 
-  await store.set(LOCK_KEY, JSON.stringify({ timestamp: now }));
+  await store.set(LOCK_KEY, { timestamp: now });
   return true;
 };
 
@@ -147,7 +151,7 @@ const getNextTicker = async (store, list) => {
 
   // 🔥 detecta mudança na lista
   if (prevHash !== hash) {
-    console.log("🔄 Lista mudou, resetando índice");
+    console.log("🔄 Lista mudou, resetando lista de Tickers");
     index = 0;
     await store.set(LIST_HASH_KEY, hash);
     await store.set(INDEX_KEY, "0");
@@ -203,7 +207,9 @@ export default async (req) => {
   // 🔒 Lock distribuído
   const locked = await acquireLock(store);
   if (!locked) {
-    return new Response(JSON.stringify({ skipped: "lock" }), { status: 200 });
+    return new Response(
+      JSON.stringify({ skipped: "lock" }), { status: 200 }
+    );
   }
 
   try {
@@ -232,6 +238,8 @@ export default async (req) => {
 
     console.log("➡️ ticker:", symbol);
 
+
+
     // Cache curto
     const cached = await store.get(cacheKey, { type: "json" });
     if (cached?.updatedAt && Date.now() - cached.updatedAt < CACHE_TTL) {
@@ -239,9 +247,29 @@ export default async (req) => {
       return new Response(JSON.stringify({ cached: true }), { status: 200 });
     }
 
-    // -------------------- BRAPI --------------------
+    // 1️⃣ Cache antes de bater na API
+    const existing = await store.get(cacheKey);
 
+    // Parse do cache = Se cálculo falhar → usa valor antigo
+    let previousData = {};
     let data = null;
+
+    if (existing) {
+      try {
+        const parsed = JSON.parse(existing);
+        // Como o cache é de um único ticker (cacheKey = quote-SYMBOL),
+        // o parsed já é o próprio objeto do ticker.
+        // Criamos a estrutura { "IRFM11": { ... } } que o resto do código espera ler:
+        if (parsed && parsed.symbol) {
+          previousData[parsed.symbol] = parsed;
+        }
+      } catch (e) {
+        console.warn("Erro ao parsear cache anterior");
+      }
+    }
+
+
+    // -------------------- BRAPI --------------------
 
     try {
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
@@ -253,21 +281,50 @@ export default async (req) => {
         const resBrapi = json.results?.[0];
 
         if (resBrapi) {
+          const hist = getValidHist(resBrapi.historicalDataPrice || []);
+          const noHist = hist.length === 0;
+          const hist7 = filterByDays(hist, 7);
+          const hist30 = filterByDays(hist, 30);
+          const closes7 = getCloses(hist7);
+          const closes30 = getCloses(hist30);
+          const currentPrice = resBrapi.regularMarketPrice ?? null;
+          const prev = previousData[resBrapi.symbol] || {};
+          const newVariation =
+              (!noHist && hasEnoughHist(hist))
+              ? safeValue(getVariation30d(hist, currentPrice))
+              : null;
+          const variation30d =
+              (newVariation == null || newVariation === "N/E")
+              ? prev.variation30d ?? "N/E"
+              : newVariation;
+
+
+          // Montar o objeto final
           data = {
+            hasHistory: !noHist,
             symbol: resBrapi.symbol,
             shortName: resBrapi.shortName,
             longName: resBrapi.longName,
             description: ETF_INFO[resBrapi.symbol.toUpperCase()]?.description || "",
             updatedAt: Date.now(),                          // Timestamp para lógica de front-end
-            regularMarketPrice: resBrapi.regularMarketPrice ?? null,
-            regularMarketChangePercent: resBrapi.regularMarketChangePercent ?? null,
+            updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
+
+            regularMarketPrice: safeWithFallback(
+              safeValue(currentPrice),
+              prev.regularMarketPrice
+            ),
+            regularMarketChangePercent: safeValue(resBrapi.regularMarketChangePercent),
 
             regularMarketDayLow: resBrapi.regularMarketDayLow ?? null,
             regularMarketDayHigh: resBrapi.regularMarketDayHigh ?? null,
             regularMarketDayRange:
-              resBrapi.regularMarketDayLow != null && r.regularMarketDayHigh != null
-              ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
+              resBrapi.regularMarketDayLow != null && resBrapi.regularMarketDayHigh != null
+              ? `${resBrapi.regularMarketDayLow} - ${resBrapi.regularMarketDayHigh}`
               : null,
+
+            min7d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
+            min30d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
+            variation30d,
 
             fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
             fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
@@ -276,30 +333,27 @@ export default async (req) => {
           };
         }
       }
-
     } catch (err) {
       console.warn("⚠️ Brapi falhou, tentando fallback...");
     }
 
-    // -------------------- FALLBACK --------------------
 
+    // 3. Fallback (Mantém os dados do cache anterior se a Brapi falhar e não houver Yahoo)
     if (!data) {
-      data = await fetchYahooFallback(symbol);
+      if (Object.keys(previousData).length > 0) {
+        data = previousData[symbol] || previousData;
+      } else {
+        throw new Error("Sem dados na API e sem cache anterior");
+      }
     }
 
-    if (!data) {
-      throw new Error("Sem dados em nenhuma fonte");
-    }
-
-    // -------------------- PROCESS --------------------
+    // -------------------- Salva no Blobs --------------------
 
     const item = {
       ...data,
       updatedAt: Date.now(),
       updatedLabel: getFormattedDateTime()
     };
-
-    // -------------------- STORE --------------------
 
     await store.set(cacheKey, JSON.stringify(item));
 
