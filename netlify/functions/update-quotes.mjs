@@ -14,7 +14,7 @@ import { getStore } from "@netlify/blobs";
 console.log("Update-quotes CARREGADA");
 
 // -------------------- CONFIG --------------------
-const STORE_NAME = "17abr";
+const STORE_NAME = "update-Blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 25 * 1000; // 25s (evita concorrência)
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
@@ -75,19 +75,16 @@ const releaseLock = async (store) => {
   await store.delete(LOCK_KEY);
 };
 
-// -------------------- MARKET --------------------
+// -------------------- Helpers --------------------
 
 const isMarketOpen = () => {
   const now = new Date();
   const br = new Date(
     now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
   );
-
   const day = br.getDay();
   const minutes = br.getHours() * 60 + br.getMinutes();
-
   if (day === 0 || day === 6) return false;
-
   return minutes >= 600 && minutes <= 1135; // 10:00 - 18:55
 };
 
@@ -97,6 +94,44 @@ const getFormattedDateTime = () =>
     dateStyle: "short",
     timeStyle: "medium"
   }).format(new Date());
+
+const getCloses = (hist) => hist.map(d => d.close);
+const getMin = (arr) => arr.length ? Math.min(...arr) : null;
+const hasEnoughHist = (hist) => hist.length >= 10;
+const safeValue = (value) => (value == null || Number.isNaN(value)) ? "N/E" : value;
+const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
+
+const filterByDays = (hist, days) => {
+  const now = Math.floor(Date.now() / 1000);
+  const limit = now - (days * 24 * 60 * 60);
+  return hist.filter(d => d.date >= limit);
+};
+
+const safeWithFallback = (newPreco, oldPreco) =>
+  (newPreco == null || newPreco === "N/E") ? oldPreco ?? "N/E" : newPreco;
+
+const getValidHist = (hist) => (hist || []).filter(d =>
+  d && typeof d.date === "number" && typeof d.close === "number"
+);
+
+const getVariation30d = (hist, currentPrice) => {
+  if (!hist.length || currentPrice == null) return null;
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const target = new Date(now);
+  target.setMonth(target.getMonth() - 1);
+  const targetTs = Math.floor(target.getTime() / 1000);
+  let base = null;
+  for (let i = hist.length - 1; i >= 0; i--) {
+    if (hist[i].date <= targetTs) {
+      base = hist[i].close;
+      break;
+    }
+  }
+  if (!base) base = hist[0].close;
+  return ((currentPrice - base) / base) * 100;
+};
+
 
 // -------------------- FILA --------------------
 
@@ -134,12 +169,9 @@ const fetchYahooFallback = async (symbol) => {
 
     const res = await fetchWithTimeout(url);
     if (!res.ok) return null;
-
     const json = await res.json();
-
     const result = json.chart?.result?.[0];
     if (!result) return null;
-
     const meta = result.meta;
 
     return {
@@ -177,15 +209,14 @@ export default async (req) => {
   try {
 
     // Lista
-    const tickers = ["IRFM11", "IVVB11", "BBDC4"];
+    const tickers = [ "IRFM11", "IVVB11", "BBDC4", "PACB11" ];
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
       IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
-      IRFM11: { description: "Pré-fixado" },
+      IRFM11: { description: "Pré-fixado (LTN 26/29/31) e NTN-B" },
       IVVB11: { description: "S&P 500 dos EUA" },
       NBIT11: { description: "Bitcoin Nasdaq" },
-      NDIV11: { description: "Dividendos" },
       PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
       "5PRE11": { description: "Pré-fixado" }
     };
@@ -230,6 +261,14 @@ export default async (req) => {
             updatedAt: Date.now(),                          // Timestamp para lógica de front-end
             regularMarketPrice: resBrapi.regularMarketPrice ?? null,
             regularMarketChangePercent: resBrapi.regularMarketChangePercent ?? null,
+
+            regularMarketDayLow: resBrapi.regularMarketDayLow ?? null,
+            regularMarketDayHigh: resBrapi.regularMarketDayHigh ?? null,
+            regularMarketDayRange:
+              resBrapi.regularMarketDayLow != null && r.regularMarketDayHigh != null
+              ? `${r.regularMarketDayLow} - ${r.regularMarketDayHigh}`
+              : null,
+
             fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
             fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
             logourl: resBrapi.logourl || `https://icons.brapi.dev/icons/${resBrapi.symbol}.svg`,
@@ -270,7 +309,7 @@ export default async (req) => {
       ok: true,
       symbol,
       source: item.source
-    }), {
+    } , null, 2 ), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });

@@ -21,7 +21,7 @@ export default async () => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
   try {
-    const store = getStore({ name: "17abr" });
+    const store = getStore({ name: "get-quotes-Blobs" });
 
     console.log("🔎 Listando tickers no Blobs...");
 
@@ -31,7 +31,7 @@ export default async () => {
       return new Response(JSON.stringify({
         data: { etfs: [], acoes: [] },
         meta: { empty: true }
-      }), {
+      } , null, 2 ), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
@@ -86,7 +86,7 @@ export default async () => {
         updatedAt: Date.now(),
         collectedAtFull: formatFullTime(Date.now())
       }
-    }), {
+    } , null, 2 ), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export default async () => {
       data: { etfs: [], acoes: [] },
       meta: { error: true },
       collectedAtFull: formatFullTime(Date.now())
-    }), {
+    } , null, 2 ), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
