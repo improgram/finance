@@ -101,7 +101,7 @@ const getFormattedDateTime = () =>
 // -------------------- FILA --------------------
 
 const getNextTicker = async (store, list) => {
-  const INDEX_KEY = "ticker-index";
+  const INDEX_KEY = "SalvounoBlobs";
 
   let index = Number(await store.get(INDEX_KEY)) || 0;
   const symbol = list[index % list.length];
