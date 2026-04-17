@@ -14,7 +14,7 @@ import { getStore } from "@netlify/blobs";
 console.log("Update-quotes CARREGADA");
 
 // -------------------- CONFIG --------------------
-const STORE_NAME = "17/04_13hs";
+const STORE_NAME = "17abr";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 25 * 1000; // 25s (evita concorrência)
 const CACHE_TTL = 5 * 60 * 1000; // 5 min

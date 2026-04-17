@@ -17,11 +17,11 @@ const formatFullTime = (timestamp) => {
   }).format(new Date(timestamp));
 };
 
-export default async (req) => {
+export default async () => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
   try {
-    const store = getStore({ name: "17/04_13hs" });
+    const store = getStore({ name: "17abr" });
 
     console.log("🔎 Listando tickers no Blobs...");
 
