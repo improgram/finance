@@ -21,11 +21,7 @@ export default async (req) => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
   try {
-    const store = getStore({
-      name: "test16abr",
-      siteID: process.env.NETLIFY_SITE_ID,
-      token: process.env.NETLIFY_BLOBS_TOKEN
-    });
+    const store = getStore({ name: "17/04_12hs" });
 
     console.log("🔎 Listando tickers no Blobs...");
 
@@ -55,9 +51,13 @@ export default async (req) => {
         const raw = await store.get(blob.key);
         if (!raw) continue;
 
-        const item = JSON.parse(raw);
+        const textBlob = typeof raw === "string" ? raw : raw.toString();
+        const item = JSON.parse(textBlob);
+
         // adiciona hora formatada da coleta
-        item.collectedAtFull = formatFullTime(item.updatedAt);
+        item.collectedAtFull = item.updatedAt
+          ? formatFullTime(item.updatedAt)
+          : null;
 
         if (!item?.symbol) continue;
 
@@ -117,11 +117,3 @@ export default async (req) => {
 //  Acionado apenas quando o Frontend faz o pedido
 //  A chave será lida das variáveis de ambiente do Netlify
 
-//  O endpoint /list é o correto para filtros como 'type'
-//  O endpoint /list retorna 'stocks' da brapi
-
-//  O endpoint /quote/list retorna:   { "stocks": [...]  }
-//  O endpoint /quote/{ticker} retorna objeto 'results'
-
-// Se o mercado estiver aberto, a API Brapi atualiza o regularMarketPrice em tempo real,
-// enquanto o historicalDataPrice só atualiza após o fechamento
