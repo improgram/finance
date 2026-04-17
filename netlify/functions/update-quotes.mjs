@@ -101,13 +101,28 @@ const getFormattedDateTime = () =>
 // -------------------- FILA --------------------
 
 const getNextTicker = async (store, list) => {
-  const INDEX_KEY = "SalvounoBlobs";
 
+  const INDEX_KEY = "ticker-index";
+  const LIST_HASH_KEY = "ticker-list-hash";
+
+  // 🔹 cria hash da lista atual
+  const hash = JSON.stringify(list);
+  const prevHash = await store.get(LIST_HASH_KEY);
   let index = Number(await store.get(INDEX_KEY)) || 0;
-  const symbol = list[index % list.length];
 
+  // 🔥 detecta mudança na lista
+  if (prevHash !== hash) {
+    console.log("🔄 Lista mudou, resetando índice");
+    index = 0;
+    await store.set(LIST_HASH_KEY, hash);
+    await store.set(INDEX_KEY, "0");
+  }
+
+  // 🔹 proteção extra
+  index = index % list.length;
+  const symbol = list[index];
+  // 🔹 incrementa fila
   await store.set(INDEX_KEY, String(index + 1));
-
   return symbol;
 };
 
@@ -279,7 +294,7 @@ export default async (req) => {
 export const config = {
   schedule: "*/30 12-21 * * 1-5"
 };
-
+console.log("CRON VERSION: 17/04-update-quotes");
 
 
 
@@ -301,11 +316,6 @@ export const config = {
 // --- Configuração do Schedule (Cron) ---
 // const { schedule } = require("@netlify/functions");
 // Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
-export const config = {
-  schedule: "*/30 13-22 * * 1-5"
-};
-console.log("CRON VERSION: 17/04-update-quotes");
-
 
 /*
 fetch → validar → tratar erro → parse JSON → usar dados
