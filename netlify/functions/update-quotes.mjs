@@ -14,7 +14,7 @@ import { getStore } from "@netlify/blobs";
 console.log("Update-quotes CARREGADA");
 
 // -------------------- CONFIG --------------------
-const STORE_NAME = "17/04_12hs";
+const STORE_NAME = "17/04_13hs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 25 * 1000; // 25s (evita concorrência)
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
@@ -162,14 +162,26 @@ export default async (req) => {
   try {
 
     // Lista
-    const ALL = ["IRFM11", "IVVB11", "BBDC4"];
+    const tickers = ["IRFM11", "IVVB11", "BBDC4"];
+    const ETF_INFO = {
+      AUPO11: { description: "NTN-B + Selic" },
+      B5P211: { description: "NTN-B (inflação) Curto/Medio" },
+      IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
+      IRFM11: { description: "Pré-fixado" },
+      IVVB11: { description: "S&P 500 dos EUA" },
+      NBIT11: { description: "Bitcoin Nasdaq" },
+      NDIV11: { description: "Dividendos" },
+      PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
+      "5PRE11": { description: "Pré-fixado" }
+    };
+
 
     if (!isMarketOpen()) {
       console.log("🛑 Mercado fechado");
       return new Response(JSON.stringify({ skipped: true }), { status: 200 });
     }
 
-    const symbol = await getNextTicker(store, ALL);
+    const symbol = await getNextTicker(store, tickers);
     const cacheKey = `quote-${symbol}`;
 
     console.log("➡️ ticker:", symbol);
@@ -192,13 +204,20 @@ export default async (req) => {
 
       if (res.ok) {
         const json = await res.json();
-        const r = json.results?.[0];
+        const resBrapi = json.results?.[0];
 
-        if (r) {
+        if (resBrapi) {
           data = {
-            symbol: r.symbol,
-            regularMarketPrice: r.regularMarketPrice ?? null,
-            regularMarketChangePercent: r.regularMarketChangePercent ?? null,
+            symbol: resBrapi.symbol,
+            shortName: resBrapi.shortName,
+            longName: resBrapi.longName,
+            description: ETF_INFO[resBrapi.symbol.toUpperCase()]?.description || "",
+            updatedAt: Date.now(),                          // Timestamp para lógica de front-end
+            regularMarketPrice: resBrapi.regularMarketPrice ?? null,
+            regularMarketChangePercent: resBrapi.regularMarketChangePercent ?? null,
+            fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
+            fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
+            logourl: resBrapi.logourl || `https://icons.brapi.dev/icons/${resBrapi.symbol}.svg`,
             source: "brapi"
           };
         }

@@ -21,7 +21,7 @@ export default async (req) => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
 
   try {
-    const store = getStore({ name: "17/04_12hs" });
+    const store = getStore({ name: "17/04_13hs" });
 
     console.log("🔎 Listando tickers no Blobs...");
 
