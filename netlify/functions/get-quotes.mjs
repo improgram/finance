@@ -21,27 +21,39 @@ const formatFullTime = (timestamp) => {
 
 export default async () => {
   console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
-  let ultimaAtualizacaoGeral = 0;       // Variável para rastrear o timestamp
+
+  // Variável para rastrear o timestamp
+  let ultimaAtualizacaoGeral = 0;
 
   try {
     const store = getStore({ name: "quotes-blobs" });
-
+    // cada chave no Blobs é um ticker
     console.log("🔎 Listando tickers no Blobs...");
 
     const list = await store.list({ prefix: "quote-" });
 
+    // Resumo: Se não há dados disponíveis
     if (!list.blobs || list.blobs.length === 0) {
-      return new Response(JSON.stringify({
-        data: { etfs: [], acoes: [] },
-        meta: { empty: true }
-      } , null, 2 ), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Requisiçao Ok - Mas NAO existem dados disponiveis",
+          data: {
+            etfs: [],
+            acoes: []
+                },
+          meta: { empty: true }
+          } , null, 2 ),
+          {
+            status: 200,
+            headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*"
+            }
+          }
+        );
     }
+
 
     const etfs = [];
     const acoes = [];
@@ -94,7 +106,8 @@ export default async () => {
       meta: {
         total: etfs.length + acoes.length,
         updatedAt: ultimaAtualizacaoGeral,
-        collectedAtFull: ultimaAtualizacaoGeral > 0 ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+        collectedAtFull: ultimaAtualizacaoGeral > 0
+          ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
       }
     } , null, 2 ), {
       status: 200,
@@ -112,7 +125,8 @@ export default async () => {
       data: { etfs: [], acoes: [] },
       meta: {
         error: true,
-        collectedAtFull: ultimaAtualizacaoGeral > 0 ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+        collectedAtFull: ultimaAtualizacaoGeral > 0
+          ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
       }
     } , null, 2 ), {
       status: 500,

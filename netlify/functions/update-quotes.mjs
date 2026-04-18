@@ -71,7 +71,8 @@ const acquireLock = async (store) => {
     return false;
   }
 
-  await store.set(LOCK_KEY, { timestamp: now });
+  // Garantindo persistência no Netlify Blobs
+  await store.set(LOCK_KEY, { timestamp: now }, { type: "json" });
   return true;
 };
 
@@ -102,7 +103,8 @@ const getFormattedDateTime = () =>
 const getCloses = (hist) => hist.map(d => d.close);
 const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const hasEnoughHist = (hist) => hist.length >= 10;
-const safeValue = (value) => (value == null || Number.isNaN(value)) ? "N/E" : value;
+const safeValue = (value) =>
+       (value == null || Number.isNaN(value)) ? null : value;
 const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
 
 const filterByDays = (hist, days) => {
@@ -112,7 +114,7 @@ const filterByDays = (hist, days) => {
 };
 
 const safeWithFallback = (newPreco, oldPreco) =>
-  (newPreco == null || newPreco === "N/E") ? oldPreco ?? "N/E" : newPreco;
+  newPreco == null ? (oldPreco ?? null) : newPreco;
 
 const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
@@ -120,19 +122,19 @@ const getValidHist = (hist) => (hist || []).filter(d =>
 
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
-  const now = new Date();
-  now.setHours(0,0,0,0);
-  const target = new Date(now);
-  target.setMonth(target.getMonth() - 1);
-  const targetTs = Math.floor(target.getTime() / 1000);
-  let base = null;
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const target = new Date(now);
+    target.setMonth(target.getMonth() - 1);
+    const targetTs = Math.floor(target.getTime() / 1000);
+    let base = null;
   for (let i = hist.length - 1; i >= 0; i--) {
-    if (hist[i].date <= targetTs) {
-      base = hist[i].close;
-      break;
-    }
+      if (hist[i].date <= targetTs) {
+        base = hist[i].close;
+        break;
+      }
   }
-  if (!base) base = hist[0].close;
+  if (!base) return null;
   return ((currentPrice - base) / base) * 100;
 };
 
@@ -146,7 +148,7 @@ const getNextTicker = async (store, list) => {
 
   // 🔹 cria hash da lista atual
   const hash = JSON.stringify(list);
-  const prevHash = await store.get(LIST_HASH_KEY);
+  const prevHash = await store.get(LIST_HASH_KEY, { type: "json" });
   let index = Number(await store.get(INDEX_KEY)) || 0;
 
   // 🔥 detecta mudança na lista
@@ -158,7 +160,7 @@ const getNextTicker = async (store, list) => {
   }
 
   // 🔹 proteção extra
-  index = index % list.length;
+  if (!list.length) throw new Error("Lista de tickers vazia");
   const symbol = list[index];
   // 🔹 incrementa fila
   await store.set(INDEX_KEY, String(index + 1));
@@ -193,7 +195,7 @@ const fetchYahooFallback = async (symbol) => {
 
 // -------------------- HANDLER --------------------
 
-export default async (req) => {
+export default async () => {
 
   console.log("🚀 Iniciando update-quotes");
 
@@ -240,28 +242,38 @@ export default async (req) => {
 
 
 
-    // Cache curto
-    const cached = await store.get(cacheKey, { type: "json" });
+    // Cache curto = evitar refazer a requisiçao
+    // Resumo: Se existe cache e ele ainda não expirou
+    const cached = await store.get(cacheKey, { type: "json" });       // Busca no armazenamento (store)
     if (cached?.updatedAt && Date.now() - cached.updatedAt < CACHE_TTL) {
-      console.log("⚡ cache hit");
-      return new Response(JSON.stringify({ cached: true }), { status: 200 });
+      console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
+      return new Response(
+          JSON.stringify({
+            cached: true,
+            message: "Resposta somente do cache"
+          }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json; charset=utf-8" }
+            }
+      );
     }
 
     // 1️⃣ Cache antes de bater na API
-    const existing = await store.get(cacheKey);
+    const existing = await store.get(cacheKey, { type: "json" });
 
     // Parse do cache = Se cálculo falhar → usa valor antigo
     let previousData = {};
     let data = null;
 
-    if (existing) {
+    if (existing && existing.symbol) {
       try {
-        const parsed = JSON.parse(existing);
-        // Como o cache é de um único ticker (cacheKey = quote-SYMBOL),
+        const parsed = existing;
+        // Cache é de um único ticker (cacheKey = quote-SYMBOL),
         // o parsed já é o próprio objeto do ticker.
         // Criamos a estrutura { "IRFM11": { ... } } que o resto do código espera ler:
         if (parsed && parsed.symbol) {
-          previousData[parsed.symbol] = parsed;
+          previousData[parsed.symbol] = parsed; // Aqui cria o objeto (ticker)
         }
       } catch (e) {
         console.warn("Erro ao parsear cache anterior");
@@ -294,8 +306,8 @@ export default async (req) => {
               ? safeValue(getVariation30d(hist, currentPrice))
               : null;
           const variation30d =
-              (newVariation == null || newVariation === "N/E")
-              ? prev.variation30d ?? "N/E"
+              (newVariation == null)
+              ? prev.variation30d ?? null
               : newVariation;
 
 
@@ -355,7 +367,7 @@ export default async (req) => {
       updatedLabel: getFormattedDateTime()
     };
 
-    await store.set(cacheKey, JSON.stringify(item));
+    await store.set(cacheKey, item, { type: "json" });
 
     console.log(`💾 saved (${item.source}):`, symbol);
 
@@ -387,7 +399,7 @@ export default async (req) => {
 export const config = {
   schedule: "*/30 12-21 * * 1-5"
 };
-console.log("CRON VERSION: 17/04-update-quotes");
+console.log("CRON VERSION: 18/04-update-quotes");
 
 
 
