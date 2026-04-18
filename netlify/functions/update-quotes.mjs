@@ -188,27 +188,21 @@ const fetchYahooFallback = async (symbol) => {
         "Accept": "application/json",
       }
     };
-
     const res = await fetchWithTimeout(url, options, 5000);
-
     if (!res.ok) {
       console.warn(`⚠️ Yahoo retornou status: ${res.status}`);
       return null;
     }
-
     const json = await res.json();
     const result = json.chart?.result?.[0];
-
     if (!result) return null;
     const meta = result.meta;
-
     return {
       symbol,
       regularMarketPrice: meta?.regularMarketPrice ?? null,
       regularMarketChangePercent: meta?.regularMarketChangePercent ?? null,
       source: "yahoo"
     };
-
   } catch (err) {
     console.warn("⚠️ Yahoo fallback erro:", err);
     return null;
@@ -216,24 +210,94 @@ const fetchYahooFallback = async (symbol) => {
 };
 
 
-// 3. Fallback (Mantém os dados do cache anterior se a Brapi falhar e não houver Yahoo)
+
+// ------------------ sistema de prioridade de fonte automático
+// =----------------- o primeiro que responder válido vence
+
+const resolveQuote = async (symbol, store, cacheKey, previousData, API_TOKEN ) => {
+  console.log("🔎 resolvendo fonte para:", symbol);
+
+    // -------------------- 1. CACHE (PRIMEIRO) --------------------
+  try {
+    const cachedPrimeiro = await store.get(cacheKey, { type: "json" });
+
+    if (cachedPrimeiro && cachedPrimeiro.symbol) {
+      return {
+        ...cachedPrimeiro,
+        source: "cache"
+      };
+    }
+  } catch (err) {
+    console.warn("cache falhou:", err);
+  }
+
+  // -------------------- 2. BRAPI --------------------
+  try {
+    const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+
+    const res = await fetchWithRetry(url);
+
+    if (res.ok) {
+      const json = await res.json();
+      const r = json.results?.[0];
+
+      if (r) {
+        return {
+          ...r,
+          source: "brapi"
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("brapi falhou:", err);
+  }
+
+  // -------------------- 3. YAHOO --------------------
+  try {
+    const yahoo = await fetchYahooFallback(symbol);
+
+    if (yahoo) {
+      return {
+        ...yahoo,
+        source: "yahoo"
+      };
+    }
+  } catch (err) {
+    console.warn("yahoo falhou:", err);
+  }
+
+  // -------------------- 4. PREVIOUS DATA --------------------
+  const prev = previousData?.[symbol];
+
+  if (prev) {
+    return {
+      ...prev,
+      source: "previousData"
+    };
+  }
+
+  // -------------------- 5. FAIL TOTAL --------------------
+  return null;
+};
+// FiM resolveQuote
+
+
+
+// -----  Fallback (Mantém os dados do cache anterior se a Brapi falhar e não houver Yahoo)
 const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
       console.log("🔁 iniciando fallback paralelo (cache + yahoo)");
 
       const cachePromise = (async () => {
-        const cached = await store.get(cacheKey, { type: "json" });
-        if (cached?.symbol) {
-          return { ...cached, source: "cache" };
+        const cachedYahoo = await store.get(cacheKey, { type: "json" });
+        if (cachedYahoo?.symbol) {
+          return { ...cachedYahoo, source: "cache" };
         }
         return null;
       })();
 
       const yahooPromise = fetchYahooFallback(symbol);
-
       const [cacheData, yahooData] = await Promise.allSettled([cachePromise,yahooPromise]);
-
       const cacheResult = cacheData.status === "fulfilled" ? cacheData.value : null;
-
       const yahooResult = yahooData.status === "fulfilled" ? yahooData.value : null;
 
       // prioridade: cache > yahoo > previousData
@@ -305,19 +369,47 @@ export default async () => {
 
     const symbol = await getNextTicker(store, tickers);
     const cacheKey = `quote-${symbol}`;
-
     console.log("➡️ ticker:", symbol);
+
+
+      //  ----------- Cache antes de bater na API
+      const existing = await store.get(cacheKey, { type: "json" });
+
+      // Parse do cache = Se cálculo falhar → usa valor antigo
+      // Tenta ler o que foi gravado na última execução com sucesso.
+      // previousData é o objeto vazio que servirá como um "contêiner" para o valor antigo.
+      let previousData = {};
+
+      if (existing?.symbol) {
+            try {
+              const parsed = existing;
+              if (parsed && parsed.symbol) {
+                previousData[existing.symbol] = existing;
+              // Aqui cria o objeto (ticker)
+              // Cache é de um único ticker (cacheKey = quote-SYMBOL),
+              // o parsed já é o próprio objeto do ticker.
+              // Criamos a estrutura { "IRFM11": { ... } } que o resto do código espera ler:
+              }
+            } catch (e) {
+              console.warn("Erro ao parsear cache anterior");
+            }
+      }
 
 
     // Cache curto = evitar refazer a requisiçao
     // Resumo: Se existe cache e ele ainda não expirou
     // Busca no armazenamento (store)
-    const cached = await store.get(cacheKey, { type: "json" });
-    if (cached?.updatedAt && Date.now() - cached.updatedAt < CACHE_TTL) {
+
+    if (existing?.updatedAt && Date.now() - existing.updatedAt < CACHE_TTL) {
       console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
+      console.log(`⚡ cache hit (${symbol})`);
+       // Atualiza label mesmo sem refetch
+        existing.updatedLabel = getFormattedDateTime();
+
+      // opcional mas recomendado → persistir
+      await store.set(cacheKey, existing, { type: "json" });
       return new Response(
           JSON.stringify({
-            cached: true,
             message: "Resposta somente do cache"
           }),
             {
@@ -327,29 +419,60 @@ export default async () => {
       );
     }
 
-    // 1️⃣ Cache antes de bater na API
-    const existing = await store.get(cacheKey, { type: "json" });
+    const rawData = await resolveQuote(symbol, store, cacheKey, previousData, API_TOKEN );
 
-    // Parse do cache = Se cálculo falhar → usa valor antigo
-    // Tenta ler o que foi gravado na última execução com sucesso.
-    let previousData = {};  // objeto vazio que servirá como um "contêiner" para o valor antigo.
-    let data = null;        // será preenchido pela resposta da API
-
-    if (existing && existing.symbol) {
-      try {
-        const parsed = existing;
-        // Cache é de um único ticker (cacheKey = quote-SYMBOL),
-        // o parsed já é o próprio objeto do ticker.
-        // Criamos a estrutura { "IRFM11": { ... } } que o resto do código espera ler:
-        if (parsed && parsed.symbol) {
-          previousData[parsed.symbol] = parsed; // Aqui cria o objeto (ticker)
-        }
-      } catch (e) {
-        console.warn("Erro ao parsear cache anterior");
-      }
+    if (!rawData) {
+      throw new Error("Sem dados de nenhuma fonte");
     }
 
 
+    // -------------------- Salva no Blobs --------------------
+
+    const item = {
+      ...rawData,
+      updatedAt: Date.now(),
+      updatedLabel: getFormattedDateTime(),
+      source: rawData.source
+    };
+
+    await store.set(cacheKey, item, { type: "json" });
+    console.log(`💾 saved (${item?.source ?? "Desconhecido"}):`, symbol);
+
+    return new Response(JSON.stringify({
+      ok: true,
+      symbol,
+      message: "Salvou no Blobs",
+    } , null, 2 ), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+
+  } catch (err) {
+    console.error("🔥 ERRO:", err);
+    return new Response(JSON.stringify({
+      error: "Falha no update"
+    }), { status: 500 });
+  } finally {
+    // 🔓 sempre libera lock
+    await releaseLock(store);
+  }
+};
+// Final do Handler
+
+// -------------------- CRON --------------------
+// Cron: a cada 30 min,  13h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
+export const config = {
+  schedule: "*/30 12-21 * * 1-5"
+};
+console.log("CRON VERSION: 18/04-update-quotes");
+
+
+
+
+
+/*
+
+// Codigo retirado em 18/04
     // -------------- BRAPI sequencial e controlada pela fila-------------
 
     try {
@@ -424,70 +547,21 @@ export default async () => {
         data = await fetchFallbackData(symbol, store, cacheKey, previousData);
     }
 
-
-    // -------------------- Salva no Blobs --------------------
-
-    const item = {
-      ...data,
-      updatedAt: Date.now(),
-      updatedLabel: getFormattedDateTime(),
-      source: data?.source ?? "Desconhecido"
-    };
-
-    await store.set(cacheKey, item, { type: "json" });
-    console.log(`💾 saved (${item?.source ?? "Desconhecido"}):`, symbol);
-
-    return new Response(JSON.stringify({
-      ok: true,
-      symbol,
-      message: "Salvou no Blobs",
-    } , null, 2 ), {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    });
-
-  } catch (err) {
-    console.error("🔥 ERRO:", err);
-    return new Response(JSON.stringify({
-      error: "Falha no update"
-    }), { status: 500 });
-  } finally {
-    // 🔓 sempre libera lock
-    await releaseLock(store);
-  }
-};
-
-// -------------------- CRON --------------------
-// Cron: a cada 30 min,  13h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
-export const config = {
-  schedule: "*/30 12-21 * * 1-5"
-};
-console.log("CRON VERSION: 18/04-update-quotes");
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// --- Configuração do Schedule (Cron) ---
-// const { schedule } = require("@netlify/functions");
-// Cron: a cada 30 min, das 13h às 22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
+*/
 
 /*
-fetch → validar → tratar erro → parse JSON → usar dados
+
+Ordem correta:
+
+1. getNextTicker
+2. get cache (existing)
+3. montar previousData
+4. checar cache curto  ← 🔥 AQUI
+5. resolveQuote
+6. salvar
 */
+
+
 
 /*
 helpers (fora da função)
