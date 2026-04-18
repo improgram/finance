@@ -210,9 +210,9 @@ const fetchYahooFallback = async (symbol) => {
 };
 
 
-
 // ------------------ sistema de prioridade de fonte automático
 // =----------------- o primeiro que responder válido vence
+// A ordem correta  é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
 
 const resolveQuote = async (symbol, store, cacheKey, previousData, API_TOKEN ) => {
   console.log("🔎 resolvendo fonte para:", symbol);
@@ -335,7 +335,7 @@ export default async () => {
   try {
 
     // Lista
-    const tickers = [ "IRFM11", "IVVB11", "BBDC4", "PACB11" ];
+    const tickers = [ "IRFM11", "IVVB11", "NBIT11", "BBDC4", "PACB11" ];
     const ETF_INFO = {
       AUPO11: { description: "NTN-B + Selic" },
       B5P211: { description: "NTN-B (inflação) Curto/Medio" },
@@ -356,8 +356,9 @@ export default async () => {
           {
           skipped: true,
           message: "🛑 Mercado fechado",
-          }
-        ), {
+          },
+          null, 2
+        ),  {
             status: 200,
             headers: {
                   "Content-Type": "application/json",
