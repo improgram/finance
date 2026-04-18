@@ -42,8 +42,11 @@ export default async () => {
             etfs: [],
             acoes: []
                 },
-          meta: { empty: true }
+          meta: {
+            empty: true
+          }
           } , null, 2 ),
+          
           {
             status: 200,
             headers: {
@@ -51,7 +54,7 @@ export default async () => {
                   "Access-Control-Allow-Origin": "*"
             }
           }
-        );
+      );
     }
 
 
