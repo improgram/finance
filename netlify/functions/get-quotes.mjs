@@ -130,7 +130,7 @@ export default async () => {
         meta: {
           error: true,
           collectedAtFull: ultimaAtualizacaoGeral > 0
-            ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+            ? formatFullTime(ultimaAtualizacaoGeral) : "Nao Encontrada"
         }
       } , null, 2 ), {
       status: 500,
