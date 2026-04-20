@@ -124,14 +124,15 @@ export default async () => {
   } catch (err) {
     console.error("❌ Erro no get-quotes:", err);
 
-    return new Response(JSON.stringify({
-      data: { etfs: [], acoes: [] },
-      meta: {
-        error: true,
-        collectedAtFull: ultimaAtualizacaoGeral > 0
-          ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
-      }
-    } , null, 2 ), {
+    return new Response(
+      JSON.stringify({
+        data: { etfs: [], acoes: [] },
+        meta: {
+          error: true,
+          collectedAtFull: ultimaAtualizacaoGeral > 0
+            ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+        }
+      } , null, 2 ), {
       status: 500,
       headers: {
         "Content-Type": "application/json",
