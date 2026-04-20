@@ -63,22 +63,44 @@ const fetchWithRetry = async (url, retries = 1) => {
 
 // -------------------- LOCK DISTRIBUÍDO --------------------
 // função decide se o processo tem "permissão" para rodar.
+// Lock deve evitar que duas execuções entrem
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
   const lock = await store.get(LOCK_KEY, { type: "json" });
 
+  // Proteção contra lock corrompido no Blobs
+  try {
+    lock = await store.get(LOCK_KEY, { type: "json" });
+  } catch (e) {
+    console.warn("⚠️ Lock corrompido no storage");
+  }
   if (lock && (now - lock.timestamp) < LOCK_TTL) {
     console.log("🔒 Lock ativo, abortando execução");
     return false;
   }
 
-  // Garantindo persistência no Netlify Blobs
-  await store.set(LOCK_KEY, { timestamp: now }, { type: "json" });
-  return true;
-};
+   // 🔥 gera id único da execução
+  const executionId = crypto.randomUUID();
+  const newLock = {
+    timestamp: now,
+    id: executionId
+  };
 
-const releaseLock = async (store) => {
-  await store.delete(LOCK_KEY);
+  // Garantindo persistência no Netlify Blobs
+  await store.set(LOCK_KEY, newLock, { type: "json" });
+
+  // 🔥 revalida (evita corrida)
+  const confirm = await store.get(LOCK_KEY, { type: "json" });
+  if (confirm.id !== executionId) {
+    console.log("⚠️ Lock perdido na corrida");
+    return false;
+  }
+  return true;
+
+  // Release Lock
+  const releaseLock = async (store) => {
+    await store.delete(LOCK_KEY);
+  };
 };
 
 // -------------------- Helpers --------------------
@@ -148,8 +170,8 @@ const getNextTicker = async (store, list) => {
   const LIST_HASH_KEY = "ticker-list-hash";
 
   // 🔹 cria hash da lista atual
-  const hash = JSON.stringify(list);
-  const prevHash = await store.get(LIST_HASH_KEY, { type: "json" });
+  const prevHash = await store.get(LIST_HASH_KEY, { type: "text" });
+   const hash = JSON.stringify(list);
 
   // Lê como texto para garantir que o valor venha limpo
   let index = Number(await store.get(INDEX_KEY, { type: "text" })) || 0;
@@ -157,8 +179,7 @@ const getNextTicker = async (store, list) => {
   // 🔥 detecta mudança na lista
   if (prevHash !== hash) {
     console.log("🔄 Lista mudou, resetando lista de Tickers");
-    index = 0;
-    await store.set(LIST_HASH_KEY, hash, { type: "json" });
+    await store.set(LIST_HASH_KEY, hash);
   }
 
   // 🔹 proteção extra com Uso do Modulo (%) para ser circular
@@ -211,7 +232,7 @@ const fetchYahooFallback = async (symbol) => {
 
 
 // ------------------ sistema de prioridade de fonte automático
-// =----------------- o primeiro que responder válido vence
+// ------------------ o primeiro que responder válido vence
 // A ordem correta  é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
 
 const resolveQuote = async (symbol, store, cacheKey, previousData, API_TOKEN ) => {
@@ -400,8 +421,8 @@ export default async () => {
     // Cache curto = evitar refazer a requisiçao
     // Resumo: Se existe cache e ele ainda não expirou
     // Busca no armazenamento (store)
-
-    if (existing?.updatedAt && Date.now() - existing.updatedAt < CACHE_TTL) {
+    // usar cache pra decidir se vai chamar API:
+    if (existing && Date.now() - existing.updatedAt < 15 * 60 * 1000) {
       console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
       console.log(`⚡ cache hit (${symbol})`);
        // Atualiza label mesmo sem refetch
@@ -418,6 +439,7 @@ export default async () => {
               headers: { "Content-Type": "application/json; charset=utf-8" }
             }
       );
+      return cache;
     }
 
     const rawData = await resolveQuote(symbol, store, cacheKey, previousData, API_TOKEN );
@@ -426,6 +448,10 @@ export default async () => {
       throw new Error("Sem dados de nenhuma fonte");
     }
 
+    // Garantir que novo ticker entra com fallback inicial
+    if (!existing) {
+      return fetchYahooFallback(symbol)
+    }
 
     // -------------------- Salva no Blobs --------------------
 
@@ -463,7 +489,7 @@ export default async () => {
 // -------------------- CRON --------------------
 // Cron: a cada 30 min,  13h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
 export const config = {
-  schedule: "*/30 12-21 * * 1-5"
+  schedule: "*/15 12-21 * * 1-5"
 };
 console.log("CRON VERSION: 18/04-update-quotes");
 

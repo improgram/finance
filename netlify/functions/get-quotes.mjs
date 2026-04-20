@@ -46,7 +46,7 @@ export default async () => {
             empty: true
           }
           } , null, 2 ),
-          
+
           {
             status: 200,
             headers: {
@@ -139,7 +139,13 @@ export default async () => {
       }
     });
   }
-};
+
+  if (etfs.length === 0 && acoes.length === 0) {
+    const fallback = await store.get("last-valid-snapshot");
+  }
+
+
+}; // final do export default async
 
 
 
