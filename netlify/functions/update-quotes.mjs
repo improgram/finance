@@ -286,32 +286,49 @@ const releaseIndexLock = async (store, key, id) => {
 // -------------------- LOCK DISTRIBUÍDO --------------------
 // função decide se o processo tem "permissão" para rodar.
 // Lock deve evitar que duas execuções entrem
+// duas execuções nao podem “confirmar” lock ao mesmo tempo
 // DOIS tipos de lock separados: Global e Lock da Fila
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
 
   // Proteção contra lock corrompido no Blobs
   const existingLock = await safeGet(store, LOCK_KEY);
-  if (existingLock  && (now - existingLock.timestamp) < LOCK_TTL) {
-    console.log("🔒 Lock ativo e ocupado, abortando execução");
-    return null; // Lock ocupado
+
+  // 🔥 lock valido ainda válido
+  if (existingLock) {
+  if (!isValidLock(existingLock)) {
+    console.warn("⚠️ Lock corrompido detectado → Removendo");
+  } else {
+    const age = now - existingLock.timestamp;
+    if (age < LOCK_TTL) {
+      console.log("🔒 Lock ativo, abortando execução");
+      return null;
+    }
+    console.warn("⚠️ Lock expirado (fantasma) → sobrescrevendo");
+    }
   }
+
 
    // --------------- gera id único da execução
   const executionId = generateId();
-  const lock = createLock(executionId, now);
+  const newLock = createLock(executionId, now);
 
   // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
-  await safeSet(store, LOCK_KEY, lock);
+  // Tentativa de escrita
+  await safeSet(store, LOCK_KEY, newLock);
 
-  // pequena espera para consistência eventual do Blobs
-  await sleep(200);
 
-  // ------------- Revalidação (Race Condition) (evita corrida)
+  // ----------- Revalidação (Race Condition) (evita corrida)
+  // 🔥 leitura imediata para validação mínima
   const confirm = await safeGet(store, LOCK_KEY);
-  if (!isValidLock(confirm)) return null;
-  if (confirm.executionId !== executionId) return null;
-  if (now - confirm.timestamp > LOCK_TTL) return null;
+
+   if (
+    !confirm ||
+    confirm.executionId !== executionId
+  ) {
+    console.warn("⚠️ Race detectada no acquireLock");
+    return null;
+  }
   return executionId;
 };
 
@@ -321,27 +338,44 @@ const acquireLock = async (store) => {    // Adquirir a Trava
 const releaseLock = async (store, executionId) => {
     try {
       const current = await safeGet(store, LOCK_KEY);
+
       // 🔍 Caso 1: não existe lock
       if (!current) {
         console.log("⚠️ Nenhum lock encontrado para liberar");
         return;
       }
 
-      // 🔐 Caso 2: lock pertence a esta execução → remove
-      if (isValidLock(current) && current.executionId === executionId) {
-        await store.delete(LOCK_KEY);
-        console.log("🔓 Lock removido com sucesso");
-      } else {
-        // 🚨 Caso 3: lock existe mas NÃO é seu → NÃO REMOVE
-        console.warn("Lock já expirou ou foi substituído", {
-          currentLockId: current.executionId,
-        });
+      // Caso 2: lock não pertence a esta execução
+      if (current.executionId !== executionId) {
+        console.warn("⚠️ Lock pertence a outra execução");
         return;
       }
+
+      // 🔐 Caso 3: lock pertence a esta execução → remove
+      if (!isValidLock(current) ) {
+        console.warn("⚠️ Lock inválido, forçando remoção");
+      }
+
+    // 🔥 tenta delete seguro
+    try {
+      await safeDelete(store, LOCK_KEY);
+      console.log("🔓 Lock removido com sucesso");
     } catch (err) {
-      console.warn("❌ Erro ao liberar lock:", err);
+      console.warn("⚠️ Falha ao deletar lock:", err?.message);
+
+      // fallback seguro: sobrescreve lock com expiração imediata
+      await safeSet(store, LOCK_KEY, {
+        v: 2,
+        executionId: "released",
+        timestamp: Date.now() - (LOCK_TTL + 1)
+      });
+    }
+
+    } catch (err) {
+      console.warn("❌ releaseLock erro:", err);
     }
 };
+
 // acquireLock e releaseLock devem ficar antes de getNextTicker
 
 
