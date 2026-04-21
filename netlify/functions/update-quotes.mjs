@@ -20,13 +20,27 @@ console.log("Update-quotes CARREGADA");
 // -------------------- CONFIG --------------------
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
-const LOCK_TTL = 55 * 1000; // 55s (evitar concorrência: (um pouco menos que o timeout da função))
+const LOCK_TTL = 3 * 60 * 1000; // 3 min (evitar concorrência:)
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 // É vital que o valor de LOCK_TTL seja maior que o tempo máximo que a função leva para rodar
 
 // -------------------- HELPERS --------------------
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const createLock = (executionId, now) => ({
+  v: 2,
+  executionId,
+  timestamp: now
+});
+
+
+const isValidLock = (lock) =>
+  lock &&
+  lock.v === 2 &&
+  typeof lock.executionId === "string" &&
+  typeof lock.timestamp === "number";
+
 
 // Timeout menor (serverless-safe)
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
@@ -51,14 +65,14 @@ const fetchWithRetry = async (url, retries = 1) => {
       // A function fetchWithTimeout possui o AbortSignal.timeout(8000)
       if (res && res.status !== 429) return res;
 
-      console.warn("⏳ Rate limit...");
+      console.warn("⏳ Rate limit BRAPI...");
       await sleep(3000);
     } catch (err) {
       console.warn("⚠️ fetch erro:", err);
       if (i === retries) throw err;
     }
   }
-  throw new Error("Rate limit persistente");
+  throw new Error("BRAPI Rate limit persistente");
 };
 
 // evitar bug
@@ -70,13 +84,15 @@ const getJson = (store, key) =>
 
 
 // -------------------- BLOBS SAFE GET --------------------
-async function safeGetJson(store, key) {
+const safeGetJson = async (store, key) => {
     try {
-        const dataSafe = await store.get(key, { type: "json" });
-        return dataSafe || null;
-    } catch (e) {
-        console.warn(`⚠️ Erro no BLOBS SAFE GET ao ler JSON da chave ${key}, resetando...`);
-        return null;
+      const value = await store.get(key, { type: "json" });
+      // proteção contra string inválida
+      if (!value || typeof value !== "object") return null;
+      return value;
+    } catch (err) {
+      console.warn(`⚠️ Blobs corrupt read (${key})`, err?.message);
+      return null;
     }
 }
 
@@ -84,35 +100,37 @@ async function safeGetJson(store, key) {
 // -------------------- LOCK DISTRIBUÍDO --------------------
 // função decide se o processo tem "permissão" para rodar.
 // Lock deve evitar que duas execuções entrem
+// DOIS tipos de lock separados: Global e Lock da Fila
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
-  const lock = await safeGetJson(store, LOCK_KEY);
 
   // Proteção contra lock corrompido no Blobs
-  if (lock && (now - lock.timestamp) < LOCK_TTL) {
-    console.log("🔒 Lock ativo, abortando execução");
+  const existingLock = await safeGetJson(store, LOCK_KEY);
+  if (existingLock  && (now - existingLock.timestamp) < LOCK_TTL) {
+    console.log("🔒 Lock ativo e ocupado, abortando execução");
     return null; // Lock ocupado
   }
 
    // --------------- gera id único da execução
   const executionId = crypto.randomUUID();
-  const newLock = {
-    timestamp: now,
-    id: executionId
-  };
+  const lock = createLock(executionId, now);
 
-  // Garantindo persistência no Netlify Blobs
-  // Usar SEMPRE JSON nativo do Blobs:
-  await store.set(LOCK_KEY, newLock, { type: "json" });
+  // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
+  await store.set(LOCK_KEY, lock, { type: "json" });
 
+  // pequena espera para consistência eventual do Blobs
+  await sleep(200);
 
   // ------------- Revalidação (Race Condition) (evita corrida)
   const confirm = await safeGetJson(store, LOCK_KEY);
-    return (confirm?.id === executionId) ? executionId : null;
+  if (!isValidLock(confirm)) return null;
+  if (confirm.executionId !== executionId) return null;
+  if (now - confirm.timestamp > LOCK_TTL) return null;
+  return executionId;
 };
 
 // Release Lock deve ficar fora do escopo da acquireLock
-  // Remove Lock somente ó se for dono
+  // Remove Lock somente se for dono
   // Não apaga lock de outra execução
   const releaseLock = async (store, executionId) => {
     try {
@@ -124,21 +142,16 @@ const acquireLock = async (store) => {    // Adquirir a Trava
       }
 
       // 🔐 Caso 2: lock pertence a esta execução → remove
-      if (current?.id === executionId) {
+      if (isValidLock(current) && current.executionId === executionId) {
         await store.delete(LOCK_KEY);
         console.log("🔓 Lock removido com sucesso");
-        return;
       } else {
-        console.warn("Lock já expirou ou foi substituído");
+        // 🚨 Caso 3: lock existe mas NÃO é seu → NÃO REMOVE
+        console.warn("Lock já expirou ou foi substituído", {
+          currentLockId: current.executionId,
+        });
         return;
       }
-
-      // 🚨 Caso 3: lock existe mas NÃO é seu → NÃO REMOVE
-      console.warn("🚨 Lock pertence a outra execução", {
-        currentLockId: current.id,
-        executionId
-      });
-
     } catch (err) {
       console.warn("❌ Erro ao liberar lock:", err);
     }
@@ -205,8 +218,12 @@ const getVariation30d = (hist, currentPrice) => {
 
 
 // -------------------- FILA --------------------
+// chamada de API  =1 por vez (devido ao getNextTicker)
+// o tempo deve ser suficiente.
+// Se começar a dar timeout, reduzir o retries do fetch
 
 const getNextTicker = async (store, list) => {
+  // Function que gerencia o índice no Blobs
   // lock específico para fila
   // Lock protege a execução inteira
   // Lock deve garantir atomicidade na hora de incrementar
@@ -221,32 +238,61 @@ const getNextTicker = async (store, list) => {
   const acquireIndexLock = async (store) => {
     const now = Date.now();
     const lock = await safeGetJson(store, INDEX_LOCK_KEY);
-
     if (lock && (now - lock.timestamp) < INDEX_LOCK_TTL) {
-      return false;
+      console.log("🔎 Tentando adquirir INDEX LOCK", {
+        now,
+        existingLock: lock,
+        ageMs: now - lock.timestamp,
+        ttl: INDEX_LOCK_TTL,
+        executionId: lock.executionId,
+        remainingMs: INDEX_LOCK_TTL - (now - lock.timestamp)
+      });
+      return null;
     }
     const id = crypto.randomUUID();
-    await store.set(INDEX_LOCK_KEY, { id, timestamp: now }, { type: "json" });
+    await store.set(
+      INDEX_LOCK_KEY,
+      { v: 1, executionId: id, timestamp: now },
+      { type: "json" }
+      );
     const confirm = await safeGetJson(store, INDEX_LOCK_KEY);
-    return confirm?.id === id;
+    const valid = confirm &&
+      typeof confirm.executionId === "string" &&
+      typeof confirm.timestamp === "number";
+    const match = valid && confirm.executionId === id;
+    if (!match) {
+      console.warn("⚠️ Falha na validação do INDEX LOCK", {
+        valid,
+        confirm,
+        expectedId: id
+      });
+    }
+    return match ? id : null;
+  }; // FiM da lock leve
+
+
+    const releaseIndexLock = async (store, indexLockId) => {
+      const lock = await safeGetJson(store, INDEX_LOCK_KEY);
+      if (lock?.executionId === indexLockId &&
+        Date.now() - lock.timestamp < INDEX_LOCK_TTL) {
+        await store.delete(INDEX_LOCK_KEY);
+      }
     };
 
-    const releaseIndexLock = async (store) => {
-      await store.delete(INDEX_LOCK_KEY);
-  };
-
-
   // 🔒 LOCK DA FILA
-  const locked = await acquireIndexLock(store);
-  if (!locked) {
+  const indexLockId = await acquireIndexLock(store);
+  if (!indexLockId) {
     throw new Error("Fila ocupada (index lock)");
   }
   try {
     // 🔹 cria hash da lista atual
     const prevHash = await store.get(LIST_HASH_KEY, { type: "text" });
     const hash = JSON.stringify(list);
+
     // Lê como texto para garantir que o valor venha limpo
-    let index = Number(await store.get(INDEX_KEY, { type: "text" })) || 0;
+    const raw = await store.get(INDEX_KEY, { type: "text" });
+    let index = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+
     // 🔥 detecta mudança na lista
     if (prevHash !== hash) {
       console.log("🔄 Lista mudou, resetando lista de Tickers");
@@ -256,14 +302,16 @@ const getNextTicker = async (store, list) => {
      // 🔹---- proteção extra com Uso do Modulo (%) para Gerenciar Fila Circular
     if (!list.length) throw new Error("Lista de tickers vazia");
     const symbol = list[index % list.length];
+
     // 🔹------ incrementa fila e salva o próximo (também com trava de segurança)
     const nextIndex = (index + 1) % list.length;
+
     //-------------- Salva o próximo índice
-    await store.set("ticker-index", String(nextIndex), { type: "text" });
+    await store.set(INDEX_KEY, String(nextIndex), { type: "text" });
     console.log(`➡️ Processando: ${symbol}`);
     return symbol;
   } finally {
-    await releaseIndexLock(store);
+    await releaseIndexLock(store, indexLockId);
   }
 };    // Final da getNextTicker
 
@@ -283,20 +331,19 @@ const fetchYahooFallback = async (symbol) => {
         "Accept": "application/json",
       }
     };
-    const res = await fetchWithTimeout( url, optionsFetch );
-    if (!res.ok) {
-      console.warn(`⚠️ Yahoo retornou status: ${res.status}`);
+    const resYahoo = await fetchWithTimeout( url, optionsFetch );
+    if (!resYahoo.ok) {
+      console.warn(`⚠️ Yahoo retornou status: ${resYahoo.status}`);
       return null;
     }
-    const json = await res.json();
-    const result = json.chart?.result?.[0];
-    if (!result) return null;
+    const json = await resYahoo.json();
+    const resultYahoo = json.chart?.result?.[0];
+    if (!resultYahoo) return null;
 
-    const meta = result.meta;
     return {
       symbol,
-      regularMarketPrice: meta?.regularMarketPrice ?? null,
-      regularMarketChangePercent: meta?.regularMarketChangePercent ?? null,
+      regularMarketPrice: resultYahoo.meta?.regularMarketPrice ?? null,
+      regularMarketChangePercent: resultYahoo.meta?.regularMarketChangePercent ?? null,
       source: "yahoo"
     };
   } catch (err) {
@@ -310,90 +357,93 @@ const fetchYahooFallback = async (symbol) => {
 // ------------------ o primeiro que responder válido vence
 // A ordem correta  é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
 
-const resolveQuote = async (symbol, store, cacheKey, previousData, API_TOKEN, ETF_INFO ) => {
+const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previousData ) => {
   console.log("🔎 resolvendo fonte para:", symbol);
+  let finalData = null;
+  let source = "none";
 
-    // -------------------- 1. CACHE (PRIMEIRO) --------------------
-  try {
-    const cachedPrimeiro = await store.get(cacheKey, { type: "json" });
+  // -------------------- 1. CACHE (PRIMEIRO) --------------------
+  const cached = await safeGetJson(store, cacheKey);
 
-    if (cachedPrimeiro && cachedPrimeiro.symbol) {
-      return {
-        ...cachedPrimeiro,
-        source: "cache"
-      };
-    }
-  } catch (err) {
-    console.warn("cache falhou:", err);
+  if (cached && cached.updatedAt && (Date.now() - cached.updatedAt < CACHE_TTL)) {
+    finalData = cached;
+    source = "cache";
   }
 
   // -------------------- 2. BRAPI --------------------
-  let dataBrapi = null;
-  try {
-    const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-    const resBrapi = await fetchWithRetry(url);
 
-    if (resBrapi.ok) {
+  if (!finalData) {
+    try {
+      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
+      const resBrapi = await fetchWithRetry(url);
+
       // Para pegar exatamente quando a API retorna HTML / erro / rate limit
-      const textBrapi = await resBrapi.text();  // metodo .text
-      let jsonBrapi;
+      const textBrapi = await resBrapi.text();
+      let json;
       try {
-        jsonBrapi = JSON.parse(textBrapi);
-      } catch (e) {
-        console.error("Resposta inválida na jsonBrapi:", textBrapi);
+        json = JSON.parse(textBrapi);
+      } catch (err) {
+        console.error("💥 JSON inválido da BRAPI", err);
         return null;
       }
-      dataBrapi = jsonBrapi.results?.[0];
-    }
-  } catch (err) {
-    console.warn("Brapi falhou, Buscando fallbacks ", err);
-  }
+      if (json.results?.[0]) {
+        finalData = json.results[0];
+        source = "brapi";
+      }
 
-    if (dataBrapi) {
-    return {
-      ...dataBrapi,
-      source: "brapi"
-    };
-  }
+    } // Fim do Try
+    catch (e) { console.warn("Brapi falhou"); }
+  }   // FiM do iF (!finalData)
+
 
   // -------------------- 3. YAHOO --------------------
-  try {
+  if (!finalData) {
     const yahoo = await fetchYahooFallback(symbol);
-
     if (yahoo) {
-      return {
-        ...yahoo,
-        source: "yahoo"
-      };
+      finalData = yahoo;
+      source = "yahoo";
+    } else {
+      console.warn("⚠️ Yahoo também falhou");
     }
-  } catch (err) {
-    console.warn("yahoo falhou:", err);
   }
+
 
   // -------------------- 4. PREVIOUS DATA --------------------
-  const prev = previousData?.[symbol];
+    if (
+      !finalData &&
+      previousData &&
+      typeof previousData === "object"
+    ) {
+      const prevValue =
+        previousData &&
+        typeof previousData === "object" &&
+        typeof previousData[symbol] === "object"
+          ? previousData[symbol]
+          : null;
 
-  if (prev) {
-    return {
-      ...prev,
-      source: "previousData"
-    };
-  }
+      if (prevValue) {
+        finalData = prevValue;
+        source = "previousData";
+      }
+    }
 
-  // 5. Preparar Payload Final
+
+  //------------ 5. Preparar Payload Final
   const payload = {
-      ...(dataBrapi || {}),     // 2. Sobrescreve com dados novos (preço atual, variação)
+      ...(finalData || {}),
       description: ETF_INFO[symbol]?.description || "Ativo Financeiro",
       updatedAt: Date.now(),
       updatedLabel: getFormattedDateTime(),
-      symbol: symbol       // Garante que o ticker não se perca
+      symbol: symbol,       // Garante que o ticker não se perca
+      source: source
   };
 
 
-  // 6. Salvar no Blobs
+  // --------- 6. Salvar no Blobs
   // Após ser montado, o payload é transformado em json
   // É esse objeto que o outro script (get-quote.js) vai ler para exibir no site.
   await store.set(cacheKey, payload, { type: "json" });
+  console.log(`💾 Salvo no Blobs via ${source}: ${symbol}`);
   return payload;
 };
 // FiM resolveQuote
@@ -416,8 +466,11 @@ const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
       const cacheResult = cacheData.status === "fulfilled" ? cacheData.value : null;
       const yahooResult = yahooData.status === "fulfilled" ? yahooData.value : null;
 
+      // ✅ extraindo o prevValue com segurança
+      const prevValue = previousData && typeof previousData === "object" ? previousData[symbol] : null;
+
       // prioridade: cache > yahoo > previousData
-      return cacheResult || yahooResult || previousData[symbol] || null;
+      return cacheResult || yahooResult || prevValue || null;
 };
 
 
@@ -426,6 +479,11 @@ const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
 export default async () => {
 
   console.log("🚀 Iniciando update-quotes");
+
+  // fetch pode não existir dependendo do runtime
+  if (typeof fetch !== "function") {
+    throw new Error("fetch não disponível no runtime");
+  }
 
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) {
@@ -485,6 +543,8 @@ export default async () => {
         );
     }
 
+    // // ➡️ ÚNICA FONTE DE VERDADE: A Fila no Blobs
+    // Esta função  decide sozinha qual é o próximo ticker
     const symbol = await getNextTicker(store, tickers);
     const cacheKey = `quote-${symbol}`;
     console.log("➡️ ticker:", symbol);
@@ -500,17 +560,18 @@ export default async () => {
       // criar o objeto (ticker)
       // Cache é de um único ticker (cacheKey = quote-SYMBOL),
       // o parsed já é o próprio objeto do ticker.
-      let previousData = existing ? { [symbol]: existing } : {};
+
 
     // Cache curto = evitar refazer a requisiçao
     // Resumo: Se existe cache e ele ainda não expirou
     // Busca no armazenamento (store)
     // usar cache pra decidir se vai chamar API:
-    if (existing && Date.now() - existing.updatedAt < 15 * 60 * 1000) {
+    if (existing?.updatedAt && Date.now() - existing.updatedAt < CACHE_TTL) {
       console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
       console.log(`⚡ cache hit (${symbol})`);
        // Atualiza label mesmo sem refetch
-        existing.updatedLabel = getFormattedDateTime();
+       existing.updatedAt = Date.now();
+       existing.updatedLabel = getFormattedDateTime();
 
       // opcional mas recomendado → persistir
       await store.set(cacheKey, existing, { type: "json" });
@@ -525,45 +586,56 @@ export default async () => {
       );
     }
 
+    // depois do existing carregado e antes de chamar o resolveQuote
+    // blindada contra corrupção estrutural = garantir que prev seja um objeto válido
+    const ensureObject = (value) =>
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+        ? value
+        : {};
+
+    const prev = ensureObject(
+      await safeGetJson(store, "previous-data")
+    );
+
     const rawData = await resolveQuote(
       symbol,
       store,
       cacheKey,
-      previousData,
       API_TOKEN,
-      ETF_INFO
+      ETF_INFO,
+      prev
     );
-    if (!rawData) {
-      if (existing) {
-        console.warn("⚠️ usando cache antigo");
-        return new Response(JSON.stringify(existing), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-      throw new Error(`Sem dados para ${symbol}`);
-    }
+
+    const updated = {
+        ...prev,
+        [symbol]: rawData || existing || prev[symbol] || null
+    };
+    await store.set("previous-data", updated, { type: "json" });
+
+
 
     // Garantir que novo ticker entra com fallback inicial
-    if (!existing) {
-      const fallback = await fetchYahooFallback(symbol);
-      return new Response(JSON.stringify(fallback), {
+    if (!rawData && existing) {
+      return new Response(JSON.stringify(existing), {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
     }
 
+    if (!rawData && !existing) {
+      const fallback = await fetchYahooFallback(symbol);
+        return new Response(JSON.stringify(fallback), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+    }
+
+
     // -------------------- Salva no Blobs --------------------
 
-    const item = {
-      ...rawData,
-      updatedAt: Date.now(),
-      updatedLabel: getFormattedDateTime(),
-      source: rawData.source
-    };
-
-    await store.set(cacheKey, item, { type: "json" });
-    console.log(`💾 saved (${item?.source ?? "Desconhecido"}):`, symbol);
+    console.log(`💾 saved:`, symbol);
 
     return new Response(
       JSON.stringify({
@@ -593,7 +665,7 @@ export default async () => {
 // Final do Handler
 
 // -------------------- CRON --------------------
-// Cron: a cada 30 min,  13h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
+// Cron: a cada 15 min,  13h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
 export const config = {
   schedule: "*/15 12-21 * * 1-5"
 };
@@ -671,14 +743,6 @@ console.log("CRON VERSION: 18/04-update-quotes");
         }
       }
     }
-    catch (err)
-      {
-        console.warn("⚠️ Brapi falhou, tentando fallback...");
-      }
-      if (!data) {                  // Após tentativa na API Brapi tentatar fallback
-        console.warn("⚠️ Brapi falhou, tentando fallback novamente ...");
-        data = await fetchFallbackData(symbol, store, cacheKey, previousData);
-    }
 
 */
 
@@ -688,10 +752,11 @@ Ordem correta:
 
 1. getNextTicker
 2. get cache (existing)
-3. montar previousData
-4. checar cache curto  ← 🔥 AQUI
+3. checar cache curto
+4. carregar previousData
 5. resolveQuote
-6. salvar
+6. salvar previousData atualizado
+7. respostas / fallback
 */
 
 
