@@ -216,42 +216,40 @@ const getVariation30d = (hist, currentPrice) => {
 };
 
 
-
 // -------------------- FILA --------------------
-
 // Function de lock leve
+// (Retry agressivo melhorado
 const acquireIndexLock = async (store, key, ttl) => {
+  for (let i = 0; i < 5; i++) {
+    const now = Date.now();
+
+    const current = await safeGet(store, key);
+
+    // se lock existe e ainda válido → tenta novamente depois
+    if (current && (now - current.timestamp) < ttl) {
+      await sleep(10 + Math.random() * 20);
+      continue;
+    }
+
     const id = generateId();
 
-    for (let i = 0; i < 3; i++) {
-      const now = Date.now();
-      const current = await safeGet(store, key);
+    const candidate = { v: 1, executionId: id, timestamp: now };
 
-      // lock válido ainda existe
-      if (current && (now - current.timestamp) < ttl) { return null; }
+    // tenta escrever
+    await safeSet(store, key, candidate);
 
-      const candidate = { v: 1, executionId: id, timestamp: now };
-      await safeSet(store, key, candidate);
+    // 🔥 valida imediatamente
+    const confirm = await safeGet(store, key);
 
-      await sleep(25 + Math.random() * 20);
-
-      // 🔥 DOUBLE-CHECK AFTER WRITE (anti race condition)
-      const confirm = await safeGet(store, key);
-
-      // re-leitura para validar concorrência
-      // ❗ se outro worker escreveu depois de nós
-      if (confirm?.executionId !== id) {
-        continue; // tenta novamente
-      }
-
-      // proteção extra contra lock expirado
-      if (Date.now() - confirm.timestamp >= ttl) {
-        continue;
-      }
-      // sucesso: adquirimos o lock
-      return candidate;
+    // se perdeu corrida → tenta de novo
+    if (confirm?.executionId !== id) {
+      await sleep(10 + Math.random() * 30);
+      continue;
     }
-    return null;
+    // sucesso real
+    return id;
+  }
+  return null;
 };
 // FiM da lock leve
 
@@ -320,15 +318,15 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   // Tentativa de escrita
   await safeSet(store, LOCK_KEY, newLock);
 
+  // 🔥 CORREÇÃO: Aguardar a propagação do Netlify Blobs (150ms costuma ser suficiente)
+  await sleep(150);
+
 
   // ----------- Revalidação (Race Condition) (evita corrida)
   // 🔥 leitura imediata para validação mínima
   const confirm = await safeGet(store, LOCK_KEY);
 
-   if (
-    !confirm ||
-    confirm.executionId !== executionId
-  ) {
+   if (!confirm || confirm.executionId !== executionId ) {
     console.warn("⚠️ Race detectada no acquireLock");
     return null;
   }
