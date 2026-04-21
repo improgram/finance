@@ -28,33 +28,24 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 min
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Blindagem extra do fetch - Pois pode não existir dependendo do runtime
-const getFetch = () => {
-  if (typeof fetch === "function") return fetch;
-
-  try {
-    return require("node-fetch"); // Node antigo
-  } catch {
-    throw new Error("fetch não disponível no runtime");
+// Singleton de fetch (evita recriar import a cada request)
+let fetchFn;
+const initFetch = async () => {
+  if (fetchFn) return fetchFn;
+  if (typeof fetch === "function") {
+    fetchFn = fetch;
+    return fetchFn;
   }
+  const mod = await import("node-fetch");
+  fetchFn = mod.default;
+  return fetchFn;
 };
 
-
-// Alguns runtimes(Node antigos) não têm AbortController
-const createAbortController = () => {
-  if (typeof AbortController !== "undefined") {
-    return new AbortController();
-  }
-
-  return {
-    signal: undefined,
-    abort: () => {}
-  };
-};
 
 // Response não existe em Node antigo e (compatibilidade Node vs Edge)
 const createResponse = (body, status = 200, headers = {}) => {
   if (typeof Response !== "undefined") {
-    return createResponse(
+    return new Response(
       typeof body === "string" ? body : JSON.stringify(body),
       { status, headers }
     );
@@ -131,14 +122,21 @@ const isValidLock = (lock) =>
 
 // Timeout menor (serverless-safe)
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
-  const fetchFn = getFetch();
-  const controller = createAbortController(); // runtimes(Nodes) antigos não têm AbortController
+  const nodeFetch = await initFetch();
+  const controller = new AbortController(); // runtimes(Nodes) antigos não têm AbortController
+
   const id = setTimeout(() => controller.abort(), timeout);
-  return await fetch(url, {
+
+  try {
+    return await nodeFetch(url, {
     ...options,
-    signal: controller.signal,
-  });
+    signal: controller.signal
+    });
+  } finally {
+  clearTimeout(id);
+  }
 };
+
 
 // Retry leve (anti-timeout Netlify)
 const fetchWithRetry = async (url, retries = 1) => {
@@ -157,67 +155,6 @@ const fetchWithRetry = async (url, retries = 1) => {
   }
   throw new Error("BRAPI Rate limit persistente");
 };
-
-
-// -------------------- LOCK DISTRIBUÍDO --------------------
-// função decide se o processo tem "permissão" para rodar.
-// Lock deve evitar que duas execuções entrem
-// DOIS tipos de lock separados: Global e Lock da Fila
-const acquireLock = async (store) => {    // Adquirir a Trava
-  const now = Date.now();
-
-  // Proteção contra lock corrompido no Blobs
-  const existingLock = await safeGet(store, LOCK_KEY);
-  if (existingLock  && (now - existingLock.timestamp) < LOCK_TTL) {
-    console.log("🔒 Lock ativo e ocupado, abortando execução");
-    return null; // Lock ocupado
-  }
-
-   // --------------- gera id único da execução
-  const executionId = generateId();
-  const lock = createLock(executionId, now);
-
-  // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
-  await safeSet(store, LOCK_KEY, lock);
-
-  // pequena espera para consistência eventual do Blobs
-  await sleep(200);
-
-  // ------------- Revalidação (Race Condition) (evita corrida)
-  const confirm = await safeGet(store, LOCK_KEY);
-  if (!isValidLock(confirm)) return null;
-  if (confirm.executionId !== executionId) return null;
-  if (now - confirm.timestamp > LOCK_TTL) return null;
-  return executionId;
-};
-
-// Release Lock deve ficar fora do escopo da acquireLock
-  // Remove Lock somente se for dono
-  // Não apaga lock de outra execução
-  const releaseLock = async (store, executionId) => {
-    try {
-      const current = await safeGet(store, LOCK_KEY);
-      // 🔍 Caso 1: não existe lock
-      if (!current) {
-        console.log("⚠️ Nenhum lock encontrado para liberar");
-        return;
-      }
-
-      // 🔐 Caso 2: lock pertence a esta execução → remove
-      if (isValidLock(current) && current.executionId === executionId) {
-        await store.delete(LOCK_KEY);
-        console.log("🔓 Lock removido com sucesso");
-      } else {
-        // 🚨 Caso 3: lock existe mas NÃO é seu → NÃO REMOVE
-        console.warn("Lock já expirou ou foi substituído", {
-          currentLockId: current.executionId,
-        });
-        return;
-      }
-    } catch (err) {
-      console.warn("❌ Erro ao liberar lock:", err);
-    }
-  };
 
 
 // -------------------- Helpers Market --------------------
@@ -279,11 +216,125 @@ const getVariation30d = (hist, currentPrice) => {
 };
 
 
+
 // -------------------- FILA --------------------
-// chamada de API  =1 por vez (devido ao getNextTicker)
+
+// Function de lock leve
+const acquireIndexLock = async (store, key, ttl) => {
+    const now = Date.now();
+    const lock = await safeGet(store, key);
+    if (lock && (now - lock.timestamp) < ttl) {
+      console.log("🔎 Tentando adquirir INDEX LOCK", {
+        now,
+        existingLock: lock,
+        ageMs: now - lock.timestamp,
+        ttl: ttl,
+        executionId: lock.executionId,
+        remainingMs: ttl - (now - lock.timestamp)
+      });
+      return null;
+    }
+
+    const id = generateId();
+    await safeSet(store, key, {
+      v: 1,
+      executionId: id,
+      timestamp: now
+    });
+
+    const confirm = await safeGet(store, key);
+    const valid = confirm &&
+      typeof confirm.executionId === "string" &&
+      typeof confirm.timestamp === "number";
+    const match = valid && confirm.executionId === id;
+    if (!match) {
+      console.warn("⚠️ Falha na validação do INDEX LOCK", {
+        valid,
+        confirm,
+        expectedId: id
+      });
+    }
+    return confirm?.executionId === id ? id : null;
+  };
+// FiM da lock leve
+
+
+const releaseIndexLock = async (store, key, id, ttl) => {
+    const lock = await safeGet(store, key);
+      if (lock?.executionId === id &&
+      Date.now() - lock.timestamp < ttl) {
+          await store.delete(key);
+      }
+};
+// FiM da acquireIndexLock e releaseIndexLock
+
+
+// -------------------- LOCK DISTRIBUÍDO --------------------
+// função decide se o processo tem "permissão" para rodar.
+// Lock deve evitar que duas execuções entrem
+// DOIS tipos de lock separados: Global e Lock da Fila
+const acquireLock = async (store) => {    // Adquirir a Trava
+  const now = Date.now();
+
+  // Proteção contra lock corrompido no Blobs
+  const existingLock = await safeGet(store, LOCK_KEY);
+  if (existingLock  && (now - existingLock.timestamp) < LOCK_TTL) {
+    console.log("🔒 Lock ativo e ocupado, abortando execução");
+    return null; // Lock ocupado
+  }
+
+   // --------------- gera id único da execução
+  const executionId = generateId();
+  const lock = createLock(executionId, now);
+
+  // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
+  await safeSet(store, LOCK_KEY, lock);
+
+  // pequena espera para consistência eventual do Blobs
+  await sleep(200);
+
+  // ------------- Revalidação (Race Condition) (evita corrida)
+  const confirm = await safeGet(store, LOCK_KEY);
+  if (!isValidLock(confirm)) return null;
+  if (confirm.executionId !== executionId) return null;
+  if (now - confirm.timestamp > LOCK_TTL) return null;
+  return executionId;
+};
+
+// Release Lock deve ficar fora do escopo da acquireLock
+// Remove Lock somente se for dono
+// Não apaga lock de outra execução
+const releaseLock = async (store, executionId) => {
+    try {
+      const current = await safeGet(store, LOCK_KEY);
+      // 🔍 Caso 1: não existe lock
+      if (!current) {
+        console.log("⚠️ Nenhum lock encontrado para liberar");
+        return;
+      }
+
+      // 🔐 Caso 2: lock pertence a esta execução → remove
+      if (isValidLock(current) && current.executionId === executionId) {
+        await store.delete(LOCK_KEY);
+        console.log("🔓 Lock removido com sucesso");
+      } else {
+        // 🚨 Caso 3: lock existe mas NÃO é seu → NÃO REMOVE
+        console.warn("Lock já expirou ou foi substituído", {
+          currentLockId: current.executionId,
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn("❌ Erro ao liberar lock:", err);
+    }
+};
+// acquireLock e releaseLock devem ficar antes de getNextTicker
+
+
+
+// -------chamada de API  = 1 por vez (devido ao getNextTicker)
 // o tempo deve ser suficiente.
 // Se começar a dar timeout, reduzir o retries do fetch
-
 const getNextTicker = async (store, list) => {
   // Function que gerencia o índice no Blobs
   // lock específico para fila
@@ -363,54 +414,6 @@ const getNextTicker = async (store, list) => {
     await releaseIndexLock(store, INDEX_LOCK_KEY, indexLockId, INDEX_LOCK_TTL);
   }
 };    // Final da getNextTicker
-
-// Function de lock leve
-  const acquireIndexLock = async (store, key, ttl) => {
-    const now = Date.now();
-    const lock = await safeGet(store, key);
-    if (lock && (now - lock.timestamp) < ttl) {
-      console.log("🔎 Tentando adquirir INDEX LOCK", {
-        now,
-        existingLock: lock,
-        ageMs: now - lock.timestamp,
-        ttl: INDEX_LOCK_TTL,
-        executionId: lock.executionId,
-        remainingMs: INDEX_LOCK_TTL - (now - lock.timestamp)
-      });
-      return null;
-    }
-
-    const id = generateId();
-    await safeSet(store, key, {
-      v: 1,
-      executionId: id,
-      timestamp: now
-    });
-
-    const confirm = await safeGet(store, key);
-    const valid = confirm &&
-      typeof confirm.executionId === "string" &&
-      typeof confirm.timestamp === "number";
-    const match = valid && confirm.executionId === id;
-    if (!match) {
-      console.warn("⚠️ Falha na validação do INDEX LOCK", {
-        valid,
-        confirm,
-        expectedId: id
-      });
-    }
-    return confirm?.executionId === id ? id : null;
-  };
-// FiM da lock leve
-
-
-  const releaseIndexLock = async (store, key, id, ttl) => {
-    const lock = await safeGet(store, key);
-      if (lock?.executionId === id &&
-      Date.now() - lock.timestamp < ttl) {
-          await store.delete(key);
-      }
-  };
 
 
 // -------------------- FALLBACK YAHOO --------------------
@@ -767,17 +770,8 @@ export const config = {
 
 // Codigo retirado em 18/04
     // -------------- BRAPI sequencial e controlada pela fila-------------
+    url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
 
-    try {
-      const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-
-      const res = await fetchWithRetry(url);
-
-      if (res.ok) {
-        const json = await res.json();
-        const resBrapi = json.results?.[0];
-
-        if (resBrapi) {
           const hist = getValidHist(resBrapi.historicalDataPrice || []);
           const noHist = hist.length === 0;
           const hist7 = filterByDays(hist, 7);
@@ -795,49 +789,39 @@ export const config = {
               ? prev.variation30d ?? null
               : newVariation;
 
+        // Montar o objeto final
+        data = {
+          hasHistory: !noHist,
+          symbol: resBrapi.symbol,
+          shortName: resBrapi.shortName,
+          longName: resBrapi.longName,
+          description: ETF_INFO[resBrapi.symbol.toUpperCase()]?.description || "",
+          updatedAt: Date.now(),                          // Timestamp para lógica de front-end
+          updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
 
-          // Montar o objeto final
-          data = {
-            hasHistory: !noHist,
-            symbol: resBrapi.symbol,
-            shortName: resBrapi.shortName,
-            longName: resBrapi.longName,
-            description: ETF_INFO[resBrapi.symbol.toUpperCase()]?.description || "",
-            updatedAt: Date.now(),                          // Timestamp para lógica de front-end
-            updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
-
-            regularMarketPrice: safeWithFallback(
-              safeValue(currentPrice),
-              prev.regularMarketPrice
-            ),
-            regularMarketChangePercent: safeValue(resBrapi.regularMarketChangePercent),
-
-            regularMarketDayLow: resBrapi.regularMarketDayLow ?? null,
-            regularMarketDayHigh: resBrapi.regularMarketDayHigh ?? null,
-            regularMarketDayRange:
-              resBrapi.regularMarketDayLow != null && resBrapi.regularMarketDayHigh != null
-              ? `${resBrapi.regularMarketDayLow} - ${resBrapi.regularMarketDayHigh}`
-              : null,
-
-            min7d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
-            min30d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
-            variation30d,
-
-            fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
-            fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
-            logourl: resBrapi.logourl || `https://icons.brapi.dev/icons/${resBrapi.symbol}.svg`,
-            source: "brapi"
-          };
-        }
-      }
-    }
-
+          regularMarketPrice: safeWithFallback(
+            safeValue(currentPrice),
+            prev.regularMarketPrice
+          ),
+          regularMarketChangePercent: safeValue(resBrapi.regularMarketChangePercent),
+          regularMarketDayLow: resBrapi.regularMarketDayLow ?? null,
+          regularMarketDayHigh: resBrapi.regularMarketDayHigh ?? null,
+          regularMarketDayRange:
+            resBrapi.regularMarketDayLow != null && resBrapi.regularMarketDayHigh != null
+            ? `${resBrapi.regularMarketDayLow} - ${resBrapi.regularMarketDayHigh}`
+            : null,
+          min7d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
+          min30d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
+          variation30d,
+          fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
+          fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
+          logourl: resBrapi.logourl || `https://icons.brapi.dev/icons/${resBrapi.symbol}.svg`,
+          source: "brapi"
 */
 
+
 /*
-
 Ordem correta:
-
 1. getNextTicker
 2. get cache (existing)
 3. checar cache curto
@@ -847,48 +831,25 @@ Ordem correta:
 7. respostas / fallback
 */
 
-
-
 /*
 helpers (fora da função)
-handler()
+2.handler() linha 500
+2.1 logs iniciais
+   2.2 validações
+   2.3 constantes (listas, helpers)
+   2.4 FETCH ou loop ALL com 1 ticker por execuçao
+   2.5 PROCESSAMENTO (map)
+   2.6 salvar no cache Blobs
 fetch API (results)
+ montar URL
+ fazer request (res)
+ tratar 429
+ validar resposta
+ extrair JSON
 processed = map(results)
+ processar dados
 payload usa processed
 store.set()
-*/
-
-
-/*
-Dentro do handler:
-1. definir helpers (fetchWithTimeout / fetchWithRetry)
-2. montar URL
-3. fazer request (res)
-4. tratar 429
-5. validar resposta
-6. extrair JSON (json / r)
-7. processar dados
-*/
-
-
-/*
-CRON Netlify (a cada 30 min)
-pega próximo ticker (Blobs index)
-fetch BRAPI (1 ticker)
-transforma dados
-store.set("quote-SYMBOL")
-atualiza índice (fila circular)
-fim (rápido < 10s)
-*/
-
-
-/*
-implementando um padrão chamado: ETL incremental com cache distribuído
-Extract: Brapi
-Transform: backend Netlify
-Load: Blobs
-Serve: get-quotes
-Esse padrão é exatamente o que evita rate limit em APIs gratuitas.
 */
 
 /*
@@ -899,26 +860,21 @@ store.set("quote-SYMBOL")
 return
 */
 
-
-
-
-
 /*
-1. require/import
-2. handler async function () {
-   2.1 logs iniciais
-   2.2 validações
-   2.3 constantes (listas, helpers)
-   2.4 FETCH ou loop ALL com 1 ticker por execuçao
-   2.5 PROCESSAMENTO (map)
-   2.6 salvar no cache Blobs
-}
+CRON Netlify (a cada 15 min)
+pega próximo ticker (Blobs index)
+fetch BRAPI (1 ticker)
+transforma dados
+store.set("quote-SYMBOL")
+atualiza índice (fila circular)
+fim (rápido < 10s)
 */
 
-//  O endpoint /list é o correto para filtros como 'type'
-//  O endpoint /list retorna 'stocks' da brapi
-//  O endpoint /quote/list retorna:   { "stocks": [...]  }
-//  O endpoint /quote/{ticker} retorna objeto 'results'
-
-// Se o mercado estiver aberto, a API Brapi atualiza o regularMarketPrice em tempo real,
-// enquanto o historicalDataPrice só atualiza após o fechamento
+/*
+implementado um padrão chamado: ETL incremental com cache distribuído
+Extract: Brapi
+Transform: backend Netlify
+Load: Blobs
+Serve: get-quotes
+Esse padrão é exatamente o que evita rate limit em APIs gratuitas.
+*/
