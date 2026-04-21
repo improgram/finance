@@ -132,18 +132,17 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
 };
 
 
-// Retry leve (anti-timeout Netlify)
+// Retry leve = evitar o timeout de 10s do Netlify Free
 const fetchWithRetry = async (url, retries = 1) => {
   for (let i = 0; i <= retries; i++) {
     try {
-      const res = await fetchWithTimeout(url);
+      const res = await fetchWithTimeout(url, {}, 5000);
       // A function fetchWithTimeout possui o AbortSignal.timeout(8000)
       if (res && res.status !== 429) return res;
-
       console.warn("⏳ Rate limit BRAPI...");
-      await sleep(3000);
+      if (i < retries) await sleep(1000); // Sleep menor (1s em vez de 3s)
     } catch (err) {
-      console.warn("⚠️ fetch erro:", err);
+      console.warn(`⚠️ fetch erro (tentativa ${i+1}):`, err.message);
       if (i === retries) throw err;
     }
   }
@@ -294,7 +293,7 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   // Proteção contra lock corrompido no Blobs
   const existingLock = await safeGet(store, LOCK_KEY);
 
-  // 🔥 lock valido ainda válido
+  // Resolve: Lock corrompido, expirado e valido(bloqueia execuçao)
   if (existingLock) {
   if (!isValidLock(existingLock)) {
     console.warn("⚠️ Lock corrompido detectado → Removendo");
@@ -353,7 +352,7 @@ const releaseLock = async (store, executionId) => {
 
       // 🔐 Caso 3: lock pertence a esta execução → remove
       if (!isValidLock(current) ) {
-        console.warn("⚠️ Lock inválido, forçando remoção");
+        console.warn("⚠️ Lock inválido → removendo mesmo assim");
       }
 
     // 🔥 tenta delete seguro
@@ -377,7 +376,6 @@ const releaseLock = async (store, executionId) => {
 };
 
 // acquireLock e releaseLock devem ficar antes de getNextTicker
-
 
 
 // -------chamada de API  = 1 por vez (devido ao getNextTicker)
@@ -459,7 +457,7 @@ const getNextTicker = async (store, list) => {
     console.log(`➡️ Processando: ${symbol}`);
     return symbol;
   } finally {
-    await releaseIndexLock(store, INDEX_LOCK_KEY, indexLockId, INDEX_LOCK_TTL);
+    await releaseIndexLock(store, INDEX_LOCK_KEY, indexLockId);
   }
 };    // Final da getNextTicker
 
@@ -509,6 +507,9 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   let finalData = null;
   let source = "none";
 
+  // Isolando o prevValue para uso nos fallbacks e cálculos
+  const prevValue = (previousData && typeof previousData === "object") ? previousData[symbol] || {} : {};
+
   // -------------------- 1. CACHE (PRIMEIRO) --------------------
   const cached = await safeGet(store, cacheKey);
 
@@ -522,24 +523,18 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   if (!finalData) {
     try {
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-      const resBrapi = await fetchWithRetry(url);
+      const resBrapi = await fetchWithRetry(url, 0);
 
       // Para pegar exatamente quando a API retorna HTML / erro / rate limit
       const textBrapi = await resBrapi.text();
-      let json;
-      try {
-        json = JSON.parse(textBrapi);
-      } catch (err) {
-        console.error("💥 JSON inválido da BRAPI", err);
-        return null;
-      }
+      let json = JSON.parse(textBrapi);
+      console.error("💥 JSON inválido da BRAPI", err);
+
       if (json.results?.[0]) {
         finalData = json.results[0];
         source = "brapi";
       }
-
-    } // Fim do Try
-    catch (e) { console.warn("⚠️ Brapi falhou", e.message); }
+    } catch (e) { console.warn("⚠️ Brapi falhou", e.message); }
   }   // FiM do iF (!finalData)
 
 
@@ -609,9 +604,13 @@ const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
       })();
 
       const yahooPromise = fetchYahooFallback(symbol);
-      const [cacheData, yahooData] = await Promise.allSettled([cachePromise,yahooPromise]);
-      const cacheResult = cacheData.status === "fulfilled" ? cacheData.value : null;
-      const yahooResult = yahooData.status === "fulfilled" ? yahooData.value : null;
+      const cacheResult = await cachePromise;
+      if (cacheResult) return cacheResult;
+
+      const yahooResult = await yahooPromise;
+      if (yahooResult) return yahooResult;
+
+      return prevValue || null;
 
       // ✅ extraindo o prevValue com segurança
       const prevValue = previousData && typeof previousData === "object" ? previousData[symbol] : null;
@@ -808,121 +807,3 @@ export default async () => {
 export const config = {
   schedule: "*/15 12-21 * * 1-5"
 };
-
-
-
-
-
-
-/*
-
-// Codigo retirado em 18/04
-    // -------------- BRAPI sequencial e controlada pela fila-------------
-    url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-
-          const hist = getValidHist(resBrapi.historicalDataPrice || []);
-          const noHist = hist.length === 0;
-          const hist7 = filterByDays(hist, 7);
-          const hist30 = filterByDays(hist, 30);
-          const closes7 = getCloses(hist7);
-          const closes30 = getCloses(hist30);
-          const currentPrice = resBrapi.regularMarketPrice ?? null;
-          const prev = previousData[resBrapi.symbol] || {};
-          const newVariation =
-              (!noHist && hasEnoughHist(hist))
-              ? safeValue(getVariation30d(hist, currentPrice))
-              : null;
-          const variation30d =
-              (newVariation == null)
-              ? prev.variation30d ?? null
-              : newVariation;
-
-        // Montar o objeto final
-        data = {
-          hasHistory: !noHist,
-          symbol: resBrapi.symbol,
-          shortName: resBrapi.shortName,
-          longName: resBrapi.longName,
-          description: ETF_INFO[resBrapi.symbol.toUpperCase()]?.description || "",
-          updatedAt: Date.now(),                          // Timestamp para lógica de front-end
-          updatedLabel: getFormattedDateTime(),           // String formatada "DD/MM/AAAA HH:MM:SS"
-
-          regularMarketPrice: safeWithFallback(
-            safeValue(currentPrice),
-            prev.regularMarketPrice
-          ),
-          regularMarketChangePercent: safeValue(resBrapi.regularMarketChangePercent),
-          regularMarketDayLow: resBrapi.regularMarketDayLow ?? null,
-          regularMarketDayHigh: resBrapi.regularMarketDayHigh ?? null,
-          regularMarketDayRange:
-            resBrapi.regularMarketDayLow != null && resBrapi.regularMarketDayHigh != null
-            ? `${resBrapi.regularMarketDayLow} - ${resBrapi.regularMarketDayHigh}`
-            : null,
-          min7d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes7)),
-          min30d: noHist ? fallbackMin(resBrapi.fiftyTwoWeekLow) : safeValue(getMin(closes30)),
-          variation30d,
-          fiftyTwoWeekLow: resBrapi.fiftyTwoWeekLow ?? null,
-          fiftyTwoWeekHigh: resBrapi.fiftyTwoWeekHigh ?? null,
-          logourl: resBrapi.logourl || `https://icons.brapi.dev/icons/${resBrapi.symbol}.svg`,
-          source: "brapi"
-*/
-
-
-/*
-Ordem correta:
-1. getNextTicker
-2. get cache (existing)
-3. checar cache curto
-4. carregar previousData
-5. resolveQuote
-6. salvar previousData atualizado
-7. respostas / fallback
-*/
-
-/*
-helpers (fora da função)
-2.handler() linha 500
-2.1 logs iniciais
-   2.2 validações
-   2.3 constantes (listas, helpers)
-   2.4 FETCH ou loop ALL com 1 ticker por execuçao
-   2.5 PROCESSAMENTO (map)
-   2.6 salvar no cache Blobs
-fetch API (results)
- montar URL
- fazer request (res)
- tratar 429
- validar resposta
- extrair JSON
-processed = map(results)
- processar dados
-payload usa processed
-store.set()
-*/
-
-/*
-getNextTicker
-fetch Brapi (1 ticker)
-process data
-store.set("quote-SYMBOL")
-return
-*/
-
-/*
-CRON Netlify (a cada 15 min)
-pega próximo ticker (Blobs index)
-fetch BRAPI (1 ticker)
-transforma dados
-store.set("quote-SYMBOL")
-atualiza índice (fila circular)
-fim (rápido < 10s)
-*/
-
-/*
-implementado um padrão chamado: ETL incremental com cache distribuído
-Extract: Brapi
-Transform: backend Netlify
-Load: Blobs
-Serve: get-quotes
-Esse padrão é exatamente o que evita rate limit em APIs gratuitas.
-*/
