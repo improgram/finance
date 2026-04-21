@@ -95,14 +95,8 @@ const generateId = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // fallback Node antigo
-  try {
-    const { randomBytes } = require("crypto");
-    return randomBytes(16).toString("hex");
-  } catch {
-    // fallback final (edge/browser safe)
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
+  // fallback final (edge/browser safe)
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
 
@@ -123,7 +117,7 @@ const isValidLock = (lock) =>
 // Timeout menor (serverless-safe)
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
   const nodeFetch = await initFetch();
-  const controller = new AbortController(); // runtimes(Nodes) antigos não têm AbortController
+  const controller = new AbortController();
 
   const id = setTimeout(() => controller.abort(), timeout);
 
@@ -491,7 +485,7 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
       }
 
     } // Fim do Try
-    catch (e) { console.warn("Brapi falhou"); }
+    catch (e) { console.warn("⚠️ Brapi falhou", e.message); }
   }   // FiM do iF (!finalData)
 
 
