@@ -291,8 +291,9 @@ const releaseIndexLock = async (store, key, id) => {
 // DOIS tipos de lock separados: Global e Lock da Fila
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
-  const existingLock = await safeGet(store, LOCK_KEY);
 
+  // 1. Verifica se já existe um lock válido e ativo
+  const existingLock = await safeGet(store, LOCK_KEY);
   if (existingLock && isValidLock(existingLock)) {
     const age = now - existingLock.timestamp;
     if (age < LOCK_TTL) {
@@ -300,48 +301,31 @@ const acquireLock = async (store) => {    // Adquirir a Trava
       return null;
     }
   }
+
+  // 2. Tenta registrar esta execução
   const executionId = generateId();
   const newLock = createLock(executionId, now);
   await safeSet(store, LOCK_KEY, newLock);
 
-  // 🔥 AUMENTO DE DELAY: 150ms as vezes é pouco para propagação global
-  await sleep(400);
+  // 3. 🔥 ESPERA CRÍTICA: O Blobs precisa de tempo para propagar a escrita
+  // Aumentamos para 600ms para garantir consistência em diferentes regiões
+  await sleep(600);
 
-  // Tenta validar até 2 vezes antes de desistir por "race condition"
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // 4. Validação (Anti-Race Condition) com múltiplas tentativas de leitura
+  for (let attempt = 1; attempt <= 3; attempt++) {
     const confirm = await safeGet(store, LOCK_KEY);
     if (confirm && confirm.executionId === executionId) {
-      return executionId;
+      return executionId; // Sucesso: somos os donos do lock
     }
-    await sleep(200);
+    if (attempt < 3) {
+      console.warn(`⏳ Aguardando propagação (tentativa ${attempt})...`);
+      await sleep(300);
+    }
   }
-  console.warn("⚠️ Race detectada ou atraso na propagação do Blobs");
+  console.warn("⚠️ Race detectada: Outra instância assumiu o lock ou falha de consistência.");
   return null;
-}
-
-
-   // --------------- gera id único da execução
-  const executionId = generateId();
-  const newLock = createLock(executionId, now);
-
-  // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
-  // Tentativa de escrita
-  await safeSet(store, LOCK_KEY, newLock);
-
-  // 🔥 CORREÇÃO: Aguardar a propagação do Netlify Blobs (150ms costuma ser suficiente)
-  await sleep(150);
-
-
-  // ----------- Revalidação (Race Condition) (evita corrida)
-  // 🔥 leitura imediata para validação mínima
-  const confirm = await safeGet(store, LOCK_KEY);
-
-   if (!confirm || confirm.executionId !== executionId ) {
-    console.warn("⚠️ Race detectada no acquireLock");
-    return null;
-  }
-  return executionId;
 };
+
 
 // Release Lock deve ficar fora do escopo da acquireLock
 // Remove Lock somente se for dono
