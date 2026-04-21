@@ -293,44 +293,42 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
   const executionId = generateId();
 
-  // 1. Tenta ler o que está lá agora
+  // 1. Tenta identificar se existe alguém rodando de fato
   const existing = await safeGet(store, LOCK_KEY);
 
-  // 2. Se existe um lock REALMENTE ativo e RECENTE de outra pessoa, aborte
   if (existing && isValidLock(existing)) {
     const age = now - existing.timestamp;
-    // Se o lock tem menos de 3 minutos e o ID é diferente, alguém está rodando
+    // Se o lock é recente (menos de 3 min) e NÃO é nosso, abortamos
     if (age < LOCK_TTL && existing.executionId !== executionId) {
-      console.log(`🔒 Lock ocupado por outra execução ativa (Id: ${existing.executionId})`);
+      console.log("🔒 Bloqueado: Outra instância ativa detectada.");
       return null;
     }
   }
 
-  // 3. Escreve o nosso Lock
+  // 2. Registra nossa intenção de rodar
   const newLock = createLock(executionId, now);
   await safeSet(store, LOCK_KEY, newLock);
 
-  // 4. 🔥 VALIDAÇÃO INTELIGENTE (Ignora Fantasmas)
-  await sleep(800); // Aumentado para segurança
+  // 3. 🔥 VALIDAÇÃO FLEXÍVEL
+  // Em vez de pânico se voltar null, vamos verificar se alguém nos "atropelou"
+  await sleep(1000);
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const confirm = await safeGet(store, LOCK_KEY);
+  const confirm = await safeGet(store, LOCK_KEY);
 
-    if (confirm && confirm.executionId === executionId) {
-      return executionId; // Sucesso absoluto
-    }
-
-    // Se o ID for diferente, mas o timestamp for o que acabamos de escrever,
-    // ou se o timestamp for muito antigo (mais de 10s atrás), é um erro de cache.
-    if (confirm && (now - confirm.timestamp > 10000)) {
-      console.warn("👻 Detectado dado fantasma (stale read). Forçando posse do lock.");
-      return executionId;
-    }
-
-    await sleep(400);
+  // CASO A: Sucesso absoluto (ID bate)
+  if (confirm && confirm.executionId === executionId) {
+    return executionId;
   }
 
-  console.warn("⚠️ Race condition real detectada. Abortando para evitar colisão na API.");
+  // CASO B: O Blobs ainda está propagando (voltou null ou ID antigo)
+  // Se não houver um ID NOVO de outra pessoa, assumimos que nossa escrita valeu
+  if (!confirm || (now - confirm.timestamp > 5000)) {
+    console.warn("⚠️ Propagação lenta detectada, mas nenhum concorrente ativo. Prosseguindo...");
+    return executionId;
+  }
+
+  // CASO C: Alguém escreveu um ID diferente com timestamp novo nos últimos segundos
+  console.error("🚫 Conflito real de execução detectado.");
   return null;
 };
 
