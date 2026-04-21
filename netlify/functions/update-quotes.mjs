@@ -291,38 +291,46 @@ const releaseIndexLock = async (store, key, id) => {
 // DOIS tipos de lock separados: Global e Lock da Fila
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
+  const executionId = generateId();
 
-  // 1. Verifica se já existe um lock válido e ativo
-  const existingLock = await safeGet(store, LOCK_KEY);
-  if (existingLock && isValidLock(existingLock)) {
-    const age = now - existingLock.timestamp;
-    if (age < LOCK_TTL) {
-      console.log("🔒 Lock ativo, abortando execução");
+  // 1. Tenta ler o que está lá agora
+  const existing = await safeGet(store, LOCK_KEY);
+
+  // 2. Se existe um lock REALMENTE ativo e RECENTE de outra pessoa, aborte
+  if (existing && isValidLock(existing)) {
+    const age = now - existing.timestamp;
+    // Se o lock tem menos de 3 minutos e o ID é diferente, alguém está rodando
+    if (age < LOCK_TTL && existing.executionId !== executionId) {
+      console.log(`🔒 Lock ocupado por outra execução ativa (Id: ${existing.executionId})`);
       return null;
     }
   }
 
-  // 2. Tenta registrar esta execução
-  const executionId = generateId();
+  // 3. Escreve o nosso Lock
   const newLock = createLock(executionId, now);
   await safeSet(store, LOCK_KEY, newLock);
 
-  // 3. 🔥 ESPERA CRÍTICA: O Blobs precisa de tempo para propagar a escrita
-  // Aumentamos para 600ms para garantir consistência em diferentes regiões
-  await sleep(600);
+  // 4. 🔥 VALIDAÇÃO INTELIGENTE (Ignora Fantasmas)
+  await sleep(800); // Aumentado para segurança
 
-  // 4. Validação (Anti-Race Condition) com múltiplas tentativas de leitura
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     const confirm = await safeGet(store, LOCK_KEY);
+
     if (confirm && confirm.executionId === executionId) {
-      return executionId; // Sucesso: somos os donos do lock
+      return executionId; // Sucesso absoluto
     }
-    if (attempt < 3) {
-      console.warn(`⏳ Aguardando propagação (tentativa ${attempt})...`);
-      await sleep(300);
+
+    // Se o ID for diferente, mas o timestamp for o que acabamos de escrever,
+    // ou se o timestamp for muito antigo (mais de 10s atrás), é um erro de cache.
+    if (confirm && (now - confirm.timestamp > 10000)) {
+      console.warn("👻 Detectado dado fantasma (stale read). Forçando posse do lock.");
+      return executionId;
     }
+
+    await sleep(400);
   }
-  console.warn("⚠️ Race detectada: Outra instância assumiu o lock ou falha de consistência.");
+
+  console.warn("⚠️ Race condition real detectada. Abortando para evitar colisão na API.");
   return null;
 };
 
