@@ -72,7 +72,7 @@ const safeSet = async (store, key, value, type = "json") => {
     console.warn("⚠️ store.set fallback:", err?.message);
 
     // fallback para versões antigas do Blobs
-    return await store.set(key, JSON.stringify(value));
+    return await store.set(key, JSON.stringify(value), { type: "text" });
   }
 };
 // E prevenir dados corrompidos no GET
@@ -137,10 +137,17 @@ const fetchWithRetry = async (url, retries = 1) => {
   for (let i = 0; i <= retries; i++) {
     try {
       const res = await fetchWithTimeout(url, {}, 5000);
-      // A function fetchWithTimeout possui o AbortSignal.timeout(8000)
-      if (res && res.status !== 429) return res;
-      console.warn("⏳ Rate limit BRAPI...");
-      if (i < retries) await sleep(1000); // Sleep menor (1s em vez de 3s)
+
+      // A function fetchWithTimeout possui o AbortSignal.timeout(5000)
+      if (res && res.ok) return res;
+
+      if (res?.status === 429) {
+        console.warn("⏳ Rate limit BRAPI...");
+        if (i < retries) await sleep(1000);
+      } else {
+        console.warn("⚠️ HTTP erro:", res?.status);
+      }
+
     } catch (err) {
       console.warn(`⚠️ fetch erro (tentativa ${i+1}):`, err.message);
       if (i === retries) throw err;
@@ -214,42 +221,40 @@ const getVariation30d = (hist, currentPrice) => {
 
 // Function de lock leve
 const acquireIndexLock = async (store, key, ttl) => {
-    const now = Date.now();
-    const lock = await safeGet(store, key);
-    if (lock && (now - lock.timestamp) < ttl) {
-      console.log("🔎 Tentando adquirir INDEX LOCK", {
-        now,
-        existingLock: lock,
-        ageMs: now - lock.timestamp,
-        ttl: ttl,
-        executionId: lock.executionId,
-        remainingMs: ttl - (now - lock.timestamp)
-      });
-      return null;
-    }
-
     const id = generateId();
-    await safeSet(store, key, {
-      v: 1,
-      executionId: id,
-      timestamp: now
-    });
 
-    const confirm = await safeGet(store, key);
-    const valid = confirm &&
-      typeof confirm.executionId === "string" &&
-      typeof confirm.timestamp === "number";
-    const match = valid && confirm.executionId === id;
-    if (!match) {
-      console.warn("⚠️ Falha na validação do INDEX LOCK", {
-        valid,
-        confirm,
-        expectedId: id
-      });
+    for (let i = 0; i < 3; i++) {
+      const now = Date.now();
+      const current = await safeGet(store, key);
+
+      // lock válido ainda existe
+      if (current && (now - current.timestamp) < ttl) { return null; }
+
+      const candidate = { v: 1, executionId: id, timestamp: now };
+      await safeSet(store, key, candidate);
+
+      await sleep(25 + Math.random() * 20);
+
+      // 🔥 DOUBLE-CHECK AFTER WRITE (anti race condition)
+      const confirm = await safeGet(store, key);
+
+      // re-leitura para validar concorrência
+      // ❗ se outro worker escreveu depois de nós
+      if (confirm?.executionId !== id) {
+        continue; // tenta novamente
+      }
+
+      // proteção extra contra lock expirado
+      if (Date.now() - confirm.timestamp >= ttl) {
+        continue;
+      }
+      // sucesso: adquirimos o lock
+      return candidate;
     }
-    return confirm?.executionId === id ? id : null;
-  };
+    return null;
+};
 // FiM da lock leve
+
 
 // releaseIndexLock usa store.delete(key) sem fallback seguro
 const safeDelete = async (store, key) => {
@@ -270,7 +275,6 @@ const safeDelete = async (store, key) => {
     return null;
   }
 };
-
 
 const releaseIndexLock = async (store, key, id) => {
     const lock = await safeGet(store, key);
@@ -376,90 +380,45 @@ const releaseLock = async (store, executionId) => {
 };
 
 // acquireLock e releaseLock devem ficar antes de getNextTicker
-
-
-// -------chamada de API  = 1 por vez (devido ao getNextTicker)
 // o tempo deve ser suficiente.
 // Se começar a dar timeout, reduzir o retries do fetch
-const getNextTicker = async (store, list) => {
-  // Function que gerencia o índice no Blobs
-  // lock específico para fila
-  // Lock protege a execução inteira
-  // Lock deve garantir atomicidade na hora de incrementar
-  // Antes de ler/escrever o índice:
-  const INDEX_LOCK_KEY = "ticker-index-lock";
-  const INDEX_LOCK_TTL = 5000; // 5s (rápido)
-  const INDEX_KEY = "ticker-index";
-  const LIST_HASH_KEY = "ticker-list-hash";
+// Function que gerencia o índice no Blobs
+// lock específico para fila
+// Lock protege a execução inteira
+// Lock deve garantir atomicidade na hora de incrementar
+// Antes de ler/escrever o índice
+// cria hash da lista atual
+// evitar: NaN , negativo, lixo vindo do storage
+// CAS-like (compare-and-set) - leitura com versão
+// 🔥 detecta mudança na lista
 
-  // 🔒 LOCK DA FILA
-  const indexLockId = await acquireIndexLock(store, INDEX_LOCK_KEY, INDEX_LOCK_TTL);
-  if (!indexLockId) {
-    throw new Error("Fila ocupada (index lock)");
-  }
 
+// 🔒 LOCK distribuído + atualização simples = LOCK + CAS
+const getNextIndex = async (store, key, list) => {
+  const lockId = await acquireIndexLock(store, "ticker-index-lock", 5000);
+  if (!lockId) throw new Error("Fila ocupada");
   try {
-    // 🔹 cria hash da lista atual
-    const prevHash = await store.get(LIST_HASH_KEY, { type: "text" });
-    const hash = JSON.stringify(list);
-
-
-    // evitar: NaN , negativo, lixo vindo do storage
-
-
-    // CAS-like (compare-and-set) - leitura com versão
-    const stored = await safeGet(store, INDEX_KEY);
-    let index = 0;
-    let version = 0;
-    if (stored && typeof stored === "object") {
-      index = Number.isFinite(Number(stored.value)) ? Number(stored.value) : 0;
-      version = Number.isFinite(Number(stored.version)) ? Number(stored.version) : 0;
-    }
-
-    // 🔥 detecta mudança na lista
-    if (prevHash !== hash) {
-      console.log("🔄 Lista mudou, resetando lista de Tickers");
-      await store.set(LIST_HASH_KEY, hash, { type: "text" });
-      index = 0; // importante resetar índice
-    }
-
-    // 🔹---- proteção  lista vazia com Uso do Modulo (%) para Gerenciar Fila Circular
-    if (!list.length) throw new Error("Lista de tickers vazia");
-
-    // 🔹 calcula ticker atual
-    const symbol = list[index % list.length];
-
-    // 🔹------Próximo índice: incrementa fila e salva o próximo (trava de segurança)
+    const stored = await safeGet(store, key);
+    const index = stored?.value ?? 0;
     const nextIndex = (index + 1) % list.length;
-
-    // 🔹 tentativa de escrita com versão nova
-    const newData = {
+    await safeSet(store, key, {
       value: nextIndex,
-      version: Date.now()
-    };
-
-    // 🔹 revalida antes de escrever (CAS-like)
-    const confirm = await safeGet(store, INDEX_KEY);
-
-    const confirmVersion =
-      confirm && typeof confirm === "object"
-        ? Number(confirm.version) || 0
-        : 0;
-
-    // ❗ se alguém mudou antes → aborta
-    if (confirmVersion !== version) {
-      throw new Error("Race condition detectada (CAS falhou)");
-    }
-
-    // ✅ grava com nova versão
-    await safeSet(store, INDEX_KEY, newData);
-
-    console.log(`➡️ Processando: ${symbol}`);
-    return symbol;
+      updatedAt: Date.now()
+    });
+    return list[index % list.length];
   } finally {
-    await releaseIndexLock(store, INDEX_LOCK_KEY, indexLockId);
+    await releaseIndexLock(store, "ticker-index-lock", lockId);
   }
-};    // Final da getNextTicker
+};
+
+// -------chamada de API  = 1 por vez (devido ao getNextTicker)
+const getNextTicker = async (store, list) => {
+  const INDEX_KEY = "ticker-index";
+  const symbol = await getNextIndex(store, INDEX_KEY, list);
+  console.log("➡️ Processando:", symbol);
+  return symbol;
+};
+// Final da getNextTicker
 
 
 // -------------------- FALLBACK YAHOO --------------------
@@ -507,9 +466,6 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   let finalData = null;
   let source = "none";
 
-  // Isolando o prevValue para uso nos fallbacks e cálculos
-  const prevValue = (previousData && typeof previousData === "object") ? previousData[symbol] || {} : {};
-
   // -------------------- 1. CACHE (PRIMEIRO) --------------------
   const cached = await safeGet(store, cacheKey);
 
@@ -523,14 +479,20 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   if (!finalData) {
     try {
       const url = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${API_TOKEN}`;
-      const resBrapi = await fetchWithRetry(url, 0);
+      const resBrapi = await fetchWithRetry(url);
 
       // Para pegar exatamente quando a API retorna HTML / erro / rate limit
       const textBrapi = await resBrapi.text();
-      let json = JSON.parse(textBrapi);
-      console.error("💥 JSON inválido da BRAPI", err);
 
-      if (json.results?.[0]) {
+      let json;
+      try {
+        json = JSON.parse(textBrapi);
+      } catch (err) {
+        console.error("💥 JSON inválido da BRAPI", err);
+        json = null;
+      }
+
+      if (json && json.results?.[0]) {
         finalData = json.results[0];
         source = "brapi";
       }
@@ -551,24 +513,16 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
 
 
   // -------------------- 4. PREVIOUS DATA --------------------
-    if (
-      !finalData &&
-      previousData &&
-      typeof previousData === "object"
-    ) {
-      const prevValue =
-        previousData &&
-        typeof previousData === "object" &&
+    if (!finalData && previousData && typeof previousData === "object" ) {
+      const prevValue = previousData && typeof previousData === "object" &&
         typeof previousData[symbol] === "object"
           ? previousData[symbol]
           : null;
-
       if (prevValue) {
         finalData = prevValue;
         source = "previousData";
       }
     }
-
 
   //------------ 5. Preparar Payload Final
   const payload = {
@@ -593,30 +547,17 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
 
 // -----  Fallback (Mantém os dados do cache anterior se a Brapi falhar e não houver Yahoo)
 const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
-      console.log("🔁 iniciando fallback paralelo (cache + yahoo)");
+    console.log("🔁 iniciando fallback paralelo (cache + yahoo)");
+    const cacheResult = await safeGet(store, cacheKey);
+    if (cacheResult?.symbol) {
+      return { ...cacheResult, source: "cache" };
+    }
+    const yahooResult = await fetchYahooFallback(symbol);
+    if (yahooResult) return yahooResult;
 
-      const cachePromise = (async () => {
-        const cachedYahoo = await safeGet(store, cacheKey);
-        if (cachedYahoo?.symbol) {
-          return { ...cachedYahoo, source: "cache" };
-        }
-        return null;
-      })();
-
-      const yahooPromise = fetchYahooFallback(symbol);
-      const cacheResult = await cachePromise;
-      if (cacheResult) return cacheResult;
-
-      const yahooResult = await yahooPromise;
-      if (yahooResult) return yahooResult;
-
-      return prevValue || null;
-
-      // ✅ extraindo o prevValue com segurança
-      const prevValue = previousData && typeof previousData === "object" ? previousData[symbol] : null;
-
-      // prioridade: cache > yahoo > previousData
-      return cacheResult || yahooResult || prevValue || null;
+  // Isolando o prevValue para uso nos fallbacks e cálculos
+  const prevValue = previousData && typeof previousData === "object" ? previousData[symbol] : null;
+    return prevValue || null;
 };
 
 
@@ -693,25 +634,19 @@ export default async () => {
         );
     }
 
-    // // ➡️ ÚNICA FONTE DE VERDADE: A Fila no Blobs
+    // ➡️ ÚNICA FONTE DE VERDADE: A Fila no Blobs
     // Esta função  decide sozinha qual é o próximo ticker
     const symbol = await getNextTicker(store, tickers);
     const cacheKey = `quote-${symbol}`;
     console.log("➡️ ticker:", symbol);
+    const existing = await safeGet(store, cacheKey);   //  ----------- Cache antes de bater na API
 
-
-    //  ----------- Cache antes de bater na API
-    const existing = await safeGet(store, cacheKey);
-
-      // Parse do cache = Se cálculo falhar → usa valor antigo
-      // Tenta ler o que foi gravado na última execução com sucesso.
-      // Criamos a estrutura { "Ticker": { ... } } que o resto do código espera ler
-
-      // criar o objeto (ticker)
-      // Cache é de um único ticker (cacheKey = quote-SYMBOL),
-      // o parsed já é o próprio objeto do ticker.
-
-
+    // Parse do cache = Se cálculo falhar → usa valor antigo
+    // Tenta ler o que foi gravado na última execução com sucesso.
+    // Criamos a estrutura { "Ticker": { ... } } que o resto do código espera ler
+    // criar o objeto (ticker)
+    // Cache é de um único ticker (cacheKey = quote-SYMBOL),
+    // o parsed já é o próprio objeto do ticker.
     // Cache curto = evitar refazer a requisiçao
     // Resumo: Se existe cache e ele ainda não expirou
     // Busca no armazenamento (store)
@@ -719,21 +654,16 @@ export default async () => {
     if (existing?.updatedAt && Date.now() - existing.updatedAt < CACHE_TTL) {
       console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
       console.log(`⚡ cache hit (${symbol})`);
-
       // Atualiza label mesmo sem refetch
       existing.updatedAt = Date.now();
       existing.updatedLabel = getFormattedDateTime();
-
       // opcional mas recomendado → persistir
       await safeSet(store, cacheKey, existing);
-      return createResponse(
-          JSON.stringify({
-            message: "Resposta somente do cache"
-          }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/json; charset=utf-8" }
-            }
+      return createResponse(JSON.stringify({ message: "Resposta somente do cache" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json; charset=utf-8" }
+          }
       );
     }
 
@@ -747,22 +677,9 @@ export default async () => {
         : {};
 
     const prev = ensureObject( await safeGet(store, "previous-data") );
-
-    const rawData = await resolveQuote(
-      symbol,
-      store,
-      cacheKey,
-      API_TOKEN,
-      ETF_INFO,
-      prev
-    );
-
-    const updated = {
-        ...prev,
-        [symbol]: rawData || existing || prev[symbol] || null
-    };
+    const rawData = await resolveQuote(symbol,store,cacheKey,API_TOKEN,ETF_INFO,prev);
+    const updated = {...prev, [symbol]: rawData || existing || prev[symbol] || null };
     await safeSet(store, "previous-data", updated);
-
 
     // Garantir que novo ticker entra com fallback inicial
     if (!rawData && existing) {
@@ -771,7 +688,6 @@ export default async () => {
         headers: { "Content-Type": "application/json" }
       });
     }
-
     if (!rawData && !existing) {
       const fallback = await fetchYahooFallback(symbol);
         return createResponse(JSON.stringify(fallback), {
@@ -780,13 +696,9 @@ export default async () => {
         });
     }
 
-
     // -------------------- Salva no Blobs --------------------
-
     console.log(`💾 saved:`, symbol);
-
-    return createResponse(
-      JSON.stringify({
+    return createResponse( JSON.stringify({
         ok: true,
         symbol,
         message: "Salvou no Blobs",
@@ -794,31 +706,25 @@ export default async () => {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
+    })();
 
     // 🧠 corrida entre execução e timeout
     return await Promise.race([mainExecution, failSafe]);
 
     } catch (err) {
-
       if (timedOut) {
         console.warn("⏱️ Execução abortada por timeout controlado");
         return createResponse(JSON.stringify({
           error: "timeout controlado",
         }), { status: 200 }); // importante: não quebrar cron
       }
-
       console.error("🔥 ERRO:", err);
       return createResponse(
-        JSON.stringify({
-          error: "Falha no update"
-        } , null, 2 ), {
-          status: 500,
-          headers: { "Content-Type": "application/json" }
-        }
+        JSON.stringify({ error: "Falha no update" } , null, 2 ),
+          { status: 500, headers: { "Content-Type": "application/json" } }
       );
     } finally {
-      // 🔓 libera lock SOMENTE se for dono
-      await releaseLock(store, executionId);
+      await releaseLock(store, executionId);  // 🔓 libera lock SOMENTE se for dono
     }
 };
 // Final do Handler
