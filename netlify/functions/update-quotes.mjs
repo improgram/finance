@@ -646,8 +646,19 @@ export default async () => {
     );
   }
 
-  try {
+  // fail-safe global
+    const MAX_EXECUTION_TIME = 8000; // 8s (Netlify free ~10s)
+    let timedOut = false;
 
+    const failSafe = new Promise((_, reject) => {
+      setTimeout(() => {
+        timedOut = true;
+        reject(new Error("⏱️ Fail-safe timeout global atingido"));
+      }, MAX_EXECUTION_TIME);
+    });
+
+  try {
+    const mainExecution = (async () => {
     // Lista
     const tickers = [ "IRFM11", "IVVB11", "NBIT11", "BBDC4", "PACB11" ];
     const ETF_INFO = {
@@ -689,8 +700,8 @@ export default async () => {
     console.log("➡️ ticker:", symbol);
 
 
-      //  ----------- Cache antes de bater na API
-      const existing = await safeGet(store, cacheKey);
+    //  ----------- Cache antes de bater na API
+    const existing = await safeGet(store, cacheKey);
 
       // Parse do cache = Se cálculo falhar → usa valor antigo
       // Tenta ler o que foi gravado na última execução com sucesso.
@@ -708,9 +719,10 @@ export default async () => {
     if (existing?.updatedAt && Date.now() - existing.updatedAt < CACHE_TTL) {
       console.log("⚡ cache curto: Se existe cache e ele ainda não expirou");
       console.log(`⚡ cache hit (${symbol})`);
-       // Atualiza label mesmo sem refetch
-       existing.updatedAt = Date.now();
-       existing.updatedLabel = getFormattedDateTime();
+
+      // Atualiza label mesmo sem refetch
+      existing.updatedAt = Date.now();
+      existing.updatedLabel = getFormattedDateTime();
 
       // opcional mas recomendado → persistir
       await safeSet(store, cacheKey, existing);
@@ -734,9 +746,7 @@ export default async () => {
         ? value
         : {};
 
-    const prev = ensureObject(
-      await safeGet(store, "previous-data")
-    );
+    const prev = ensureObject( await safeGet(store, "previous-data") );
 
     const rawData = await resolveQuote(
       symbol,
@@ -785,7 +795,18 @@ export default async () => {
         headers: { "Content-Type": "application/json" }
       });
 
+    // 🧠 corrida entre execução e timeout
+    return await Promise.race([mainExecution, failSafe]);
+
     } catch (err) {
+
+      if (timedOut) {
+        console.warn("⏱️ Execução abortada por timeout controlado");
+        return createResponse(JSON.stringify({
+          error: "timeout controlado",
+        }), { status: 200 }); // importante: não quebrar cron
+      }
+
       console.error("🔥 ERRO:", err);
       return createResponse(
         JSON.stringify({
