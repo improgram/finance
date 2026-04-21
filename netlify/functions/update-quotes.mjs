@@ -43,7 +43,7 @@ const initFetch = async () => {
 
 
 // Response não existe em Node antigo e (compatibilidade Node vs Edge)
-const createResponse = (body, status = 200, headers = {}) => {
+const createResponse = (body, {status = 200, headers = {} } ) => {
   if (typeof Response !== "undefined") {
     return new Response(
       typeof body === "string" ? body : JSON.stringify(body),
@@ -252,12 +252,32 @@ const acquireIndexLock = async (store, key, ttl) => {
   };
 // FiM da lock leve
 
+// releaseIndexLock usa store.delete(key) sem fallback seguro
+const safeDelete = async (store, key) => {
+  try {
+    if (typeof store.delete === "function") {
+      return await store.delete(key);
+    }
 
-const releaseIndexLock = async (store, key, id, ttl) => {
+    // fallback para SDKs antigos
+    if (typeof store.remove === "function") {
+      return await store.remove(key);
+    }
+
+    console.warn("⚠️ store.delete não disponível");
+    return null;
+  } catch (err) {
+    console.warn("⚠️ safeDelete erro:", err?.message);
+    return null;
+  }
+};
+
+
+const releaseIndexLock = async (store, key, id) => {
     const lock = await safeGet(store, key);
-      if (lock?.executionId === id &&
-      Date.now() - lock.timestamp < ttl) {
-          await store.delete(key);
+    if (!lock) return;
+      if (lock.executionId === id) {
+          await safeDelete(store, key);
       }
 };
 // FiM da acquireIndexLock e releaseIndexLock
