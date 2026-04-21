@@ -7,7 +7,6 @@
 // CommonJS (require)  = (antigo)
 // ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
-// const { getStore } = require("@netlify/blobs");
 // trata se do Coletor) Roda via CRON, busca na Brapi
 // e salva cada ticker individualmente no Blobs
 // com os campos updatedAt e updatedLabel.
@@ -15,7 +14,7 @@
 
 import { getStore } from "@netlify/blobs";
 import crypto from "crypto";
-console.log("Update-quotes CARREGADA");
+console.log("🚀 Iniciando update-quotes");
 
 // -------------------- CONFIG --------------------
 const STORE_NAME = "quotes-blobs";
@@ -27,6 +26,94 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 min
 // -------------------- HELPERS --------------------
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Blindagem extra do fetch - Pois pode não existir dependendo do runtime
+const getFetch = () => {
+  if (typeof fetch === "function") return fetch;
+
+  try {
+    return require("node-fetch"); // Node antigo
+  } catch {
+    throw new Error("fetch não disponível no runtime");
+  }
+};
+
+
+// Alguns runtimes(Node antigos) não têm AbortController
+const createAbortController = () => {
+  if (typeof AbortController !== "undefined") {
+    return new AbortController();
+  }
+
+  return {
+    signal: undefined,
+    abort: () => {}
+  };
+};
+
+// Response não existe em Node antigo e (compatibilidade Node vs Edge)
+const createResponse = (body, status = 200, headers = {}) => {
+  if (typeof Response !== "undefined") {
+    return createResponse(
+      typeof body === "string" ? body : JSON.stringify(body),
+      { status, headers }
+    );
+  }
+  // fallback Node (Netlify older / server)
+  return {
+    statusCode: status,
+    headers: {
+      "Content-Type": "application/json",
+      ...headers
+    },
+    body: typeof body === "string" ? body : JSON.stringify(body)
+  };
+};
+
+// (Netlify Blobs compatível) = store.set() = SDK antigo pode não aceitar {type: "json"}.
+const safeSet = async (store, key, value, type = "json") => {
+  try {
+    if (type === "json") {
+      return await store.set(key, value, { type: "json" });
+    }
+    return await store.set(key, value);
+  } catch (err) {
+    console.warn("⚠️ store.set fallback:", err?.message);
+
+    // fallback para versões antigas do Blobs
+    return await store.set(key, JSON.stringify(value));
+  }
+};
+// E prevenir dados corrompidos no GET
+const safeGet = async (store, key) => {
+  try {
+    return await store.get(key, { type: "json" });
+  } catch {
+    try {
+      const raw = await store.get(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+};
+
+
+// crypto.randomUUID() (compatibilidade com Node antigo)
+const generateId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // fallback Node antigo
+  try {
+    const { randomBytes } = require("crypto");
+    return randomBytes(16).toString("hex");
+  } catch {
+    // fallback final (edge/browser safe)
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+};
+
 
 const createLock = (executionId, now) => ({
   v: 2,
@@ -44,17 +131,13 @@ const isValidLock = (lock) =>
 
 // Timeout menor (serverless-safe)
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
-  const controller = new AbortController();
+  const fetchFn = getFetch();
+  const controller = createAbortController(); // runtimes(Nodes) antigos não têm AbortController
   const id = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    return await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(id);
-  }
+  return await fetch(url, {
+    ...options,
+    signal: controller.signal,
+  });
 };
 
 // Retry leve (anti-timeout Netlify)
@@ -75,27 +158,6 @@ const fetchWithRetry = async (url, retries = 1) => {
   throw new Error("BRAPI Rate limit persistente");
 };
 
-// evitar bug
-const setJson = (store, key, value) =>
-  store.set(key, value, { type: "json" });
-
-const getJson = (store, key) =>
-  store.get(key, { type: "json" });
-
-
-// -------------------- BLOBS SAFE GET --------------------
-const safeGetJson = async (store, key) => {
-    try {
-      const value = await store.get(key, { type: "json" });
-      // proteção contra string inválida
-      if (!value || typeof value !== "object") return null;
-      return value;
-    } catch (err) {
-      console.warn(`⚠️ Blobs corrupt read (${key})`, err?.message);
-      return null;
-    }
-}
-
 
 // -------------------- LOCK DISTRIBUÍDO --------------------
 // função decide se o processo tem "permissão" para rodar.
@@ -105,24 +167,24 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
 
   // Proteção contra lock corrompido no Blobs
-  const existingLock = await safeGetJson(store, LOCK_KEY);
+  const existingLock = await safeGet(store, LOCK_KEY);
   if (existingLock  && (now - existingLock.timestamp) < LOCK_TTL) {
     console.log("🔒 Lock ativo e ocupado, abortando execução");
     return null; // Lock ocupado
   }
 
    // --------------- gera id único da execução
-  const executionId = crypto.randomUUID();
+  const executionId = generateId();
   const lock = createLock(executionId, now);
 
   // Garantindo persistência no Netlify Blobs = Usar SEMPRE JSON nativo do Blobs:
-  await store.set(LOCK_KEY, lock, { type: "json" });
+  await safeSet(store, LOCK_KEY, lock);
 
   // pequena espera para consistência eventual do Blobs
   await sleep(200);
 
   // ------------- Revalidação (Race Condition) (evita corrida)
-  const confirm = await safeGetJson(store, LOCK_KEY);
+  const confirm = await safeGet(store, LOCK_KEY);
   if (!isValidLock(confirm)) return null;
   if (confirm.executionId !== executionId) return null;
   if (now - confirm.timestamp > LOCK_TTL) return null;
@@ -134,7 +196,7 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   // Não apaga lock de outra execução
   const releaseLock = async (store, executionId) => {
     try {
-      const current = await safeGetJson(store, LOCK_KEY);
+      const current = await safeGet(store, LOCK_KEY);
       // 🔍 Caso 1: não existe lock
       if (!current) {
         console.log("⚠️ Nenhum lock encontrado para liberar");
@@ -158,7 +220,7 @@ const acquireLock = async (store) => {    // Adquirir a Trava
   };
 
 
-// -------------------- Helpers --------------------
+// -------------------- Helpers Market --------------------
 
 const isMarketOpen = () => {
   const now = new Date();
@@ -233,12 +295,80 @@ const getNextTicker = async (store, list) => {
   const INDEX_KEY = "ticker-index";
   const LIST_HASH_KEY = "ticker-list-hash";
 
+  // 🔒 LOCK DA FILA
+  const indexLockId = await acquireIndexLock(store, INDEX_LOCK_KEY, INDEX_LOCK_TTL);
+  if (!indexLockId) {
+    throw new Error("Fila ocupada (index lock)");
+  }
 
-  // Function de lock leve
-  const acquireIndexLock = async (store) => {
+  try {
+    // 🔹 cria hash da lista atual
+    const prevHash = await store.get(LIST_HASH_KEY, { type: "text" });
+    const hash = JSON.stringify(list);
+
+
+    // evitar: NaN , negativo, lixo vindo do storage
+
+
+    // CAS-like (compare-and-set) - leitura com versão
+    const stored = await safeGet(store, INDEX_KEY);
+    let index = 0;
+    let version = 0;
+    if (stored && typeof stored === "object") {
+      index = Number.isFinite(Number(stored.value)) ? Number(stored.value) : 0;
+      version = Number.isFinite(Number(stored.version)) ? Number(stored.version) : 0;
+    }
+
+    // 🔥 detecta mudança na lista
+    if (prevHash !== hash) {
+      console.log("🔄 Lista mudou, resetando lista de Tickers");
+      await store.set(LIST_HASH_KEY, hash, { type: "text" });
+      index = 0; // importante resetar índice
+    }
+
+    // 🔹---- proteção  lista vazia com Uso do Modulo (%) para Gerenciar Fila Circular
+    if (!list.length) throw new Error("Lista de tickers vazia");
+
+    // 🔹 calcula ticker atual
+    const symbol = list[index % list.length];
+
+    // 🔹------Próximo índice: incrementa fila e salva o próximo (trava de segurança)
+    const nextIndex = (index + 1) % list.length;
+
+    // 🔹 tentativa de escrita com versão nova
+    const newData = {
+      value: nextIndex,
+      version: Date.now()
+    };
+
+    // 🔹 revalida antes de escrever (CAS-like)
+    const confirm = await safeGet(store, INDEX_KEY);
+
+    const confirmVersion =
+      confirm && typeof confirm === "object"
+        ? Number(confirm.version) || 0
+        : 0;
+
+    // ❗ se alguém mudou antes → aborta
+    if (confirmVersion !== version) {
+      throw new Error("Race condition detectada (CAS falhou)");
+    }
+
+    // ✅ grava com nova versão
+    await safeSet(store, INDEX_KEY, newData);
+
+    console.log(`➡️ Processando: ${symbol}`);
+    return symbol;
+  } finally {
+    await releaseIndexLock(store, INDEX_LOCK_KEY, indexLockId, INDEX_LOCK_TTL);
+  }
+};    // Final da getNextTicker
+
+// Function de lock leve
+  const acquireIndexLock = async (store, key, ttl) => {
     const now = Date.now();
-    const lock = await safeGetJson(store, INDEX_LOCK_KEY);
-    if (lock && (now - lock.timestamp) < INDEX_LOCK_TTL) {
+    const lock = await safeGet(store, key);
+    if (lock && (now - lock.timestamp) < ttl) {
       console.log("🔎 Tentando adquirir INDEX LOCK", {
         now,
         existingLock: lock,
@@ -249,13 +379,15 @@ const getNextTicker = async (store, list) => {
       });
       return null;
     }
-    const id = crypto.randomUUID();
-    await store.set(
-      INDEX_LOCK_KEY,
-      { v: 1, executionId: id, timestamp: now },
-      { type: "json" }
-      );
-    const confirm = await safeGetJson(store, INDEX_LOCK_KEY);
+
+    const id = generateId();
+    await safeSet(store, key, {
+      v: 1,
+      executionId: id,
+      timestamp: now
+    });
+
+    const confirm = await safeGet(store, key);
     const valid = confirm &&
       typeof confirm.executionId === "string" &&
       typeof confirm.timestamp === "number";
@@ -267,54 +399,18 @@ const getNextTicker = async (store, list) => {
         expectedId: id
       });
     }
-    return match ? id : null;
-  }; // FiM da lock leve
+    return confirm?.executionId === id ? id : null;
+  };
+// FiM da lock leve
 
 
-    const releaseIndexLock = async (store, indexLockId) => {
-      const lock = await safeGetJson(store, INDEX_LOCK_KEY);
-      if (lock?.executionId === indexLockId &&
-        Date.now() - lock.timestamp < INDEX_LOCK_TTL) {
-        await store.delete(INDEX_LOCK_KEY);
+  const releaseIndexLock = async (store, key, id, ttl) => {
+    const lock = await safeGet(store, key);
+      if (lock?.executionId === id &&
+      Date.now() - lock.timestamp < ttl) {
+          await store.delete(key);
       }
-    };
-
-  // 🔒 LOCK DA FILA
-  const indexLockId = await acquireIndexLock(store);
-  if (!indexLockId) {
-    throw new Error("Fila ocupada (index lock)");
-  }
-  try {
-    // 🔹 cria hash da lista atual
-    const prevHash = await store.get(LIST_HASH_KEY, { type: "text" });
-    const hash = JSON.stringify(list);
-
-    // Lê como texto para garantir que o valor venha limpo
-    const raw = await store.get(INDEX_KEY, { type: "text" });
-    let index = Number.isFinite(Number(raw)) ? Number(raw) : 0;
-
-    // 🔥 detecta mudança na lista
-    if (prevHash !== hash) {
-      console.log("🔄 Lista mudou, resetando lista de Tickers");
-      await store.set(LIST_HASH_KEY, hash, { type: "text" });
-      index = 0; // importante resetar índice
-    }
-     // 🔹---- proteção extra com Uso do Modulo (%) para Gerenciar Fila Circular
-    if (!list.length) throw new Error("Lista de tickers vazia");
-    const symbol = list[index % list.length];
-
-    // 🔹------ incrementa fila e salva o próximo (também com trava de segurança)
-    const nextIndex = (index + 1) % list.length;
-
-    //-------------- Salva o próximo índice
-    await store.set(INDEX_KEY, String(nextIndex), { type: "text" });
-    console.log(`➡️ Processando: ${symbol}`);
-    return symbol;
-  } finally {
-    await releaseIndexLock(store, indexLockId);
-  }
-};    // Final da getNextTicker
-
+  };
 
 
 // -------------------- FALLBACK YAHOO --------------------
@@ -363,7 +459,7 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   let source = "none";
 
   // -------------------- 1. CACHE (PRIMEIRO) --------------------
-  const cached = await safeGetJson(store, cacheKey);
+  const cached = await safeGet(store, cacheKey);
 
   if (cached && cached.updatedAt && (Date.now() - cached.updatedAt < CACHE_TTL)) {
     finalData = cached;
@@ -442,7 +538,7 @@ const resolveQuote = async (symbol, store, cacheKey, API_TOKEN, ETF_INFO, previo
   // --------- 6. Salvar no Blobs
   // Após ser montado, o payload é transformado em json
   // É esse objeto que o outro script (get-quote.js) vai ler para exibir no site.
-  await store.set(cacheKey, payload, { type: "json" });
+  await safeSet(store, cacheKey, payload);
   console.log(`💾 Salvo no Blobs via ${source}: ${symbol}`);
   return payload;
 };
@@ -454,7 +550,7 @@ const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
       console.log("🔁 iniciando fallback paralelo (cache + yahoo)");
 
       const cachePromise = (async () => {
-        const cachedYahoo = await store.get(cacheKey, { type: "json" });
+        const cachedYahoo = await safeGet(store, cacheKey);
         if (cachedYahoo?.symbol) {
           return { ...cachedYahoo, source: "cache" };
         }
@@ -478,16 +574,9 @@ const fetchFallbackData = async (symbol, store, cacheKey, previousData) => {
 
 export default async () => {
 
-  console.log("🚀 Iniciando update-quotes");
-
-  // fetch pode não existir dependendo do runtime
-  if (typeof fetch !== "function") {
-    throw new Error("fetch não disponível no runtime");
-  }
-
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) {
-    return new Response("Token não configurado", { status: 500 });
+    return createResponse("Token não configurado", { status: 500 });
   }
 
   const store = getStore({ name: STORE_NAME });
@@ -495,12 +584,12 @@ export default async () => {
   // 🔒 Lock distribuído
   const executionId = await acquireLock(store);
   if (!executionId) {
-    return new Response(
+    return createResponse(
       JSON.stringify({
         skipped: "lock",
         message: "Outra execução já está ativa",
         detail: "Função acquireLock interrompeu a permissão para rodar e retorna status 200"
-      }),
+      } , null, 2 ),
        {
         status: 200
        }
@@ -526,7 +615,7 @@ export default async () => {
     // evitar chamadas desnecessarias na API (Brapi)
     if (!isMarketOpen()) {
       console.log("🛑 Mercado fechado");
-      return new Response(
+      return createResponse(
         JSON.stringify(
           {
           skipped: true,
@@ -551,7 +640,7 @@ export default async () => {
 
 
       //  ----------- Cache antes de bater na API
-      const existing = await safeGetJson(store, cacheKey);
+      const existing = await safeGet(store, cacheKey);
 
       // Parse do cache = Se cálculo falhar → usa valor antigo
       // Tenta ler o que foi gravado na última execução com sucesso.
@@ -574,8 +663,8 @@ export default async () => {
        existing.updatedLabel = getFormattedDateTime();
 
       // opcional mas recomendado → persistir
-      await store.set(cacheKey, existing, { type: "json" });
-      return new Response(
+      await safeSet(store, cacheKey, existing);
+      return createResponse(
           JSON.stringify({
             message: "Resposta somente do cache"
           }),
@@ -596,7 +685,7 @@ export default async () => {
         : {};
 
     const prev = ensureObject(
-      await safeGetJson(store, "previous-data")
+      await safeGet(store, "previous-data")
     );
 
     const rawData = await resolveQuote(
@@ -612,13 +701,12 @@ export default async () => {
         ...prev,
         [symbol]: rawData || existing || prev[symbol] || null
     };
-    await store.set("previous-data", updated, { type: "json" });
-
+    await safeSet(store, "previous-data", updated);
 
 
     // Garantir que novo ticker entra com fallback inicial
     if (!rawData && existing) {
-      return new Response(JSON.stringify(existing), {
+      return createResponse(JSON.stringify(existing), {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
@@ -626,7 +714,7 @@ export default async () => {
 
     if (!rawData && !existing) {
       const fallback = await fetchYahooFallback(symbol);
-        return new Response(JSON.stringify(fallback), {
+        return createResponse(JSON.stringify(fallback), {
           status: 200,
           headers: { "Content-Type": "application/json" }
         });
@@ -637,7 +725,7 @@ export default async () => {
 
     console.log(`💾 saved:`, symbol);
 
-    return new Response(
+    return createResponse(
       JSON.stringify({
         ok: true,
         symbol,
@@ -649,7 +737,7 @@ export default async () => {
 
     } catch (err) {
       console.error("🔥 ERRO:", err);
-      return new Response(
+      return createResponse(
         JSON.stringify({
           error: "Falha no update"
         } , null, 2 ), {
@@ -669,7 +757,7 @@ export default async () => {
 export const config = {
   schedule: "*/15 12-21 * * 1-5"
 };
-console.log("CRON VERSION: 18/04-update-quotes");
+
 
 
 
