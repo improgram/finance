@@ -291,23 +291,33 @@ const releaseIndexLock = async (store, key, id) => {
 // DOIS tipos de lock separados: Global e Lock da Fila
 const acquireLock = async (store) => {    // Adquirir a Trava
   const now = Date.now();
-
-  // Proteção contra lock corrompido no Blobs
   const existingLock = await safeGet(store, LOCK_KEY);
 
-  // Resolve: Lock corrompido, expirado e valido(bloqueia execuçao)
-  if (existingLock) {
-  if (!isValidLock(existingLock)) {
-    console.warn("⚠️ Lock corrompido detectado → Removendo");
-  } else {
+  if (existingLock && isValidLock(existingLock)) {
     const age = now - existingLock.timestamp;
     if (age < LOCK_TTL) {
       console.log("🔒 Lock ativo, abortando execução");
       return null;
     }
-    console.warn("⚠️ Lock expirado (fantasma) → sobrescrevendo");
-    }
   }
+  const executionId = generateId();
+  const newLock = createLock(executionId, now);
+  await safeSet(store, LOCK_KEY, newLock);
+
+  // 🔥 AUMENTO DE DELAY: 150ms as vezes é pouco para propagação global
+  await sleep(400);
+
+  // Tenta validar até 2 vezes antes de desistir por "race condition"
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const confirm = await safeGet(store, LOCK_KEY);
+    if (confirm && confirm.executionId === executionId) {
+      return executionId;
+    }
+    await sleep(200);
+  }
+  console.warn("⚠️ Race detectada ou atraso na propagação do Blobs");
+  return null;
+}
 
 
    // --------------- gera id único da execução
