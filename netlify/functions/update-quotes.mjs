@@ -17,7 +17,7 @@ import { getStore } from "@netlify/blobs";
 console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
-const LOCK_TTL = 3 * 60 * 1000;
+const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
 const CACHE_TTL = 5 * 60 * 1000;
 
 // ---------------- HELPERS ----------------
@@ -137,11 +137,8 @@ const releaseLock = async (store) => {
 // ---------------- FILA (SEM LOCK) ----------------
 const getNextTicker = async (store, list) => {
   const key = "ticker-index";
-
   const stored = await safeGet(store, key);
-
   let index = 0;
-
   if (
     stored &&
     typeof stored.value === "number" &&
@@ -150,28 +147,41 @@ const getNextTicker = async (store, list) => {
   ) {
     index = stored.value;
   }
-
   const nextIndex = (index + 1) % list.length;
-
   await safeSet(store, key, {
     value: nextIndex,
     updatedAt: Date.now()
   });
-
   return list[index];
 };
 
 // ---------------- FETCH ----------------
-const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
+const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
-
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(id);
   }
 };
+
+
+// ---- retry com delay progressivo
+const fetchWithRetry = async (url, options = {}, attempts = 1) => {
+  for (let delay = 0; delay <= attempts; delay++) {
+    const resDelay = await fetchWithTimeout(url, options, 3000);
+
+    if (resDelay && resDelay.status === 429 && delay < attempts) {
+      console.warn(`⏳ 429 - retry em ${delay}ms`);
+      await sleep(500); // curto, não bloqueia fila
+      continue;
+    }
+    return resDelay;
+  }
+  return null;
+};
+
 
 // ------------------ sistema de prioridade de fonte automático
 // ------------------ o primeiro que responder válido vence
@@ -181,7 +191,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
 const fetchBrapi = async (symbol, token) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
-    const resBrapi = await fetchWithTimeout(urlBrapi);
+    const resBrapi = await fetchWithRetry(urlBrapi);
 
     if (!resBrapi.ok) {
       console.warn("⚠️ BRAPI status:", resBrapi.status);
@@ -201,7 +211,7 @@ const fetchBrapi = async (symbol, token) => {
 const fetchYahoo = async (symbol) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
-    const resYahoo = await fetchWithTimeout(urlYahoo);
+    const resYahoo = await fetchWithRetry(urlYahoo);
     if (!resYahoo.ok) return null;
     const json = await resYahoo.json();
     const meta = json?.chart?.result?.[0]?.meta;
@@ -228,13 +238,13 @@ export default async () => {
   if (!lock) {
     return createResponse({ skipped: "lock" });
   }
-  const MAX_EXECUTION_TIME = 9000;
+  const MAX_EXECUTION_TIME = 7000;
   try {
     const exec = (async () => {
       if (!isMarketOpen()) {
         return createResponse({ message: "Mercado fechado" });
       }
-      const tickers = ["IRFM11", "IVVB11", "NBIT11", "BBDC4", "PACB11"];
+      const tickers = [ "BBDC4", "IRFM11" ];
       const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
         B5P211: { description: "NTN-B (inflação) Curto/Medio" },
@@ -251,17 +261,11 @@ export default async () => {
       }
       const cacheKey = `quote-${symbol}`;
       const cached = await safeGet(store, cacheKey);
-      // ⚡ CACHE
 
-      if ( cached && typeof cached.updatedAt === "number" &&
-        Date.now() - cached.updatedAt < CACHE_TTL
-      ) {
-        console.log("⚡ Uso do cache hit:", symbol);
-        return createResponse({
-          ok: true,
-          symbol,
-          source: "cache"
-        });
+      // ⚡ CACHE
+      if (cached && Date.now() - cached.updatedAt < CACHE_TTL) {
+        console.log("⚠️ usando cache fresh");
+        return createResponse({ skipped: "fresh-cache" });
       }
 
       // 🔵 BRAPI
@@ -286,7 +290,7 @@ export default async () => {
         symbol,
         source,
         updatedAt: Date.now(),
-        updatedLabel: getFormattedDateTime()
+        updatedLabel: getFormattedDateTime(),
         description: ETF_INFO[symbol]?.description || "Ativo Financeiro"
       };
       await safeSet(store, cacheKey, payload);
