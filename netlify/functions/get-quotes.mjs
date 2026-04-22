@@ -65,13 +65,13 @@ export default async () => {
     // 🔥 LEITURA SEQUENCIAL (sem Promise.all)
     for (const blob of list.blobs) {
       try {
-        const raw = await store.get(blob.key);
+        const raw = await store.get(blob.key, { type: "json" }).catch(() => null);
         if (!raw) continue;
 
         const textBlob =  typeof raw === "string"
           ? raw
           : new TextDecoder().decode(raw);
-        const item = JSON.parse(textBlob);
+        const item = raw;
 
       // RASTREIO DA ÚLTIMA DATA e hora
       // Compara o updatedAt deste ticker com o maior encontrado até agora

@@ -187,22 +187,21 @@ const fetchWithRetry = async (url, options = {}, attempts = 1) => {
 
 // ------------------ sistema de prioridade de fonte automático
 // ------------------ o primeiro que responder válido vence
-// A ordem correta é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
+// Na ordem : CACHE (Blobs) - YAHOO e BRAPI(escolhe o mais rápido) - 4. previousData
 
 // ---------------- YAHOO  ----------------
 const fetchYahoo = async (symbol) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
-    const resYahoo = await fetchWithRetry(urlYahoo);
-    if (!resYahoo || !resYahoo.ok) return null;
-
+    const resYahoo = await fetchWithRetry(urlYahoo, {}, 1800); // curto
+    if (!resYahoo || !resYahoo.ok) {
+      console.warn("⚠️ Yahoo status:", resYahoo.status);
+      return null;
+    }
     const jsonYahoo = await resYahoo.json();
-
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
-
     if (!meta) return null;
-
     return {
       symbol,
       regularMarketPrice: meta.regularMarketPrice,
@@ -219,25 +218,29 @@ const fetchYahoo = async (symbol) => {
   }
 };
 
-
 // ---------------- BRAPI FALLBACK ----------------
 
 const fetchBrapi = async (symbol, token) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
-    const resBrapi = await fetchWithRetry(urlBrapi);
-    if (!resBrapi || !resBrapi.ok) {
-      console.warn("⚠️ BRAPI status:", resBrapi.status);
-      return null;
+    for (let i = 0; i < 2; i++) {
+      const resBrapi = await fetchWithTimeout(urlBrapi, {}, 2500);
+      if (resBrapi?.ok) {
+        const jsonBrapi = await resBrapi.json();
+        console.warn("⚠️ BRAPI status:", resBrapi.status);
+        return jsonBrapi?.results?.[0] || null;
+      }
+      if (resBrapi?.status === 429) {
+        console.warn("⚠️ BRAPI com erro 429 retry ");
+        await sleep((i + 1) * 400);
+      }
     }
-    const json = await resBrapi.json();
-    return json?.results?.[0] || null;
+    return null;
   } catch (err) {
     console.warn("⚠️ BRAPI erro:", err.message);
     return null;
   }
 };
-
 
 // ---------------- MAIN ----------------
 export default async () => {
@@ -275,7 +278,7 @@ export default async () => {
       const cached = await safeGet(store, cacheKey);
 
       // ⚡(cache válido = saída imediata)
-     if (
+      if (
         cached &&
         typeof cached.updatedAt === "number" &&
         Date.now() - cached.updatedAt < CACHE_TTL
@@ -289,24 +292,29 @@ export default async () => {
         });
       }
 
-      // 🔵 YAHOO
-      let data = await fetchYahoo(symbol);
-      let source = "yahoo";
+      // 🔵 inicia ambas em paralelo (NÃO sequencial)= (reduz tempo e erro 429)
+      const yahooPromise = fetchYahoo(symbol);
+      const brapiPromise = fetchBrapi(symbol, API_TOKEN);
 
-      // 🟡 BRAPI
-      if (!data) {
-        data = await fetchBrapi(symbol, API_TOKEN);
-        source = "Brapi";
+      // concorrência leve (sem duplicar chamadas longas)
+      const race = await Promise.race([ yahooPromise, brapiPromise ]);
+
+      // primeiro que responder vence
+      let data = await Promise.race([ yahooPromise, brapiPromise ]);
+      let source = data?.source || null;
+
+      // 🔴 FALLBACK FINAL inteligente (garantia de qualidade)
+      if (!data || !data.regularMarketPrice) {
+        data = await brapiPromise;
+        source = "brapi";
       }
 
-      // 🔴 FALLBACK FINAL
+      // 🧯 fallback final
       if (!data && cached) {
         data = cached;
-        source = "cache-old-mixed";
+        source = "cache-old";
       }
-      if (!data) {
-        return createResponse({ error: "sem dados" });
-      }
+
       const payload = {
         ...data,
         source,
