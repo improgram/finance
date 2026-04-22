@@ -11,6 +11,11 @@
 // e salva cada ticker individualmente no Blobs
 
 
+// ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
+
+const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
+const RATE_LIMIT_KEY = "global-429";
+
 // ---------------- CONFIG ----------------
 import { getStore } from "@netlify/blobs";
 
@@ -22,6 +27,20 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 // ---------------- HELPERS ----------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+
+const setGlobal429 = async (store) => {
+  const now = Date.now();
+  await safeSet(store, RATE_LIMIT_KEY, {
+    timestamp: now
+  });
+};
+
+const getGlobal429 = async (store) => {
+  const data = await safeGet(store, RATE_LIMIT_KEY);
+  return data?.timestamp || 0;
+};
+
 
 const safeSet = async (store, key, value) => {
   try {
@@ -169,15 +188,20 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
 
 
 // ---- retry com delay progressivo
-const fetchWithRetry = async (url, options = {}, attempts = 1) => {
+
+const fetchWithRetry = async (url, options = {}, attempts = 1, store) => {
   for (let i = 0; i <= attempts; i++) {
     const resDelay = await fetchWithTimeout(url, options, 3000);
+    // 👇 DETECÇÃO GLOBAL AQUI
+    if (resDelay?.status === 429) {
+      await setGlobal429(store);
+      console.warn("🚨 429 detectado (retry)");
 
-    if (resDelay && resDelay.status === 429 && i < attempts) {
-      const wait = (i + 1) * 500;
-      console.warn(`⏳ 429 - retry em ${wait}ms`);
-      await sleep(wait); // curto, não bloqueia fila
-      continue;
+      if (i < attempts) {
+        const wait = (i + 1) * 500;
+        await sleep(wait);
+        continue;
+      }
     }
     return resDelay;
   }
@@ -186,18 +210,23 @@ const fetchWithRetry = async (url, options = {}, attempts = 1) => {
 
 
 // ------------------ sistema de prioridade de fonte automático
-// ------------------ o primeiro que responder válido vence
-// Na ordem : CACHE (Blobs) - YAHOO e BRAPI(escolhe o mais rápido) - 4. previousData
+// Na ordem : CACHE (Blobs) - YAHOO - BRAPI - 4. previousData
 
 // ---------------- YAHOO  ----------------
-const fetchYahoo = async (symbol) => {
+const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
-    const resYahoo = await fetchWithRetry(urlYahoo, {}, 1800); // curto
+    const resYahoo = await fetchWithRetry(urlYahoo, {}, 1, store); // chamada curta(1)
+
+    if (resYahoo?.status === 429) {
+      console.warn("🚨 429 detectado - ativando cooldown global");
+    }
+
     if (!resYahoo || !resYahoo.ok) {
       console.warn("⚠️ Yahoo status:", resYahoo.status);
       return null;
     }
+
     const jsonYahoo = await resYahoo.json();
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
@@ -220,14 +249,17 @@ const fetchYahoo = async (symbol) => {
 
 // ---------------- BRAPI FALLBACK ----------------
 
-const fetchBrapi = async (symbol, token) => {
+const fetchBrapi = async (symbol, token, store ) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
     for (let i = 0; i < 2; i++) {
-      const resBrapi = await fetchWithTimeout(urlBrapi, {}, 2500);
+      const resBrapi = await fetchWithRetry(urlBrapi, {}, 2, store);
       if (resBrapi?.ok) {
-        const jsonBrapi = await resBrapi.json();
-        console.warn("⚠️ BRAPI status:", resBrapi.status);
+        let jsonBrapi = null;
+        try {
+          jsonBrapi = await resBrapi.json();
+        } catch {}
+        console.warn("⚠️ BRAPI status:", resBrapi?.status);
         return jsonBrapi?.results?.[0] || null;
       }
       if (resBrapi?.status === 429) {
@@ -254,6 +286,7 @@ export default async () => {
     return createResponse({ skipped: "lock" });
   }
   const MAX_EXECUTION_TIME = 7000;
+
   try {
     const exec = (async () => {
       if (!isMarketOpen()) {
@@ -274,17 +307,16 @@ export default async () => {
       if (!symbol) {
         return createResponse({ skipped: "fila" });
       }
+
+      // ---------------- CACHE FIRST ----------------
       const cacheKey = `quote-${symbol}`;
       const cached = await safeGet(store, cacheKey);
 
-      // ⚡(cache válido = saída imediata)
-      if (
-        cached &&
-        typeof cached.updatedAt === "number" &&
+      // ⚡ cache válido (saída imediata)
+      if ( cached && typeof cached.updatedAt === "number" &&
         Date.now() - cached.updatedAt < CACHE_TTL
       ) {
-        console.log("⚡ cache hit valido:", symbol);
-
+        console.log("⚡ cache hit:", symbol);
         return createResponse({
           ok: true,
           symbol,
@@ -292,29 +324,54 @@ export default async () => {
         });
       }
 
-      // 🔵 inicia ambas em paralelo (NÃO sequencial)= (reduz tempo e erro 429)
-      const yahooPromise = fetchYahoo(symbol);
-      const brapiPromise = fetchBrapi(symbol, API_TOKEN);
+      // ---------------- proteção global contra flood após 429
+      const global429 = await getGlobal429(store);
 
-      // concorrência leve (sem duplicar chamadas longas)
-      const race = await Promise.race([ yahooPromise, brapiPromise ]);
-
-      // primeiro que responder vence
-      let data = await Promise.race([ yahooPromise, brapiPromise ]);
-      let source = data?.source || null;
-
-      // 🔴 FALLBACK FINAL inteligente (garantia de qualidade)
-      if (!data || !data.regularMarketPrice) {
-        data = await brapiPromise;
-        source = "brapi";
+      if (Date.now() - global429 < COOLDOWN_429) {
+        console.warn("⛔ cooldown global ativo");
+        return createResponse({
+          ok: true,
+          symbol,
+          source: "cooldown"
+        });
       }
 
-      // 🧯 fallback final
+      // ----------- Yahoo segundo ------------
+      let data = null;
+      let source = null;
+      try {
+        data = await fetchYahoo(symbol);
+        if (data) {
+          source = "yahoo";
+        }
+      } catch (err) {
+        console.warn("⚠️ Yahoo erro:", err.message);
+      }
+
+      // -------------- Brapi terceiro -----------
+      if (!data) {
+        try {
+          data = await fetchBrapi(symbol, API_TOKEN);
+          if (data) {
+            source = "brapi";
+          }
+        } catch (err) {
+          console.warn("⚠️ BRAPI erro:", err.message);
+        }
+      }
+
+      // -------------------Falback cache antigo
       if (!data && cached) {
         data = cached;
         source = "cache-old";
       }
 
+      // ------------ Fallback final absoluto-----------------
+      if (!data) {
+        return createResponse({ error: "sem dados" }, 200);
+      }
+
+      // -------------------- Payload--------------
       const payload = {
         ...data,
         source,
@@ -327,6 +384,7 @@ export default async () => {
         logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`
       };
 
+      // ------------- Salvamento
       await safeSet(store, cacheKey, payload);
       console.log("💾 salvo:", symbol);
 
@@ -336,18 +394,22 @@ export default async () => {
         source
       });
     })();
+    // FiM da const exec
+    //  engloba toda a lógica principal até o último return createResponse
 
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), MAX_EXECUTION_TIME)
-    );
-    return await Promise.race([exec, timeout]);
-  } catch (err) {
-    console.error("🔥 erro:", err.message);
-    return createResponse({ error: "fail" }, 200);
-  } finally {
-    await releaseLock(store);
-  }
+        setTimeout(() => reject(new Error("timeout")), MAX_EXECUTION_TIME)
+      );
+      return await Promise.race([exec, timeout]);
+      } catch (err) {
+        console.error("🔥 erro:", err.message);
+        return createResponse({ error: "fail" }, 200);
+      } finally {
+        await releaseLock(store);
+      }
 };
+
+
 
 
 // ---------------- CRON ----------------
