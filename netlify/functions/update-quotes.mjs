@@ -45,7 +45,7 @@ const safeGet = async (store, key) => {
 };
 
 const createResponse = (body, status = 200) => {
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: { "Content-Type": "application/json" }
   });
@@ -188,8 +188,6 @@ const fetchWithRetry = async (url, options = {}, attempts = 1) => {
 // ------------------ sistema de prioridade de fonte automático
 // ------------------ o primeiro que responder válido vence
 // A ordem correta é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
-
-
 
 // ---------------- YAHOO  ----------------
 const fetchYahoo = async (symbol) => {
