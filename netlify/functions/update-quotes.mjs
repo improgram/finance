@@ -44,11 +44,12 @@ const safeGet = async (store, key) => {
   }
 };
 
-const createResponse = (body, status = 200) => ({
-  statusCode: status,
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body)
-});
+const createResponse = (body, status = 200) => {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+};
 
 
 // -------------------- Helpers Market --------------------
@@ -169,12 +170,13 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
 
 // ---- retry com delay progressivo
 const fetchWithRetry = async (url, options = {}, attempts = 1) => {
-  for (let delay = 0; delay <= attempts; delay++) {
+  for (let i = 0; i <= attempts; i++) {
     const resDelay = await fetchWithTimeout(url, options, 3000);
 
-    if (resDelay && resDelay.status === 429 && delay < attempts) {
+    if (resDelay && resDelay.status === 429 && i < attempts) {
       console.warn(`⏳ 429 - retry em ${delay}ms`);
-      await sleep(500); // curto, não bloqueia fila
+      const wait = (i + 1) * 500;
+      await sleep(wait); // curto, não bloqueia fila
       continue;
     }
     return resDelay;
@@ -193,7 +195,7 @@ const fetchBrapi = async (symbol, token) => {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
     const resBrapi = await fetchWithRetry(urlBrapi);
 
-    if (!resBrapi.ok) {
+    if (!resBrapi || !resBrapi.ok) {
       console.warn("⚠️ BRAPI status:", resBrapi.status);
       return null;
     }
@@ -262,10 +264,19 @@ export default async () => {
       const cacheKey = `quote-${symbol}`;
       const cached = await safeGet(store, cacheKey);
 
-      // ⚡ CACHE
-      if (cached && Date.now() - cached.updatedAt < CACHE_TTL) {
-        console.log("⚠️ usando cache fresh");
-        return createResponse({ skipped: "fresh-cache" });
+      // ⚡(cache válido = saída imediata)
+     if (
+        cached &&
+        typeof cached.updatedAt === "number" &&
+        Date.now() - cached.updatedAt < CACHE_TTL
+      ) {
+        console.log("⚡ cache hit valido:", symbol);
+
+        return createResponse({
+          ok: true,
+          symbol,
+          source: "cache-fresh"
+        });
       }
 
       // 🔵 BRAPI
