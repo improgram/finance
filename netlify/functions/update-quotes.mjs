@@ -174,8 +174,8 @@ const fetchWithRetry = async (url, options = {}, attempts = 1) => {
     const resDelay = await fetchWithTimeout(url, options, 3000);
 
     if (resDelay && resDelay.status === 429 && i < attempts) {
-      console.warn(`⏳ 429 - retry em ${delay}ms`);
       const wait = (i + 1) * 500;
+      console.warn(`⏳ 429 - retry em ${wait}ms`);
       await sleep(wait); // curto, não bloqueia fila
       continue;
     }
@@ -189,38 +189,31 @@ const fetchWithRetry = async (url, options = {}, attempts = 1) => {
 // ------------------ o primeiro que responder válido vence
 // A ordem correta é: 1. CACHE (Blobs) - 2. BRAPI - 3. YAHOO - 4. previousData
 
-// ---------------- BRAPI ----------------
-const fetchBrapi = async (symbol, token) => {
-  try {
-    const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
-    const resBrapi = await fetchWithRetry(urlBrapi);
 
-    if (!resBrapi || !resBrapi.ok) {
-      console.warn("⚠️ BRAPI status:", resBrapi.status);
-      return null;
-    }
 
-    const json = await resBrapi.json();
-    return json?.results?.[0] || null;
-
-  } catch (err) {
-    console.warn("⚠️ BRAPI erro:", err.message);
-    return null;
-  }
-};
-
-// ---------------- YAHOO FALLBACK ----------------
+// ---------------- YAHOO  ----------------
 const fetchYahoo = async (symbol) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
     const resYahoo = await fetchWithRetry(urlYahoo);
-    if (!resYahoo.ok) return null;
-    const json = await resYahoo.json();
-    const meta = json?.chart?.result?.[0]?.meta;
+    if (!resYahoo || !resYahoo.ok) return null;
+
+    const jsonYahoo = await resYahoo.json();
+
+    const resultYahoo = jsonYahoo?.chart?.result?.[0];
+    const meta = resultYahoo?.meta;
+
     if (!meta) return null;
+
     return {
       symbol,
       regularMarketPrice: meta.regularMarketPrice,
+      previousClose: meta.previousClose,
+      changePercent:
+          meta.regularMarketChangePercent != null
+          ? meta.regularMarketChangePercent * 100
+          : null,
+      currency: meta.currency,
       source: "yahoo"
     };
   } catch {
@@ -228,9 +221,28 @@ const fetchYahoo = async (symbol) => {
   }
 };
 
+
+// ---------------- BRAPI FALLBACK ----------------
+
+const fetchBrapi = async (symbol, token) => {
+  try {
+    const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
+    const resBrapi = await fetchWithRetry(urlBrapi);
+    if (!resBrapi || !resBrapi.ok) {
+      console.warn("⚠️ BRAPI status:", resBrapi.status);
+      return null;
+    }
+    const json = await resBrapi.json();
+    return json?.results?.[0] || null;
+  } catch (err) {
+    console.warn("⚠️ BRAPI erro:", err.message);
+    return null;
+  }
+};
+
+
 // ---------------- MAIN ----------------
 export default async () => {
-
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) {
     return createResponse({ error: "Token ausente" }, 500);
@@ -279,39 +291,46 @@ export default async () => {
         });
       }
 
-      // 🔵 BRAPI
-      let data = await fetchBrapi(symbol, API_TOKEN);
-      let source = "brapi";
-      // 🟡 YAHOO
+      // 🔵 YAHOO
+      let data = await fetchYahoo(symbol);
+      let source = "yahoo";
+
+      // 🟡 BRAPI
       if (!data) {
-        data = await fetchYahoo(symbol);
-        source = "yahoo";
+        data = await fetchBrapi(symbol, API_TOKEN);
+        source = "Brapi";
       }
 
       // 🔴 FALLBACK FINAL
       if (!data && cached) {
         data = cached;
-        source = "cache-old";
+        source = "cache-old-mixed";
       }
       if (!data) {
         return createResponse({ error: "sem dados" });
       }
       const payload = {
         ...data,
-        symbol,
         source,
-        updatedAt: Date.now(),
-        updatedLabel: getFormattedDateTime(),
-        description: ETF_INFO[symbol]?.description || "Ativo Financeiro"
+        symbol,
+        shortName: data?.shortName,
+        longName: data?.longName,
+        updatedAt: Date.now(),                    // Timestamp para lógica de front-end
+        updatedLabel: getFormattedDateTime(),     // String formatada DD/MM/AAAA HH:MM:SS
+        description: ETF_INFO[symbol]?.description || "Ativo Financeiro",
+        logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`
       };
+
       await safeSet(store, cacheKey, payload);
       console.log("💾 salvo:", symbol);
+
       return createResponse({
         ok: true,
         symbol,
         source
       });
     })();
+
     const timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("timeout")), MAX_EXECUTION_TIME)
     );
@@ -323,6 +342,7 @@ export default async () => {
     await releaseLock(store);
   }
 };
+
 
 // ---------------- CRON ----------------
 // Cron: a cada 15 min,  12h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
