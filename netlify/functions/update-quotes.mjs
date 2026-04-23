@@ -167,12 +167,13 @@ const getNextTicker = async (store, list) => {
   ) {
     index = stored.value;
   }
+  const currentIndex = index;           // Evitar inconsistência de fila
   const nextIndex = (index + 1) % list.length;
   await safeSet(store, key, {
     value: nextIndex,
     updatedAt: Date.now()
   });
-  return list[index];
+  return list[currentIndex];
 };
 
 // ---------------- FETCH ----------------
@@ -186,47 +187,53 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   }
 };
 
+// ---------------- RETRY WRAPPERS (YAHOO / BRAPI) ----------------
 
-// ---- retry com delay progressivo
-
-const fetchWithRetry = async (url, options = {}, attempts = 1, store) => {
+const fetchWithRetryYahoo = async (url, store, symbol, attempts = 1) => {
   for (let i = 0; i <= attempts; i++) {
-    const resDelay = await fetchWithTimeout(url, options, 3000);
-    // 👇 DETECÇÃO GLOBAL AQUI
-    if (resDelay?.status === 429) {
+    const resYahoo = await fetchWithTimeout(url, {}, 3000);
+    if (resYahoo?.status === 429) {
       await setGlobal429(store);
-      console.warn("🚨 429 detectado (retry)");
-
+      console.warn(`🚨 429 Yahoo (${symbol}) tentativa ${i + 1}`);
       if (i < attempts) {
-        const wait = (i + 1) * 500;
-        await sleep(wait);
+        await sleep((i + 1) * 500);
         continue;
       }
     }
-    return resDelay;
+    return resYahoo;
   }
   return null;
 };
 
 
-// ------------------ sistema de prioridade de fonte automático
+const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
+  for (let i = 0; i <= attempts; i++) {
+    const resBrapi = await fetchWithTimeout(url, {}, 3000);
+    if (resBrapi?.status === 429) {
+      await setGlobal429(store);
+      console.warn(`🚨 BRAPI com erro 429 detectado (${symbol}) tentativa ${i + 1}`);
+      if (i < attempts) {
+        await sleep((i + 1) * 400);
+        continue;
+      }
+    }
+    return resBrapi;
+  }
+  return null;
+};
+
+
 // Na ordem : CACHE (Blobs) - YAHOO - BRAPI - 4. previousData
 
 // ---------------- YAHOO  ----------------
 const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
-    const resYahoo = await fetchWithRetry(urlYahoo, {}, 1, store); // chamada curta(1)
-
-    if (resYahoo?.status === 429) {
-      console.warn("🚨 429 detectado - ativando cooldown global");
-    }
-
+    const resYahoo = await fetchWithRetryYahoo(urlYahoo, store, symbol, 1 );  // retry leve p/ evitar timeout(1)
     if (!resYahoo || !resYahoo.ok) {
-      console.warn("⚠️ Yahoo status:", resYahoo.status);
+      console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
       return null;
     }
-
     const jsonYahoo = await resYahoo.json();
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
@@ -252,20 +259,14 @@ const fetchYahoo = async (symbol, store) => {
 const fetchBrapi = async (symbol, token, store ) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
-    for (let i = 0; i < 2; i++) {
-      const resBrapi = await fetchWithRetry(urlBrapi, {}, 2, store);
-      if (resBrapi?.ok) {
+    const resBrapi = await fetchWithRetryBrapi(urlBrapi, store, symbol, 2);
+    if (resBrapi?.ok) {
         let jsonBrapi = null;
         try {
           jsonBrapi = await resBrapi.json();
         } catch {}
         console.warn("⚠️ BRAPI status:", resBrapi?.status);
         return jsonBrapi?.results?.[0] || null;
-      }
-      if (resBrapi?.status === 429) {
-        console.warn("⚠️ BRAPI com erro 429 retry ");
-        await sleep((i + 1) * 400);
-      }
     }
     return null;
   } catch (err) {
@@ -273,6 +274,7 @@ const fetchBrapi = async (symbol, token, store ) => {
     return null;
   }
 };
+
 
 // ---------------- MAIN ----------------
 export default async () => {
@@ -316,7 +318,7 @@ export default async () => {
       if ( cached && typeof cached.updatedAt === "number" &&
         Date.now() - cached.updatedAt < CACHE_TTL
       ) {
-        console.log("⚡ cache hit:", symbol);
+        console.log("⚡ Cache hit valido:", symbol, cached.source);
         return createResponse({
           ok: true,
           symbol,
@@ -324,23 +326,25 @@ export default async () => {
         });
       }
 
-      // ---------------- proteção global contra flood após 429
+      // --------- proteção global contra flood após 429 e timestamp inválido
       const global429 = await getGlobal429(store);
-
-      if (Date.now() - global429 < COOLDOWN_429) {
-        console.warn("⛔ cooldown global ativo");
-        return createResponse({
-          ok: true,
-          symbol,
-          source: "cooldown"
-        });
+      if (global429 > 0) {
+        const elapsed = Date.now() - global429;
+        if (elapsed < COOLDOWN_429) {
+          console.warn("⛔ cooldown global ativo");
+          return createResponse({
+            ok: true,
+            symbol,
+            source: "cooldown"
+          });
+        }
       }
 
       // ----------- Yahoo segundo ------------
       let data = null;
       let source = null;
       try {
-        data = await fetchYahoo(symbol);
+        data = await fetchYahoo(symbol, store);
         if (data) {
           source = "yahoo";
         }
@@ -351,7 +355,7 @@ export default async () => {
       // -------------- Brapi terceiro -----------
       if (!data) {
         try {
-          data = await fetchBrapi(symbol, API_TOKEN);
+          data = await fetchBrapi(symbol, API_TOKEN, store);
           if (data) {
             source = "brapi";
           }
@@ -388,14 +392,33 @@ export default async () => {
       await safeSet(store, cacheKey, payload);
       console.log("💾 salvo:", symbol);
 
+      // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
+      try {
+        // snapshot seguro)= NÃO deve ler todos os blobs no cron
+        // Evitar crescer linearmente no Netlify Free (timeout ~10s)
+        // Podera quebrar quando tiver dezenas/centenas de quotes.
+        const snapshot = await safeGet(store, "last-valid-snapshot");
+        const prev = snapshot?.data || [];
+        const updated = prev.filter(i => i.symbol !== symbol);
+        updated.push(payload);
+        await safeSet(store, "last-valid-snapshot", {
+          data: updated,
+          updatedAt: Date.now()
+        });
+        console.log("📦 snapshot atualizado:", all.length);
+        } catch (err) {
+        console.warn("⚠️ erro ao gerar snapshot:", err.message);
+      }
       return createResponse({
         ok: true,
         symbol,
         source
       });
     })();
-    // FiM da const exec
-    //  engloba toda a lógica principal até o último return createResponse
+
+// FiM da const exec
+//  engloba toda a lógica principal até o último return createResponse
+
 
     const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("timeout")), MAX_EXECUTION_TIME)
@@ -408,6 +431,7 @@ export default async () => {
         await releaseLock(store);
       }
 };
+// FiM do MAIN export default async
 
 
 

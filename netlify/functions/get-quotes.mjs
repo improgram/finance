@@ -6,9 +6,6 @@
 
 
 import { getStore } from "@netlify/blobs";
-// Na V2 deve usar import em vez de require
-// const { getStore } = require("@netlify/blobs");
-
 
 const formatFullTime = (timestamp) => {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -27,9 +24,42 @@ export default async () => {
 
   try {
     const store = getStore({ name: "quotes-blobs" });
+
+    // ⚡ TENTA SNAPSHOT PRIMEIRO = snapshot é a fonte principal
+
+    const snapshot = await store.get("last-valid-snapshot", { type: "json" });
+    const safeData = snapshot?.data?.filter(i => i?.symbol) || [];
+
+    if ( safeData.length > 0 ) {
+      console.log("⚡ Snapshot carregado");
+      return new Response(JSON.stringify({
+        data: {
+          etfs: safeData.filter(i => i.symbol.endsWith("11")),
+          acoes: safeData.filter(i => !i.symbol.endsWith("11"))
+        },
+        meta: {
+          snapshot: true,
+          total: safeData.length,
+          updatedAt: snapshot?.updatedAt || 0,
+          collectedAtFull: snapshot?.updatedAt
+            ? formatFullTime(snapshot.updatedAt)
+            : "Nao Encontrado Snapshot"
+        }
+        }, null, 2), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
+          }
+        });
+    }     // FiM da condiçao: snapshot?.data ....
+
+
     // cada chave no Blobs é um ticker
     console.log("🔎 Listando tickers no Blobs...");
 
+    // store.list mantido como fallback
     const list = await store.list({ prefix: "quote-" });
 
     // Resumo: Se não há dados disponíveis
@@ -49,52 +79,82 @@ export default async () => {
 
           {
             status: 200,
-            headers: {
-                  "Content-Type": "application/json",
-                  "Access-Control-Allow-Origin": "*"
+            headers:
+            {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
             }
           }
       );
     }
 
-
     const etfs = [];
     const acoes = [];
-    console.log(`📦 Processando ${list.blobs.length} itens (sequencial)`);
+    const validBlobs = list.blobs.filter(b => !b.key.endsWith("-tmp"));
+    console.log(`📦 Processando ${validBlobs.length} itens válidos`);
 
     // 🔥 LEITURA SEQUENCIAL (sem Promise.all)
-    for (const blob of list.blobs) {
+    for (const blob of validBlobs) {
+
       try {
         const raw = await store.get(blob.key, { type: "json" }).catch(() => null);
         if (!raw) continue;
+        let item = null;
 
-        const textBlob =  typeof raw === "string"
-          ? raw
-          : new TextDecoder().decode(raw);
-        const item = raw;
+        // 🔒 Normalização segura
+        if (typeof raw === "string") {
+          try {
+            item = JSON.parse(raw);
+          } catch {
+            console.warn(`⚠️ JSON inválido em ${blob.key}`);
+            continue;
+          }
+        } else if (typeof raw === "object") {
+          item = raw;
+        }
 
-      // RASTREIO DA ÚLTIMA DATA e hora
-      // Compara o updatedAt deste ticker com o maior encontrado até agora
+        // 🔒 Validação estrutural forte
+        if (!item || typeof item !== "object") {
+          console.warn(`⚠️ Item inválido (não é objeto): ${blob.key}`);
+          continue;
+        }
 
-      const ts = Number(item.updatedAt);
-      if (!isNaN(ts) && ts > ultimaAtualizacaoGeral) {
-        ultimaAtualizacaoGeral = ts;
-      }
+        // 🔒 Validação de symbol
+        if (!item.symbol || typeof item.symbol !== "string") {
+          console.warn(`⚠️ Symbol inválido: ${blob.key}`);
+          continue;
+        }
 
-        item.collectedAtFull = !isNaN(ts)
-          ? formatFullTime(ts)
-          : null;
+        // 🔒 Normalização de symbol (proteção extra)
+        item.symbol = item.symbol.trim().toUpperCase();
 
-        if (!item?.symbol) continue;
+        // 🔒 Validação de timestamp
+        const timeValida = Number(item.updatedAt || 0);
+        if (isNaN(timeValida) || timeValida <= 0) {
+          console.warn(`⚠️ updatedAt inválido: ${blob.key}`);
+          continue;
+        }
 
-        // separação simples (pode evoluir depois)
+        console.log("🔎 ITEM LIDO:", {
+          key: blob.key,
+          symbol: item.symbol,
+          updatedAt: timeValida
+        });
+
+        // rastreio global
+        if (timeValida > ultimaAtualizacaoGeral) {
+          ultimaAtualizacaoGeral = timeValida;
+        }
+        item.collectedAtFull = formatFullTime(timeValida);
+
+        // 📊 Classificação
         if (item.symbol.endsWith("11")) {
           etfs.push(item);
         } else {
           acoes.push(item);
         }
-      } catch (err) {
-        console.warn(`⚠️ Erro ao processar ${blob.key}`);
+
       }
     }
 
@@ -104,20 +164,69 @@ export default async () => {
 
     console.log(`✅ ETFS: ${etfs.length} | Ações: ${acoes.length}`);
 
+
+    // ----------------- Fallback --------------
+
+    if (etfs.length === 0 && acoes.length === 0) {
+
+      console.warn("⚠️ Nenhum dado válido, tentando fallback...");
+      const fallback = await store.get("last-valid-snapshot", { type: "json" });
+      const safeFallback = fallback?.data?.filter(i => i?.symbol) || [];
+
+      if ( safeFallback.length > 0 ) {
+        console.log("♻️ Usando snapshot fallback");
+        const etfsFallback = [];
+        const acoesFallback = [];
+
+        for (const item of safeFallback) {
+          if (item.symbol?.endsWith("11")) {
+            etfsFallback.push(item);
+          } else {
+            acoesFallback.push(item);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          data: {
+            etfs: etfsFallback,
+            acoes: acoesFallback
+          },
+          meta: {
+            fallback: true,
+            total: safeFallback.length,
+            updatedAt: fallback?.updatedAt || 0,
+            collectedAtFull: fallback?.updatedAt
+              ? formatFullTime(fallback.updatedAt)
+              : "Nao Encontrado Fallback"
+          }
+        }, null, 2), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
+          }
+        });
+      }
+    }
+    // Fim do Fallback
+
+
     return new Response(JSON.stringify({
       data: { etfs, acoes },
       meta: {
         total: etfs.length + acoes.length,
         updatedAt: ultimaAtualizacaoGeral,
         collectedAtFull: ultimaAtualizacaoGeral > 0
-          ? formatFullTime(ultimaAtualizacaoGeral) : "N/E"
+          ? formatFullTime(ultimaAtualizacaoGeral)
+          : "Atualizaçao Nao Encontrada"
       }
     } , null, 2 ), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
       }
     });
 
@@ -130,21 +239,18 @@ export default async () => {
         meta: {
           error: true,
           collectedAtFull: ultimaAtualizacaoGeral > 0
-            ? formatFullTime(ultimaAtualizacaoGeral) : "Nao Encontrada"
+            ? formatFullTime(ultimaAtualizacaoGeral)
+            : " Atualizaçao com erro na busca"
         }
       } , null, 2 ), {
       status: 500,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
       }
     });
   }
-
-  if (etfs.length === 0 && acoes.length === 0) {
-    const fallback = await store.get("last-valid-snapshot");
-  }
-
 
 }; // final do export default async
 
