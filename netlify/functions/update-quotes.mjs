@@ -17,7 +17,12 @@ const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
 const RATE_LIMIT_KEY = "global-429";
 
 // ---------------- CONFIG ----------------
-import { getStore } from "@netlify/blobs";
+import * as netlifyBlobs from "@netlify/blobs";
+const getStore = netlifyBlobs?.getStore;
+
+if (typeof getStore !== "function") {
+  throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
+}
 
 console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
@@ -148,10 +153,15 @@ const acquireLock = async (store) => {
   return lock;
 };
 
+//--------- Para remover Lock imediatamente
 const releaseLock = async (store) => {
-  await safeSet(store, LOCK_KEY, {
-    timestamp: Date.now() - (LOCK_TTL + 1000)
-  });
+  try {
+    await store.delete(LOCK_KEY);
+  } catch {
+    await safeSet(store, LOCK_KEY, {
+      timestamp: 0
+    });
+  }
 };
 
 // ---------------- FILA (SEM LOCK) ----------------
@@ -190,7 +200,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
 // ---------------- RETRY WRAPPERS (YAHOO / BRAPI) ----------------
 
 const fetchWithRetryYahoo = async (url, store, symbol, attempts = 1) => {
-  for (let i = 0; i <= attempts; i++) {
+  for (let i = 0; i < attempts; i++) {
     const resYahoo = await fetchWithTimeout(url, {}, 3000);
     if (resYahoo?.status === 429) {
       await setGlobal429(store);
@@ -207,7 +217,7 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 1) => {
 
 
 const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
-  for (let i = 0; i <= attempts; i++) {
+  for (let i = 0; i < attempts; i++) {
     const resBrapi = await fetchWithTimeout(url, {}, 3000);
     if (resBrapi?.status === 429) {
       await setGlobal429(store);
@@ -276,26 +286,15 @@ const fetchBrapi = async (symbol, token, store ) => {
 };
 
 
-// ---------------- MAIN ----------------
-export default async () => {
-  const API_TOKEN = process.env.BRAPI_TOKEN;
-  if (!API_TOKEN) {
-    return createResponse({ error: "Token ausente" }, 500);
-  }
-  const store = getStore({ name: STORE_NAME });
-  const lock = await acquireLock(store);
-  if (!lock) {
-    return createResponse({ skipped: "lock" });
-  }
-  const MAX_EXECUTION_TIME = 7000;
-
-  try {
-    const exec = (async () => {
-      if (!isMarketOpen()) {
-        return createResponse({ message: "Mercado fechado" });
-      }
-      const tickers = [ "BBDC4", "IRFM11" ];
-      const ETF_INFO = {
+// ----------- EXEC: Leitura linear:  lock - exec - timeout - race
+// ----------  exec() deve retornar apenas dados = não usa createResponse
+// ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
+const exec = async (store, API_TOKEN) => {
+    if (!isMarketOpen()) {
+      return { status: "skipped", reason: "Mercado Fechado" };
+    }
+    const tickers = [ "BBDC4", "IRFM11" ];
+    const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
         B5P211: { description: "NTN-B (inflação) Curto/Medio" },
         IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
@@ -304,11 +303,11 @@ export default async () => {
         NBIT11: { description: "Bitcoin Nasdaq" },
         PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
         "5PRE11": { description: "Pré-fixado" }
-      };
-      const symbol = await getNextTicker(store, tickers);
-      if (!symbol) {
-        return createResponse({ skipped: "fila" });
-      }
+    };
+    const symbol = await getNextTicker(store, tickers);
+    if (!symbol) {
+      return { ok: false, reason: "fila vazia" };
+    }
 
       // ---------------- CACHE FIRST ----------------
       const cacheKey = `quote-${symbol}`;
@@ -319,11 +318,11 @@ export default async () => {
         Date.now() - cached.updatedAt < CACHE_TTL
       ) {
         console.log("⚡ Cache hit valido:", symbol, cached.source);
-        return createResponse({
+        return {
           ok: true,
           symbol,
           source: "cache-fresh"
-        });
+        };
       }
 
       // --------- proteção global contra flood após 429 e timestamp inválido
@@ -365,14 +364,11 @@ export default async () => {
       }
 
       // -------------------Falback cache antigo
-      if (!data && cached) {
-        data = cached;
-        source = "cache-old";
-      }
+      if (!data && cached) { data = cached; source = "cache-old"; }
 
       // ------------ Fallback final absoluto-----------------
       if (!data) {
-        return createResponse({ error: "sem dados" }, 200);
+        return { ok: false, reason: "Sem Dados" };
       }
 
       // -------------------- Payload--------------
@@ -388,52 +384,70 @@ export default async () => {
         logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`
       };
 
-      // ------------- Salvamento
+      // ------------- Salvamento ---------
+
       await safeSet(store, cacheKey, payload);
       console.log("💾 salvo:", symbol);
 
       // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
+      // snapshot seguro = NÃO deve ler todos os blobs no cron
+      // Evitar crescer linearmente no Netlify Free (timeout ~10s)
+      // snapshot leve e por ticker
       try {
-        // snapshot seguro)= NÃO deve ler todos os blobs no cron
-        // Evitar crescer linearmente no Netlify Free (timeout ~10s)
-        // Podera quebrar quando tiver dezenas/centenas de quotes.
-        const snapshot = await safeGet(store, "last-valid-snapshot");
-        const prev = snapshot?.data || [];
-        const updated = prev.filter(i => i.symbol !== symbol);
-        updated.push(payload);
-        await safeSet(store, "last-valid-snapshot", {
-          data: updated,
-          updatedAt: Date.now()
-        });
-        console.log("📦 snapshot atualizado:", all.length);
-        } catch (err) {
-        console.warn("⚠️ erro ao gerar snapshot:", err.message);
+        await safeSet(store, `snapshot-${symbol}`, payload);
+        console.log("snapshot atualizado");
+      } catch (err) {
+          console.warn("⚠️ erro ao salvar snapshot:", err.message);
       }
-      return createResponse({
+      return {
         ok: true,
         symbol,
         source
-      });
-    })();
-
-// FiM da const exec
+      };
+}
+//  FiM da const exec
 //  engloba toda a lógica principal até o último return createResponse
 
 
-    const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), MAX_EXECUTION_TIME)
-      );
-      return await Promise.race([exec, timeout]);
-      } catch (err) {
-        console.error("🔥 erro:", err.message);
-        return createResponse({ error: "fail" }, 200);
-      } finally {
-        await releaseLock(store);
-      }
+// ---------------- MAIN ----------------
+
+export default async () => {
+  const API_TOKEN = process.env.BRAPI_TOKEN;
+  if (!API_TOKEN) {
+    return createResponse({ error: "Token ausente" }, 500);
+  }
+  const store = getStore({ name: STORE_NAME });
+  const lock = await acquireLock(store);
+  if (!lock) { return createResponse({ skipped: "lock" }); }
+
+  const MAX_EXECUTION_TIME = 7000;
+
+  //   --------------             -------------
+  const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
+    new Promise((_, reject) =>
+      setTimeout(() => {
+        reject(new Error(`⏱ timeout em ${label} (${ms}ms)`));
+      }, ms)
+    );
+    try {
+      // --------- lock sempre liberado
+      // evitar travamento de pipeline e segurança em crash ou timeout
+      const result = await Promise.race([
+      exec(store, API_TOKEN),
+      timeout("exec")
+    ]);
+    return createResponse(result ?? { ok: false, error: "empty_result" });
+
+    } catch (err) {
+    return createResponse(
+      { ok: false, error: err.message },
+      500
+    );
+    } finally {
+      await releaseLock(store);
+    }
 };
 // FiM do MAIN export default async
-
-
 
 
 // ---------------- CRON ----------------
