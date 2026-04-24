@@ -9,7 +9,8 @@ export default async () => {
 
   const store = getStore({ name: "quotes-blobs" });
 
-  await store.set("tickers-list", ["BBDC4","IRFM11","PETR4"], { type: "json" });
+  await store.set("ticker-index", { value: 0 }, { type: "json" });
 
-  return new Response("✅ tickers-list salvo com sucesso");
+  const saved = await store.get("tickers-list", { type: "json" });
+  return new Response(JSON.stringify(saved));
 };
