@@ -3,7 +3,7 @@ import { getStore } from "@netlify/blobs";
 export default async () => {
   const store = getStore({ name: "quotes-blobs" });
 
-  await store.set("tickers-list", ["BBDC4","IRFM11","PETR4"], {
+  await store.set("tickers-list", ["BBDC4","IRFM11","VALE3"], {
     type: "json"
   });
 

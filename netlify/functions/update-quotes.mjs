@@ -55,38 +55,26 @@ const safeSet = async (store, key, value) => {
   }
 };
 
+
 const safeGet = async (store, key) => {
   try {
-    return await store.get(key, { type: "json" });
+    const raw = await store.get(key);
+    return raw ?? null;
   } catch {
-    try {
-      const raw = await store.get(key);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 };
 
+
+
 // ------- parser seguro = util para blindar a leitura do tickers-list
-const safeParseTickers = (data) => {
-  if (!data) return [];
+const safeParseTickers = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
 
-  // já veio correto
-  if (Array.isArray(data)) {
-    return data.filter(t => typeof t === "string");
+  if (typeof raw === "string") {
+    return raw.split(",").map(t => t.trim()).filter(Boolean);
   }
-
-  // veio string quebrada (caso do seu erro atual)
-  if (typeof data === "string") {
-    try {
-      return JSON.parse(data);
-    } catch {
-      // fallback ultra seguro (caso venha "BBDC4,IRFM11")
-      return data.split(",").map(t => t.trim()).filter(Boolean);
-    }
-  }
-
   return [];
 };
 
@@ -96,17 +84,13 @@ const getTickers = async (store) => {
   const data = await safeGet(store, "tickers-list");
   const tickers = safeParseTickers(data);
 
-  if (tickers.length === 0) {
-    if (data.length === 0) {
-      console.warn("⚠️ tickers-list vazia");
-      return ["BBDC4", "IRFM11"];   // fallback seguro
-    }
-  return data     // Evitar o risco de quebrar se vier lixo no storage
-    .filter(t => typeof t === "string")
-    .slice(0, 50);          // ✅ LIMITADOR
+  if (!tickers.length) {
+    console.warn("⚠️ tickers-list vazia - utilizando fallback inicial");
+    return ["BBDC4", "IRFM11"];   // fallback seguro
   }
-  return ["BBDC4", "IRFM11"];
+  return tickers.slice(0, 50);  // ✅ LIMITADOR
 };
+
 
 
 const createResponse = (body, status = 200) => {
