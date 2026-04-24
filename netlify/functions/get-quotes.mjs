@@ -82,12 +82,18 @@ export default async () => {
 
     // 2. LISTAGEM DOS BLOBS
     console.log("🔎 Listando tickers no Blobs...");
-    const list = await store.list({ prefix: "quote-" });
-    const validBlobs = list.blobs?.filter(b => !b.key.endsWith("-tmp")) || [];
+    const list = await store.list({ prefix: "snapshot-" });
+    const items = [];
+
+    const validBlobs = (list.blobs || list.items || []).filter(
+      b => b?.key && !b.key.endsWith("-tmp")
+    );
 
     if (validBlobs.length === 0) {
       console.warn("⚠️ Nenhum blob encontrado.");
-      return jsonResponse({ success: true, message: "NAO existem dados disponíveis", data: { etfs: [], acoes: [] }, meta: { empty: true } });
+      return jsonResponse({ success: true,
+        message: "NAO existem dados disponíveis",
+        data: { etfs: [], acoes: [] }, meta: { empty: true } });
     }
 
     console.log(`📦 Processando ${validBlobs.length} itens válidos`);
@@ -114,7 +120,14 @@ export default async () => {
       if (fallback?.data) {
           console.log("♻️ Usando snapshot fallback");
           // Reutiliza a lógica de separação para o fallback...
-          return jsonResponse({ /* ... dados do fallback ... */ });
+          /* ... dados do fallback ... */
+          return jsonResponse({
+            data: {
+              etfs: fallback.data.filter(i => i.symbol.endsWith("11")),
+              acoes: fallback.data.filter(i => !i.symbol.endsWith("11"))
+            },
+            meta: { fallback: true }
+          });
       }
     }
 

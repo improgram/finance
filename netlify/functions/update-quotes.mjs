@@ -47,25 +47,36 @@ const getGlobal429 = async (store) => {
 };
 
 
+// Padronizar 100% o storage
+// @netlify/blobs às vezes retorna objeto direto, e às vezes string
 const safeSet = async (store, key, value) => {
-  try {
-    return await store.set(key, value, { type: "json" });
-  } catch {
-    return await store.set(key, JSON.stringify(value));
-  }
+  return await store.set(key, JSON.stringify(value));
 };
 
 
+
 const safeGet = async (store, key) => {
-  try {
-    return await store.get(key, { type: "json" });
-  } catch {
-    const raw = await store.get(key);
+  const raw = await store.get(key);
+  if (!raw) return null;
+
+  // Buffer / Uint8Array → converter pra string
+  if (raw instanceof Uint8Array) {
     try {
-      return JSON.parse(raw);
+      return JSON.parse(new TextDecoder().decode(raw));
     } catch {
-      return raw;
+      return null;
     }
+  }
+
+  // Já é objeto válido
+  if (typeof raw === "object") return raw;
+
+  // String
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.warn("⚠️ JSON inválido no key:", key);
+    return null;
   }
 };
 
@@ -291,7 +302,7 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
 const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
-    const resYahoo = await fetchWithRetryYahoo(urlYahoo, store, symbol, 1 );  // retry leve p/ evitar timeout(1)
+    const resYahoo = await fetchWithRetryYahoo(urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
     if (!resYahoo || !resYahoo.ok) {
       console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
       return null;
@@ -410,9 +421,12 @@ const exec = async ( { store, apiToken, tickers } ) => {
       }
       // -------------------Falback = cache antigo = e atualiza updatedAt
       if (!data && cached) {
-        cached.updatedAt = Date.now();
-        await safeSet(store, cacheKey, cached);
+        data = cached;
+        source = "cache-old";
+        data.updatedAt = Date.now();
+        await safeSet(store, cacheKey, data);
       }
+
       // ------------ Fallback final absoluto-----------------
       if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
@@ -430,27 +444,17 @@ const exec = async ( { store, apiToken, tickers } ) => {
       };
 
       // ----- salva cache principal
-      await safeSet(store, cacheKey, payload);
+      await safeSet(store, `snapshot-${symbol}`, payload);
 
       // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
       // snapshot seguro = NÃO deve ler todos os blobs no cron
       // Evitar crescer linearmente no Netlify Free (timeout ~10s)
       // snapshot leve e por ticker
       // --- Antes do Salvamento: Snapshot vai agregar e não sobrescrever a cada execuçao
-      const snapshotKey = "last-valid-snapshot";
-
       // --- se vier string não parseável:  previous.data pode ser undefined
-      const previous = (await safeGet(store, snapshotKey)) || { data: [] };
-      const prevData = Array.isArray(previous.data) ? previous.data : [];
+      // --- Se safeGet retornar lixo → quebra depois.
+      // snapshot stateless por ticker: sem race condition
 
-      const updatedSnapshot = {
-        updatedAt: Date.now(),
-        data: [
-          ...prevData.filter(i => i.symbol !== payload.symbol),
-          payload
-        ]
-      };
-      await safeSet(store, snapshotKey, updatedSnapshot);
 
       // ------------- Retorno  ---------
       console.log("💾 salvo:", symbol);
