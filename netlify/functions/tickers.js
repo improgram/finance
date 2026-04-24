@@ -1,16 +1,18 @@
-import * as netlifyBlobs from "@netlify/blobs";
-
-const getStore = netlifyBlobs.getStore;
+import { getStore } from "@netlify/blobs";
 
 export default async () => {
   const store = getStore({ name: "quotes-blobs" });
+
+  await store.set("tickers-list", ["BBDC4","IRFM11","PETR4"], {
+    type: "json"
+  });
 
   const raw = await store.get("tickers-list");
 
   return new Response(JSON.stringify({
     raw,
     type: typeof raw
-  }));
+  }, null, 2));
 };
 
 
