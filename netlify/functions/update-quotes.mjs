@@ -80,13 +80,22 @@ const createResponse = (body, status = 200) => {
 
 const isMarketOpen = () => {
   const now = new Date();
-  const br = new Date(
-    now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
-  );
-  const day = br.getDay();
-  const minutes = br.getHours() * 60 + br.getMinutes();
-  if (day === 0 || day === 6) return false;
-  return minutes >= 600 && minutes <= 1135; // 10:00 - 18:55
+  const brTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    weekday: "short"
+  }).formatToParts(now);
+
+  const get = (type) => brTime.find(p => p.type === type)?.value;
+  const hour = Number(get("hour"));
+  const minute = Number(get("minute"));
+  const weekday = get("weekday"); // Mon, Tue...
+  const isWeekend = weekday === "Sat" || weekday === "Sun";
+  if (isWeekend) return false;
+  const minutes = hour * 60 + minute;
+  return minutes >= 600 && minutes <= 1135;
 };
 
 const getFormattedDateTime = () =>
@@ -139,17 +148,13 @@ const getVariation30d = (hist, currentPrice) => {
 const acquireLock = async (store) => {
   const now = Date.now();
   const existing = await safeGet(store, LOCK_KEY);
-
   if (existing && (now - existing.timestamp) < LOCK_TTL) {
     console.log("🔒 Execução já ativa");
     return null;
   }
-
   const lock = { timestamp: now };
   await safeSet(store, LOCK_KEY, lock);
-
   await sleep(200);
-
   return lock;
 };
 
@@ -259,9 +264,7 @@ const fetchYahoo = async (symbol, store) => {
       currency: meta.currency,
       source: "yahoo"
     };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 };
 
 // ---------------- BRAPI FALLBACK ----------------
@@ -289,11 +292,11 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------- EXEC: Leitura linear:  lock - exec - timeout - race
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
-const exec = async (store, API_TOKEN) => {
+const exec = async ( { store, apiToken, tickers } ) => {
     if (!isMarketOpen()) {
-      return { status: "skipped", reason: "Mercado Fechado" };
+      return { ok: false, reason: "Mercado Fechado" };
     }
-    const tickers = [ "BBDC4", "IRFM11" ];
+
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
         B5P211: { description: "NTN-B (inflação) Curto/Medio" },
@@ -305,9 +308,7 @@ const exec = async (store, API_TOKEN) => {
         "5PRE11": { description: "Pré-fixado" }
     };
     const symbol = await getNextTicker(store, tickers);
-    if (!symbol) {
-      return { ok: false, reason: "fila vazia" };
-    }
+    if (!symbol) { return { ok: false, reason: "fila vazia" }; }
 
       // ---------------- CACHE FIRST ----------------
       const cacheKey = `quote-${symbol}`;
@@ -331,11 +332,11 @@ const exec = async (store, API_TOKEN) => {
         const elapsed = Date.now() - global429;
         if (elapsed < COOLDOWN_429) {
           console.warn("⛔ cooldown global ativo");
-          return createResponse({
+          return {
             ok: true,
             symbol,
             source: "cooldown"
-          });
+          };
         }
       }
 
@@ -344,32 +345,20 @@ const exec = async (store, API_TOKEN) => {
       let source = null;
       try {
         data = await fetchYahoo(symbol, store);
-        if (data) {
-          source = "yahoo";
-        }
-      } catch (err) {
-        console.warn("⚠️ Yahoo erro:", err.message);
-      }
+        if (data) { source = "yahoo"; }
+      } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
       // -------------- Brapi terceiro -----------
       if (!data) {
         try {
-          data = await fetchBrapi(symbol, API_TOKEN, store);
-          if (data) {
-            source = "brapi";
-          }
-        } catch (err) {
-          console.warn("⚠️ BRAPI erro:", err.message);
-        }
+          data = await fetchBrapi(symbol, apiToken, store);
+          if (data) { source = "brapi"; }
+        } catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
       }
-
       // -------------------Falback cache antigo
       if (!data && cached) { data = cached; source = "cache-old"; }
-
       // ------------ Fallback final absoluto-----------------
-      if (!data) {
-        return { ok: false, reason: "Sem Dados" };
-      }
+      if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
       // -------------------- Payload--------------
       const payload = {
@@ -396,9 +385,7 @@ const exec = async (store, API_TOKEN) => {
       try {
         await safeSet(store, `snapshot-${symbol}`, payload);
         console.log("snapshot atualizado");
-      } catch (err) {
-          console.warn("⚠️ erro ao salvar snapshot:", err.message);
-      }
+      } catch (err) { console.warn("⚠️ erro ao salvar snapshot:", err.message); }
       return {
         ok: true,
         symbol,
@@ -413,14 +400,12 @@ const exec = async (store, API_TOKEN) => {
 
 export default async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
-  if (!API_TOKEN) {
-    return createResponse({ error: "Token ausente" }, 500);
-  }
+  if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
   const store = getStore({ name: STORE_NAME });
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
-
   const MAX_EXECUTION_TIME = 7000;
+  const tickers = [ "BBDC4", "IRFM11" ];
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
@@ -429,23 +414,22 @@ export default async () => {
         reject(new Error(`⏱ timeout em ${label} (${ms}ms)`));
       }, ms)
     );
-    try {
-      // --------- lock sempre liberado
-      // evitar travamento de pipeline e segurança em crash ou timeout
-      const result = await Promise.race([
-      exec(store, API_TOKEN),
-      timeout("exec")
-    ]);
-    return createResponse(result ?? { ok: false, error: "empty_result" });
 
-    } catch (err) {
-    return createResponse(
-      { ok: false, error: err.message },
-      500
-    );
-    } finally {
-      await releaseLock(store);
-    }
+    try { // deve conter apenas código que pode falhar
+          // --------- lock sempre liberado
+          // evitar travamento de pipeline e segurança em crash ou timeout
+      const result = await Promise.race([
+        exec({
+          store,
+          apiToken: API_TOKEN,
+          tickers
+        }),
+        timeout("exec")
+      ]);
+      return createResponse(result ?? { ok: false, error: "empty_result" });
+    } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
+    } finally { await releaseLock(store); }
+
 };
 // FiM do MAIN export default async
 
