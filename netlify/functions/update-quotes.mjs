@@ -68,13 +68,29 @@ const safeGet = async (store, key) => {
   }
 };
 
+// ---------helper para buscar tickers dinâmicos
+const getTickers = async (store) => {
+  const data = await safeGet(store, "tickers-list");
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) {
+      console.warn("⚠️ tickers-list vazia");
+      return ["BBDC4", "IRFM11"];   // fallback seguro
+    }
+  return data     // Evitar o risco de quebrar se vier lixo no storage
+    .filter(t => typeof t === "string")
+    .slice(0, 50);          // ✅ LIMITADOR
+  }
+  return ["BBDC4", "IRFM11"];
+};
+
+
 const createResponse = (body, status = 200) => {
   return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: { "Content-Type": "application/json" }
   });
 };
-
 
 // -------------------- Helpers Market --------------------
 
@@ -296,6 +312,10 @@ const exec = async ( { store, apiToken, tickers } ) => {
     if (!isMarketOpen()) {
       return { ok: false, reason: "Mercado Fechado" };
     }
+     if (!Array.isArray(tickers) || tickers.length === 0) {
+      console.warn("⚠️ tickers inválidos ou vazios");
+      return { ok: false, reason: "tickers inválidos" };
+    }
 
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
@@ -401,11 +421,14 @@ const exec = async ( { store, apiToken, tickers } ) => {
 export default async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
+
+  // Ordem de lock correta: garante consistência da leitura + fila
+  // Se alterada a ordem existe risco de janela para race condition
   const store = getStore({ name: STORE_NAME });
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
+  const tickers = await getTickers(store);
   const MAX_EXECUTION_TIME = 7000;
-  const tickers = [ "BBDC4", "IRFM11" ];
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
@@ -413,7 +436,7 @@ export default async () => {
       setTimeout(() => {
         reject(new Error(`⏱ timeout em ${label} (${ms}ms)`));
       }, ms)
-    );
+  );
 
     try { // deve conter apenas código que pode falhar
           // --------- lock sempre liberado
@@ -435,7 +458,7 @@ export default async () => {
 
 
 // ---------------- CRON ----------------
-// Cron: a cada 15 min,  12h-22h UTC (10h às 19h Brasília), (1-5) Seg a Sex
+// Cron: a cada 15 min,  12h-21h UTC (10h às 18h Brasília), (1-5) Seg a Sex
 export const config = {
   schedule: "*/15 12-21 * * 1-5"
 };
