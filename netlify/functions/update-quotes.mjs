@@ -68,11 +68,35 @@ const safeGet = async (store, key) => {
   }
 };
 
+// ------- parser seguro = util para blindar a leitura do tickers-list
+const safeParseTickers = (data) => {
+  if (!data) return [];
+
+  // já veio correto
+  if (Array.isArray(data)) {
+    return data.filter(t => typeof t === "string");
+  }
+
+  // veio string quebrada (caso do seu erro atual)
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data);
+    } catch {
+      // fallback ultra seguro (caso venha "BBDC4,IRFM11")
+      return data.split(",").map(t => t.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+
 // ---------helper para buscar tickers dinâmicos
 const getTickers = async (store) => {
   const data = await safeGet(store, "tickers-list");
+  const tickers = safeParseTickers(data);
 
-  if (Array.isArray(data)) {
+  if (tickers.length === 0) {
     if (data.length === 0) {
       console.warn("⚠️ tickers-list vazia");
       return ["BBDC4", "IRFM11"];   // fallback seguro
