@@ -58,10 +58,14 @@ const safeSet = async (store, key, value) => {
 
 const safeGet = async (store, key) => {
   try {
-    const raw = await store.get(key);
-    return raw ?? null;
+    return await store.get(key, { type: "json" });
   } catch {
-    return null;
+    const raw = await store.get(key);
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
   }
 };
 
@@ -115,9 +119,9 @@ const isMarketOpen = () => {
   const get = (type) => brTime.find(p => p.type === type)?.value;
   const hour = Number(get("hour"));
   const minute = Number(get("minute"));
-  const weekday = get("weekday"); // Mon, Tue...
-  const isWeekend = weekday === "Sat" || weekday === "Sun";
-  if (isWeekend) return false;
+  // weekday === "Sat" => Nao usar pois depende do locale "en-US".
+  const day = new Date().getDay();
+  if (day === 0 || day === 6) return false;
   const minutes = hour * 60 + minute;
   return minutes >= 600 && minutes <= 1135;
 };
@@ -198,14 +202,13 @@ const getNextTicker = async (store, list) => {
   const key = "ticker-index";
   const stored = await safeGet(store, key);
   let index = 0;
-  if (
-    stored &&
-    typeof stored.value === "number" &&
-    stored.value >= 0 &&
-    stored.value < list.length
-  ) {
-    index = stored.value;
+
+  // Se stored.value vier string "2" (muito comum em Blobs JSON): ELE IGNORA a fila e reseta para 0
+  const indexValue = Number(stored?.value);
+  if (!Number.isNaN(indexValue) && indexValue >= 0 && indexValue < list.length) {
+    index = indexValue;
   }
+
   const currentIndex = index;           // Evitar inconsistência de fila
   const nextIndex = (index + 1) % list.length;
   await safeSet(store, key, {
@@ -228,21 +231,41 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
 
 // ---------------- RETRY WRAPPERS (YAHOO / BRAPI) ----------------
 
-const fetchWithRetryYahoo = async (url, store, symbol, attempts = 1) => {
+const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
-    const resYahoo = await fetchWithTimeout(url, {}, 3000);
-    if (resYahoo?.status === 429) {
-      await setGlobal429(store);
-      console.warn(`🚨 429 Yahoo (${symbol}) tentativa ${i + 1}`);
-      if (i < attempts) {
-        await sleep((i + 1) * 500);
-        continue;
+    try {
+      const resYahoo = await fetchWithTimeout(url, {}, 3000);
+
+      // 1. Sucesso: Retorna a resposta imediatamente
+      if (resYahoo && resYahoo.ok) {
+        return resYahoo;
       }
+
+      // 2. Tratamento de Rate Limit (429)
+      if (resYahoo?.status === 429) {
+        await setGlobal429(store);
+        console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
+
+        // Espera antes da próxima tentativa (Backoff simples)
+        await sleep((i + 1) * 1000);
+        continue; // Pula para a próxima iteração do for
+      }
+
+      // 3. Outros erros (404, 500, etc)
+      console.error(`❌ Erro Yahoo: Status ${resYahoo?.status} em ${symbol}`);
+      // Aqui você decide se quer dar 'continue' para tentar de novo ou 'return null'
+      break;
+
+    } catch (error) {
+      console.error(`⚠️ Erro de rede/timeout na tentativa ${i + 1}:`, error);
     }
-    return resYahoo;
   }
+
+  // Se sair do loop sem retornar, significa que todas as tentativas falharam
+  console.log(`💀 Falha definitiva para ${symbol} após ${attempts} tentativas.`);
   return null;
 };
+
 
 
 const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
@@ -251,12 +274,12 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
     if (resBrapi?.status === 429) {
       await setGlobal429(store);
       console.warn(`🚨 BRAPI com erro 429 detectado (${symbol}) tentativa ${i + 1}`);
-      if (i < attempts) {
+      if (i < attempts - 1) {
         await sleep((i + 1) * 400);
         continue;
       }
     }
-    return resBrapi;
+    if (resBrapi?.ok) return resBrapi;
   }
   return null;
 };
@@ -303,7 +326,9 @@ const fetchBrapi = async (symbol, token, store ) => {
           jsonBrapi = await resBrapi.json();
         } catch {}
         console.warn("⚠️ BRAPI status:", resBrapi?.status);
-        return jsonBrapi?.results?.[0] || null;
+        const result = jsonBrapi?.results?.[0];
+        if (!result) return null;
+        return result;
     }
     return null;
   } catch (err) {
@@ -383,8 +408,11 @@ const exec = async ( { store, apiToken, tickers } ) => {
           if (data) { source = "brapi"; }
         } catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
       }
-      // -------------------Falback cache antigo
-      if (!data && cached) { data = cached; source = "cache-old"; }
+      // -------------------Falback = cache antigo = e atualiza updatedAt
+      if (!data && cached) {
+        cached.updatedAt = Date.now();
+        await safeSet(store, cacheKey, cached);
+      }
       // ------------ Fallback final absoluto-----------------
       if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
@@ -401,24 +429,37 @@ const exec = async ( { store, apiToken, tickers } ) => {
         logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`
       };
 
-      // ------------- Salvamento ---------
-
+      // ----- salva cache principal
       await safeSet(store, cacheKey, payload);
-      console.log("💾 salvo:", symbol);
 
       // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
       // snapshot seguro = NÃO deve ler todos os blobs no cron
       // Evitar crescer linearmente no Netlify Free (timeout ~10s)
       // snapshot leve e por ticker
-      try {
-        await safeSet(store, `snapshot-${symbol}`, payload);
-        console.log("snapshot atualizado");
-      } catch (err) { console.warn("⚠️ erro ao salvar snapshot:", err.message); }
+      // --- Antes do Salvamento: Snapshot vai agregar e não sobrescrever a cada execuçao
+      const snapshotKey = "last-valid-snapshot";
+
+      // --- se vier string não parseável:  previous.data pode ser undefined
+      const previous = (await safeGet(store, snapshotKey)) || { data: [] };
+      const prevData = Array.isArray(previous.data) ? previous.data : [];
+
+      const updatedSnapshot = {
+        updatedAt: Date.now(),
+        data: [
+          ...prevData.filter(i => i.symbol !== payload.symbol),
+          payload
+        ]
+      };
+      await safeSet(store, snapshotKey, updatedSnapshot);
+
+      // ------------- Retorno  ---------
+      console.log("💾 salvo:", symbol);
       return {
         ok: true,
         symbol,
         source
       };
+
 }
 //  FiM da const exec
 //  engloba toda a lógica principal até o último return createResponse
@@ -433,6 +474,7 @@ export default async () => {
   // Ordem de lock correta: garante consistência da leitura + fila
   // Se alterada a ordem existe risco de janela para race condition
   const store = getStore({ name: STORE_NAME });
+
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   const tickers = await getTickers(store);

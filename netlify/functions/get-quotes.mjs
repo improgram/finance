@@ -96,7 +96,7 @@ export default async () => {
 
     // 3. LOOP DE PROCESSAMENTO
     for (const blob of validBlobs) {
-      const raw = await store.get("tickers-list");
+      const raw = await store.get(blob.key);
       const item = normalizeItem(raw, blob.key);
 
       if (item) {
