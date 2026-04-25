@@ -10,6 +10,7 @@
 
 import { getStore } from "@netlify/blobs";
 
+// ---------
 const HEADERS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
@@ -26,124 +27,87 @@ const formatFullTime = (ts) => {
 const jsonResponse = (data, status = 200) =>
   new Response(JSON.stringify(data, null, 2), { status, headers: HEADERS });
 
-// --- LÓGICA DE NORMALIZAÇÃO (Com os seus logs de aviso) ---
-const normalizeItem = (raw, key) => {
-  try {
-    let item = typeof raw === "string" ? JSON.parse(raw) : raw;
 
-    if (!item || typeof item !== "object") {
-      console.warn(`⚠️ Item inválido (não é objeto): ${key}`);
+
+// ------------ LÓGICA DE NORMALIZAÇÃO  ---
+const safeParse = (raw) => {
+  if (!raw) return null;
+
+  if (raw instanceof Uint8Array) {
+    try {
+      raw = new TextDecoder().decode(raw);
+    } catch {
       return null;
     }
-    if (!item.symbol || typeof item.symbol !== "string") {
-      console.warn(`⚠️ Symbol inválido: ${key}`);
-      return null;
-    }
-
-    item.symbol = item.symbol.trim().toUpperCase();
-    const timeValida = Number(item.updatedAt || 0);
-
-    if (isNaN(timeValida) || timeValida <= 0) {
-      console.warn(`⚠️ updatedAt inválido: ${key}`);
-      return null;
-    }
-
-    // O Log de sucesso que você tinha no loop
-    console.log("🔎 ITEM LIDO:", { key, symbol: item.symbol, updatedAt: timeValida });
-
-    return { ...item, updatedAt: timeValida, collectedAtFull: formatFullTime(timeValida) };
-  } catch (e) {
-    console.warn(`⚠️ JSON inválido ou erro de processamento em ${key}`);
-    return null;
   }
+
+   if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  // aceitar objetos e evitar lixo
+  if (typeof raw === "object" && raw !== null) {
+    if ("data" in raw || "updatedAt" in raw) {
+      return raw;
+    }
+  }
+
+  return null;
 };
 
+
 // --- FUNÇÃO PRINCIPAL ---
+
 export default async () => {
-  console.log("📥 get-quotes chamado (SEQUENCIAL / SAFE)");
+  console.log("📥 get-quotes chamado");
+
   const store = getStore({ name: "quotes-blobs" });
-  let ultimaAtualizacaoGeral = 0;
 
   try {
-    // 1. TENTATIVA DE SNAPSHOT
-    const snapshot = await store.get("last-valid-snapshot", { type: "json" });
-    const safeData = snapshot?.data?.filter(i => i?.symbol) || [];
+    const rawSnapshot = await store.get("last-valid-snapshot");
+    const snapshot = safeParse(rawSnapshot);
 
-    if (safeData.length > 0) {
-      console.log("⚡ Snapshot carregado");
+    const safeData = Array.isArray(snapshot?.data)
+      ? snapshot.data.filter(i => typeof i?.symbol === "string")
+      : [];
+
+    if (safeData.length === 0) {
+      console.warn("⚠️ Snapshot vazio ou inexistente");
+
       return jsonResponse({
-        data: {
-          etfs: safeData.filter(i => i.symbol.endsWith("11")),
-          acoes: safeData.filter(i => !i.symbol.endsWith("11"))
-        },
-        meta: { snapshot: true, total: safeData.length, updatedAt: snapshot.updatedAt || 0, collectedAtFull: formatFullTime(snapshot.updatedAt) }
+        data: { etfs: [], acoes: [] },
+        meta: { empty: true }
       });
     }
 
-    // 2. LISTAGEM DOS BLOBS
-    console.log("🔎 Listando tickers no Blobs...");
-    const list = await store.list({ prefix: "snapshot-" });
-    const items = [];
+    const isETF = (s) => typeof s === "string" && s.endsWith("11");
+    const safeSort = (a, b) => (a?.symbol || "").localeCompare(b?.symbol || "");
 
-    const validBlobs = (list.blobs || list.items || []).filter(
-      b => b?.key && !b.key.endsWith("-tmp")
-    );
+    const etfs = safeData.filter(i => isETF(i.symbol));
+    const acoes = safeData.filter(i => !isETF(i.symbol));
 
-    if (validBlobs.length === 0) {
-      console.warn("⚠️ Nenhum blob encontrado.");
-      return jsonResponse({ success: true,
-        message: "NAO existem dados disponíveis",
-        data: { etfs: [], acoes: [] }, meta: { empty: true } });
-    }
-
-    console.log(`📦 Processando ${validBlobs.length} itens válidos`);
-    const etfs = [];
-    const acoes = [];
-
-    // 3. LOOP DE PROCESSAMENTO
-    for (const blob of validBlobs) {
-      const raw = await store.get(blob.key);
-      const item = normalizeItem(raw, blob.key);
-
-      if (item) {
-        if (item.updatedAt > ultimaAtualizacaoGeral) ultimaAtualizacaoGeral = item.updatedAt;
-        item.symbol.endsWith("11") ? etfs.push(item) : acoes.push(item);
-      }
-    }
-
-    console.log(`✅ ETFS: ${etfs.length} | Ações: ${acoes.length}`);
-
-    // 4. FALLBACK CASO O LOOP RESULTE EM VAZIO
-    if (etfs.length === 0 && acoes.length === 0) {
-      console.warn("⚠️ Nenhum dado válido após processamento, tentando fallback...");
-      const fallback = await store.get("last-valid-snapshot", { type: "json" });
-      if (fallback?.data) {
-          console.log("♻️ Usando snapshot fallback");
-          // Reutiliza a lógica de separação para o fallback...
-          /* ... dados do fallback ... */
-          return jsonResponse({
-            data: {
-              etfs: fallback.data.filter(i => i.symbol.endsWith("11")),
-              acoes: fallback.data.filter(i => !i.symbol.endsWith("11"))
-            },
-            meta: { fallback: true }
-          });
-      }
-    }
+    etfs.sort(safeSort);
+    acoes.sort(safeSort);
+    const updatedAt = snapshot?.updatedAt || 0;
 
     return jsonResponse({
-      data: {
-        etfs: etfs.sort((a, b) => a.symbol.localeCompare(b.symbol)),
-        acoes: acoes.sort((a, b) => a.symbol.localeCompare(b.symbol))
-      },
-      meta: { total: etfs.length + acoes.length, updatedAt: ultimaAtualizacaoGeral, collectedAtFull: formatFullTime(ultimaAtualizacaoGeral) }
+      data: { etfs, acoes },
+      meta: {
+        total: safeData.length,
+        updatedAt,
+        collectedAtFull: formatFullTime(updatedAt)
+      }
     });
 
   } catch (err) {
     console.error("❌ Erro no get-quotes:", err);
+
     return jsonResponse({
       data: { etfs: [], acoes: [] },
-      meta: { error: true, collectedAtFull: formatFullTime(ultimaAtualizacaoGeral) }
+      meta: { error: true }
     }, 500);
   }
 };

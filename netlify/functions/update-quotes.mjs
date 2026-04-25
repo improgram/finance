@@ -54,12 +54,12 @@ const safeSet = async (store, key, value) => {
 };
 
 
-
+// -------Blindar leitura
 const safeGet = async (store, key) => {
   const raw = await store.get(key);
   if (!raw) return null;
 
-  // Buffer / Uint8Array → converter pra string
+  // Uint8Array → string
   if (raw instanceof Uint8Array) {
     try {
       return JSON.parse(new TextDecoder().decode(raw));
@@ -68,16 +68,19 @@ const safeGet = async (store, key) => {
     }
   }
 
-  // Já é objeto válido
+  // objeto já válido
   if (typeof raw === "object") return raw;
-
-  // String
-  try {
-    return JSON.parse(raw);
-  } catch {
-    console.warn("⚠️ JSON inválido no key:", key);
-    return null;
+  // string
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // 🔥 aqui está o fix real
+      // se não for JSON, tenta usar como valor simples
+      return { value: raw };
+    }
   }
+  return null;
 };
 
 
@@ -215,7 +218,7 @@ const getNextTicker = async (store, list) => {
   let index = 0;
 
   // Se stored.value vier string "2" (muito comum em Blobs JSON): ELE IGNORA a fila e reseta para 0
-  const indexValue = Number(stored?.value);
+  const indexValue = Number(stored?.value ?? stored);
   if (!Number.isNaN(indexValue) && indexValue >= 0 && indexValue < list.length) {
     index = indexValue;
   }
@@ -353,9 +356,12 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 const exec = async ( { store, apiToken, tickers } ) => {
+  /* Teste temporario no mercado fechado
     if (!isMarketOpen()) {
       return { ok: false, reason: "Mercado Fechado" };
     }
+  */
+
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
       return { ok: false, reason: "tickers inválidos" };
@@ -403,8 +409,12 @@ const exec = async ( { store, apiToken, tickers } ) => {
           };
         }
       }
+      
+      await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+
 
       // ----------- Yahoo segundo ------------
+
       let data = null;
       let source = null;
       try {
@@ -456,6 +466,31 @@ const exec = async ( { store, apiToken, tickers } ) => {
       // snapshot stateless por ticker: sem race condition
 
 
+      // --- momento seguro para consolidar estado pois ja existe payload , symbol e dados ja normalizados
+      // --- Salvar snapshot
+      const SNAP_KEY = "last-valid-snapshot";
+      try {
+        const prev = await safeGet(store, SNAP_KEY);
+        let newSnapshot = [];
+        if (Array.isArray(prev?.data)) {
+          const map = new Map(prev.data.map(i => [i.symbol, i]));
+
+          // substitui ou adiciona o ticker atual
+          map.set(symbol, payload);
+          newSnapshot = Array.from(map.values());
+        } else {
+          // primeiro snapshot da vida
+          newSnapshot = [payload];
+        }
+        await safeSet(store, SNAP_KEY, {
+          data: newSnapshot,
+          updatedAt: Date.now()
+        });
+        console.log("🧠 snapshot atualizado:", symbol);
+      } catch (err) {
+        console.warn("⚠️ erro ao atualizar snapshot:", err.message);
+      }
+
       // ------------- Retorno  ---------
       console.log("💾 salvo:", symbol);
       return {
@@ -482,7 +517,7 @@ export default async () => {
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   const tickers = await getTickers(store);
-  const MAX_EXECUTION_TIME = 7000;
+  const MAX_EXECUTION_TIME = 6500;
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>

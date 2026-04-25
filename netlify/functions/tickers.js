@@ -1,3 +1,4 @@
+/*
 import { getStore } from "@netlify/blobs";
 
 export default async () => {
@@ -14,7 +15,7 @@ export default async () => {
     type: typeof raw
   }, null, 2));
 };
-
+*/
 
 
 
