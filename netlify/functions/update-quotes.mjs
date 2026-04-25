@@ -231,14 +231,18 @@ const releaseLock = async (store) => {
 // ---------------- FILA (SEM LOCK) ----------------
 const getNextTicker = async (store, list) => {
   const key = "ticker-index";
-  const stored = await safeGet(store, key) || { value: 0 };
+  const stored = await safeGet(store, key);
+  const indexValue = Number(
+    typeof stored === "object"
+      ? stored.value
+      : stored
+  );
   let index = 0;
 
-  // Se stored.value vier string "2" (muito comum em Blobs JSON): ELE IGNORA a fila e reseta para 0
-  const indexValue = Number(stored?.value ?? stored);
-  if (!Number.isNaN(indexValue) && indexValue >= 0 && indexValue < list.length) {
-    index = indexValue;
-  }
+  // guard write
+  if (!list.length) return null;
+
+  if (Number.isNaN(indexValue)) indexValue = 0;
 
   const currentIndex = index;           // Evitar inconsistência de fila
   const nextIndex = (index + 1) % list.length;
