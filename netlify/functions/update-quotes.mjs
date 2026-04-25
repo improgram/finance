@@ -54,7 +54,6 @@ const safeSet = async (store, key, value) => {
   return await store.set(key, JSON.stringify(value));
 };
 
-
 // -------Blindar leitura
 const safeGet = async (store, key) => {
   const raw = await store.get(key);
@@ -70,7 +69,6 @@ const safeGet = async (store, key) => {
   }
 
   // objeto já válido
-
   if (typeof raw === "object" && raw !== null) { return raw; }
   // string
   if (typeof raw === "string") {
@@ -83,6 +81,20 @@ const safeGet = async (store, key) => {
     }
   }
   return null;
+};
+
+
+//-- Evitar tickers-list com vazio
+const updateTickersList = async (store, tickers) => {
+  if (!Array.isArray(tickers) || tickers.length === 0) {
+    throw new Error("🚨 tentativa de salvar tickers-list vazia");
+  }
+  const clean = [...new Set(tickers.map(t => t.trim()).filter(Boolean))];
+  if (!clean.length) {
+    throw new Error("🚨 tickers-list inválida após limpeza");
+  }
+  await safeSet(store, "tickers-list", clean);
+  console.log("📦 tickers-list atualizada:", clean.length);
 };
 
 
@@ -103,13 +115,15 @@ const safeParseTickers = (raw) => {
 // --------- busca no Blobs - já faz parse - já trata fallback
 const getTickers = async (store) => {
   const data = await safeGet(store, "tickers-list");
-  const tickers = safeParseTickers(data);
+  console.log("📦 tickers raw:", data);
+  const raw = data?.value ?? data;
+  const tickers = safeParseTickers(raw);
 
   if (!tickers.length) {
-    console.warn("⚠️ tickers-list vazia - utilizando fallback inicial");
+    console.warn("⚠️ tickers-list vazia no Blobs - utilizando fallback seguro");
     return ["BBDC4", "IRFM11"];   // fallback seguro
   }
-  return tickersHelper.slice(0, MAX_ITEMS);  // ✅ LIMITADOR
+   return [...new Set(tickers)].slice(0, MAX_ITEMS);  // ✅ LIMITADOR
 };
 
 
