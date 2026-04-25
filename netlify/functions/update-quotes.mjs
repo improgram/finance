@@ -29,6 +29,7 @@ const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
 const CACHE_TTL = 5 * 60 * 1000;
+const MAX_ITEMS = 50;
 
 // ---------------- HELPERS ----------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -69,7 +70,8 @@ const safeGet = async (store, key) => {
   }
 
   // objeto já válido
-  if (typeof raw === "object") return raw;
+
+  if (typeof raw === "object" && raw !== null) { return raw; }
   // string
   if (typeof raw === "string") {
     try {
@@ -97,7 +99,8 @@ const safeParseTickers = (raw) => {
 };
 
 
-// ---------helper para buscar tickers dinâmicos
+// --------- helper para buscar tickers dinâmicos
+// --------- busca no Blobs - já faz parse - já trata fallback
 const getTickers = async (store) => {
   const data = await safeGet(store, "tickers-list");
   const tickers = safeParseTickers(data);
@@ -106,7 +109,7 @@ const getTickers = async (store) => {
     console.warn("⚠️ tickers-list vazia - utilizando fallback inicial");
     return ["BBDC4", "IRFM11"];   // fallback seguro
   }
-  return tickers.slice(0, 50);  // ✅ LIMITADOR
+  return tickersHelper.slice(0, MAX_ITEMS);  // ✅ LIMITADOR
 };
 
 
@@ -214,7 +217,7 @@ const releaseLock = async (store) => {
 // ---------------- FILA (SEM LOCK) ----------------
 const getNextTicker = async (store, list) => {
   const key = "ticker-index";
-  const stored = await safeGet(store, key);
+  const stored = await safeGet(store, key) || { value: 0 };
   let index = 0;
 
   // Se stored.value vier string "2" (muito comum em Blobs JSON): ELE IGNORA a fila e reseta para 0
@@ -409,9 +412,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
           };
         }
       }
-      
       await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
-
 
       // ----------- Yahoo segundo ------------
 
@@ -474,10 +475,11 @@ const exec = async ( { store, apiToken, tickers } ) => {
         let newSnapshot = [];
         if (Array.isArray(prev?.data)) {
           const map = new Map(prev.data.map(i => [i.symbol, i]));
-
           // substitui ou adiciona o ticker atual
           map.set(symbol, payload);
-          newSnapshot = Array.from(map.values());
+          newSnapshot = Array.from(map.values())
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .slice(0, MAX_ITEMS);
         } else {
           // primeiro snapshot da vida
           newSnapshot = [payload];
@@ -513,10 +515,10 @@ export default async () => {
   // Ordem de lock correta: garante consistência da leitura + fila
   // Se alterada a ordem existe risco de janela para race condition
   const store = getStore({ name: STORE_NAME });
+  const tickers = await getTickers(store);
 
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
-  const tickers = await getTickers(store);
   const MAX_EXECUTION_TIME = 6500;
 
   //   --------------             -------------
