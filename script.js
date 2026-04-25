@@ -137,10 +137,10 @@ const renderAcoes = (data) => {
                 <td>
                     <img src="${logoUrl}"
                     style="object-fit:contain; border-radius: 4px;"
-                    onerror="this.onerror=null;this.src='https://via.placeholder.com/24?text=${acao.symbol[0]}';"
+                    onerror="this.onerror=null;this.src='https://via.placeholder.com/24?text=${acao.symbol || 'X'}';"
                     alt="logo">
                 </td>
-                <td><strong>${acao.symbol ? acao.symbol[0] : 'N/A'}</strong></td>
+                <td><strong>${acao.symbol || 'N/A'}</strong></td>
                 <td>${acao.longName}</td>
                 <td class="price">R$ ${formatPrice(acao.regularMarketPrice)}</td>
                 <td class="${variacao !== null ? aplicarCor(variacao) : ''}">

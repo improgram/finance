@@ -98,36 +98,61 @@ const updateTickersList = async (store, tickers) => {
 };
 
 
-
 // ------- parser seguro = util para blindar a leitura do tickers-list
 const safeParseTickers = (raw) => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
-
   if (typeof raw === "string") {
     return raw.split(",").map(t => t.trim()).filter(Boolean);
+  }
+  if (typeof raw === "object") {
+    if (Array.isArray(raw.value)) return raw.value;
+    if (typeof raw.value === "string") {
+      return raw.value.split(",").map(t => t.trim()).filter(Boolean);
+    }
   }
   return [];
 };
 
 
+// -- LIMPEZA NO BOOT
+
+const normalizeTickersOnBoot = async (store, raw) => {
+  const list = sanitizeTickers(safeParseTickers(raw));
+  if (!list.length) return [];
+  await safeSet(store, "tickers-list", list);
+  console.log("🧼 boot cleanup aplicado:", list);
+  return list;
+};
+
 // --------- helper para buscar tickers dinâmicos
 // --------- busca no Blobs - já faz parse - já trata fallback
+
 const getTickers = async (store) => {
   const data = await safeGet(store, "tickers-list");
   console.log("📦 tickers raw:", data);
-  const raw = data?.value ?? data;
-  const tickers = safeParseTickers(raw);
-
-  if (!tickers.length) {
-    console.warn("⚠️ tickers-list vazia no Blobs - utilizando fallback seguro");
-    return ["BBDC4", "IRFM11"];   // fallback seguro
+  const raw =
+    Array.isArray(data)
+      ? data
+      : data?.value ?? data;
+  const tickers = sanitizeTickers(safeParseTickers(raw));
+  // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
+  if (Array.isArray(raw)) {
+    const cleaned = sanitizeTickers(raw);
+    // sobrescreve o storage com versão limpa automaticamente
+    await safeSet(store, "tickers-list", cleaned);
+    console.log("🧼 tickers sanitizados no boot:", cleaned);
   }
-   return [...new Set(tickers)].slice(0, MAX_ITEMS);  // ✅ LIMITADOR
+  if (!tickers.length) {
+    console.warn("⚠️ tickers vazia → fallback seguro");
+    return ["BBDC4", "IRFM11"];
+  }
+  return tickers.slice(0, MAX_ITEMS);
 };
 
 
 
+// ------
 const createResponse = (body, status = 200) => {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -229,29 +254,20 @@ const releaseLock = async (store) => {
 };
 
 // ---------------- FILA (SEM LOCK) ----------------
+
 const getNextTicker = async (store, list) => {
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  const indexValue = Number(
-    typeof stored === "object"
-      ? stored.value
-      : stored
-  );
-  let index = 0;
-
-  // guard write
-  if (!list.length) return null;
-
-  if (Number.isNaN(indexValue)) indexValue = 0;
-
-  const currentIndex = index;           // Evitar inconsistência de fila
-  const nextIndex = (index + 1) % list.length;
+  let index = Number(stored?.value);
+  if (!Number.isFinite(index)) index = 0;
+  const next = (index + 1) % list.length;
   await safeSet(store, key, {
-    value: nextIndex,
+    value: next,
     updatedAt: Date.now()
   });
-  return list[currentIndex];
+  return list[index % list.length];
 };
+
 
 // ---------------- FETCH ----------------
 const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
