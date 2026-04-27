@@ -123,35 +123,29 @@ const safeSet = async (store, key, value) => {
 };
 
 
-// -------Blindar leitura
+// -------Blindar leitura = evitar retorno do objeto invalido
 const safeGet = async (store, key) => {
   const raw = await store.get(key);
   if (!raw) return null;
-
-  // Uint8Array → string
+  let parsed = null;
   if (raw instanceof Uint8Array) {
     try {
-      return JSON.parse(new TextDecoder().decode(raw));
+      parsed = JSON.parse(new TextDecoder().decode(raw));
     } catch {
       return null;
     }
-  }
-
-  // objeto já válido
-  if (typeof raw === "object" && raw !== null) { return raw; }
-
-  // string = Evitar que value virar algo inesperado (tipo número ou null)
-  if (typeof raw === "string") {
+  } else if (typeof raw === "string") {
     try {
-      return JSON.parse(raw);
+      parsed = JSON.parse(raw);
     } catch {
-      // 🔥 aqui está o fix real
-      // se não for JSON, tenta usar como valor simples
       return { value: String(raw) };
     }
+  } else if (typeof raw === "object") {
+    parsed = raw;
   }
 
-  return null;
+  // 🔥 GARANTE OBJETO SEMPRE
+  return (parsed && typeof parsed === "object") ? parsed : { value: parsed };
 };
 
 
@@ -222,10 +216,10 @@ const getTickers = async (store) => {
   // Cria automaticamente o tickers-list se não existir
   if (!tickers.length) {
     console.warn("⚠️ tickers vazia → inicializando padrão");
-    const fallback = ["BBDC4", "IRFM11"];
+    const fallback = sanitizeTickers( ["BBDC4", "IRFM11"] );
     // 🔥 bootstrap automático (uma única vez na prática)
     await safeSet(store, "tickers-list", fallback);
-    return fallback;
+    return fallback.slice(0, MAX_ITEMS);
   }
 
   return tickers.slice(0, MAX_ITEMS);
@@ -277,11 +271,18 @@ const getNextTicker = async (store, list) => {
 
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  let index = Number(stored?.value ?? 0);
+  let index = Number(stored?.value);
+  if (!Number.isFinite(index)) index = 0;
 
   // evitar crescimento inútil do índice
   const currentIndex = index % list.length;
   const nextIndex = (index + 1) % list.length;
+
+  console.log("📍 index atual:", index, "| current:", currentIndex, "| next:", nextIndex);
+  // Sequencia correta:
+  // index atual: 0 | current: 0 | next: 1
+  // index atual: 1 | current: 1 | next: 0
+  // index atual: 0 | current: 0 | next: 1
 
   await safeSet(store, key, {
     value: nextIndex,
@@ -441,7 +442,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
     if (!symbol) { return { ok: false, reason: "fila vazia" }; }
 
       // ---------------- CACHE FIRST ----------------
-      const cacheKey = `quote-${symbol}`;
+      const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
 
       // ⚡ cache válido (saída imediata)
