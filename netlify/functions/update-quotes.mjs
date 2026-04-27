@@ -139,16 +139,18 @@ const safeGet = async (store, key) => {
 
   // objeto já válido
   if (typeof raw === "object" && raw !== null) { return raw; }
-  // string
+
+  // string = Evitar que value virar algo inesperado (tipo número ou null)
   if (typeof raw === "string") {
     try {
       return JSON.parse(raw);
     } catch {
       // 🔥 aqui está o fix real
       // se não for JSON, tenta usar como valor simples
-      return { value: raw };
+      return { value: String(raw) };
     }
   }
+
   return null;
 };
 
@@ -185,7 +187,6 @@ const safeParseTickers = (raw) => {
 };
 
 
-
 // -- LIMPEZA NO BOOT
 
 const sanitizeTickers = (list) => {
@@ -197,17 +198,6 @@ const sanitizeTickers = (list) => {
 };
 
 
-
-/*
-const normalizeTickersOnBoot = async (store, raw) => {
-  const list = sanitizeTickers(safeParseTickers(raw));
-  if (!list.length) return [];
-  await safeSet(store, "tickers-list", list);
-  console.log("🧼 boot cleanup aplicado:", list);
-  return list;
-};
-*/
-
 // --- Helper para buscar tickers dinâmicos no Blobs - já faz parse e trata fallback
 
 const getTickers = async (store) => {
@@ -218,17 +208,26 @@ const getTickers = async (store) => {
       ? data
       : data?.value ?? data;
   const tickers = sanitizeTickers(safeParseTickers(raw));
+
   // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
   if (Array.isArray(raw)) {
     const cleaned = sanitizeTickers(raw);
-    // sobrescreve o storage com versão limpa automaticamente
-    await safeSet(store, "tickers-list", cleaned);
-    console.log("🧼 tickers sanitizados no boot:", cleaned);
+    // sobrescreve o storage com versão limpa automaticamente = Evitar regravar sempre no boot
+    if (JSON.stringify(cleaned) !== JSON.stringify(raw)) {
+      await safeSet(store, "tickers-list", cleaned);
+      console.log("🧼 tickers sanitizados no boot:", cleaned);
+    }
   }
+
+  // Cria automaticamente o tickers-list se não existir
   if (!tickers.length) {
-    console.warn("⚠️ tickers vazia → fallback seguro");
-    return ["BBDC4", "IRFM11"];
+    console.warn("⚠️ tickers vazia → inicializando padrão");
+    const fallback = ["BBDC4", "IRFM11"];
+    // 🔥 bootstrap automático (uma única vez na prática)
+    await safeSet(store, "tickers-list", fallback);
+    return fallback;
   }
+
   return tickers.slice(0, MAX_ITEMS);
 };
 
@@ -280,10 +279,12 @@ const getNextTicker = async (store, list) => {
   const stored = await safeGet(store, key);
   let index = Number(stored?.value ?? 0);
 
+  // evitar crescimento inútil do índice
   const currentIndex = index % list.length;
+  const nextIndex = (index + 1) % list.length;
 
   await safeSet(store, key, {
-    value: currentIndex + 1,
+    value: nextIndex,
     updatedAt: Date.now()
   });
 
@@ -486,11 +487,13 @@ const exec = async ( { store, apiToken, tickers } ) => {
           if (data) { source = "brapi"; }
         } catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
       }
-      // -------------------Falback = cache antigo = e atualiza updatedAt
+      // Falback = cache antigo = e atualiza updatedAt = Evitar side-effect silencioso
       if (!data && cached) {
-        data = cached;
+        data = {
+          ...cached,
+          updatedAt: Date.now()
+        };
         source = "cache-old";
-        data.updatedAt = Date.now();
         await safeSet(store, cacheKey, data);
       }
 
