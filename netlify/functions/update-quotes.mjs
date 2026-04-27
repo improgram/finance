@@ -31,134 +31,6 @@ const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pi
 const CACHE_TTL = 5 * 60 * 1000;
 const MAX_ITEMS = 50;
 
-// ---------------- HELPERS ----------------
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-
-const setGlobal429 = async (store) => {
-  const now = Date.now();
-  await safeSet(store, RATE_LIMIT_KEY, {
-    timestamp: now
-  });
-};
-
-const getGlobal429 = async (store) => {
-  const data = await safeGet(store, RATE_LIMIT_KEY);
-  return data?.timestamp || 0;
-};
-
-
-// Padronizar 100% o storage
-// @netlify/blobs às vezes retorna objeto direto, e às vezes string
-const safeSet = async (store, key, value) => {
-  return await store.set(key, JSON.stringify(value));
-};
-
-// -------Blindar leitura
-const safeGet = async (store, key) => {
-  const raw = await store.get(key);
-  if (!raw) return null;
-
-  // Uint8Array → string
-  if (raw instanceof Uint8Array) {
-    try {
-      return JSON.parse(new TextDecoder().decode(raw));
-    } catch {
-      return null;
-    }
-  }
-
-  // objeto já válido
-  if (typeof raw === "object" && raw !== null) { return raw; }
-  // string
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      // 🔥 aqui está o fix real
-      // se não for JSON, tenta usar como valor simples
-      return { value: raw };
-    }
-  }
-  return null;
-};
-
-
-//-- Evitar tickers-list com vazio
-const updateTickersList = async (store, tickers) => {
-  if (!Array.isArray(tickers) || tickers.length === 0) {
-    throw new Error("🚨 tentativa de salvar tickers-list vazia");
-  }
-  const clean = [...new Set(tickers.map(t => t.trim()).filter(Boolean))];
-  if (!clean.length) {
-    throw new Error("🚨 tickers-list inválida após limpeza");
-  }
-  await safeSet(store, "tickers-list", clean);
-  console.log("📦 tickers-list atualizada:", clean.length);
-};
-
-
-// ------- parser seguro = util para blindar a leitura do tickers-list
-const safeParseTickers = (raw) => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string") {
-    return raw.split(",").map(t => t.trim()).filter(Boolean);
-  }
-  if (typeof raw === "object") {
-    if (Array.isArray(raw.value)) return raw.value;
-    if (typeof raw.value === "string") {
-      return raw.value.split(",").map(t => t.trim()).filter(Boolean);
-    }
-  }
-  return [];
-};
-
-
-// -- LIMPEZA NO BOOT
-
-const normalizeTickersOnBoot = async (store, raw) => {
-  const list = sanitizeTickers(safeParseTickers(raw));
-  if (!list.length) return [];
-  await safeSet(store, "tickers-list", list);
-  console.log("🧼 boot cleanup aplicado:", list);
-  return list;
-};
-
-// --------- helper para buscar tickers dinâmicos
-// --------- busca no Blobs - já faz parse - já trata fallback
-
-const getTickers = async (store) => {
-  const data = await safeGet(store, "tickers-list");
-  console.log("📦 tickers raw:", data);
-  const raw =
-    Array.isArray(data)
-      ? data
-      : data?.value ?? data;
-  const tickers = sanitizeTickers(safeParseTickers(raw));
-  // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
-  if (Array.isArray(raw)) {
-    const cleaned = sanitizeTickers(raw);
-    // sobrescreve o storage com versão limpa automaticamente
-    await safeSet(store, "tickers-list", cleaned);
-    console.log("🧼 tickers sanitizados no boot:", cleaned);
-  }
-  if (!tickers.length) {
-    console.warn("⚠️ tickers vazia → fallback seguro");
-    return ["BBDC4", "IRFM11"];
-  }
-  return tickers.slice(0, MAX_ITEMS);
-};
-
-
-
-// ------
-const createResponse = (body, status = 200) => {
-  return new Response(JSON.stringify(body, null, 2), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  });
-};
 
 // -------------------- Helpers Market --------------------
 
@@ -228,6 +100,148 @@ const getVariation30d = (hist, currentPrice) => {
 };
 
 
+
+// ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const setGlobal429 = async (store) => {
+  const now = Date.now();
+  await safeSet(store, RATE_LIMIT_KEY, {
+    timestamp: now
+  });
+};
+
+const getGlobal429 = async (store) => {
+  const data = await safeGet(store, RATE_LIMIT_KEY);
+  return data?.timestamp || 0;
+};
+
+
+// Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
+const safeSet = async (store, key, value) => {
+  return await store.set(key, JSON.stringify(value));
+};
+
+
+// -------Blindar leitura
+const safeGet = async (store, key) => {
+  const raw = await store.get(key);
+  if (!raw) return null;
+
+  // Uint8Array → string
+  if (raw instanceof Uint8Array) {
+    try {
+      return JSON.parse(new TextDecoder().decode(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  // objeto já válido
+  if (typeof raw === "object" && raw !== null) { return raw; }
+  // string
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // 🔥 aqui está o fix real
+      // se não for JSON, tenta usar como valor simples
+      return { value: raw };
+    }
+  }
+  return null;
+};
+
+
+//-- Evitar tickers-list vazio
+const updateTickersList = async (store, tickers) => {
+  if (!Array.isArray(tickers) || tickers.length === 0) {
+    throw new Error("🚨 tentativa de salvar tickers-list vazia");
+  }
+  const clean = [...new Set(tickers.map(t => t.trim()).filter(Boolean))];
+  if (!clean.length) {
+    throw new Error("🚨 tickers-list inválida após limpeza");
+  }
+  await safeSet(store, "tickers-list", clean);
+  console.log("📦 tickers-list atualizada:", clean.length);
+};
+
+
+// ------- parser seguro = util para blindar a leitura do tickers-list
+// ------- normalizar tickers SEM exceção
+const safeParseTickers = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    return raw.split(",").map(t => t.trim()).filter(Boolean);
+  }
+  if (typeof raw === "object") {
+    if (Array.isArray(raw.value)) return raw.value;
+    if (typeof raw.value === "string") {
+      return raw.value.split(",").map(t => t.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+
+
+// -- LIMPEZA NO BOOT
+
+const sanitizeTickers = (list) => {
+  if (!Array.isArray(list)) return [];
+
+  return [...new Set(list)]
+    .map(t => String(t).trim().toUpperCase())
+    .filter(t => /^[A-Z0-9]+$/.test(t));
+};
+
+
+
+/*
+const normalizeTickersOnBoot = async (store, raw) => {
+  const list = sanitizeTickers(safeParseTickers(raw));
+  if (!list.length) return [];
+  await safeSet(store, "tickers-list", list);
+  console.log("🧼 boot cleanup aplicado:", list);
+  return list;
+};
+*/
+
+// --- Helper para buscar tickers dinâmicos no Blobs - já faz parse e trata fallback
+
+const getTickers = async (store) => {
+  const data = await safeGet(store, "tickers-list");
+  console.log("📦 tickers raw:", data);
+  const raw =
+    Array.isArray(data)
+      ? data
+      : data?.value ?? data;
+  const tickers = sanitizeTickers(safeParseTickers(raw));
+  // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
+  if (Array.isArray(raw)) {
+    const cleaned = sanitizeTickers(raw);
+    // sobrescreve o storage com versão limpa automaticamente
+    await safeSet(store, "tickers-list", cleaned);
+    console.log("🧼 tickers sanitizados no boot:", cleaned);
+  }
+  if (!tickers.length) {
+    console.warn("⚠️ tickers vazia → fallback seguro");
+    return ["BBDC4", "IRFM11"];
+  }
+  return tickers.slice(0, MAX_ITEMS);
+};
+
+
+// ------
+const createResponse = (body, status = 200) => {
+  return new Response(JSON.stringify(body, null, 2), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
+
 // ---------------- LOCK GLOBAL ----------------
 const acquireLock = async (store) => {
   const now = Date.now();
@@ -254,18 +268,26 @@ const releaseLock = async (store) => {
 };
 
 // ---------------- FILA (SEM LOCK) ----------------
-
+// eliminar escrita concorrente do ticker-index e sem race condition real
+// BUG LÓGICO (divisão por zero) corrigido
 const getNextTicker = async (store, list) => {
+  if (!Array.isArray(list) || list.length === 0) {
+    console.warn("⚠️ getNextTicker recebeu lista vazia");
+    return null;
+  }
+
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  let index = Number(stored?.value);
-  if (!Number.isFinite(index)) index = 0;
-  const next = (index + 1) % list.length;
+  let index = Number(stored?.value ?? 0);
+
+  const currentIndex = index % list.length;
+
   await safeSet(store, key, {
-    value: next,
+    value: currentIndex + 1,
     updatedAt: Date.now()
   });
-  return list[index % list.length];
+
+  return list[currentIndex];
 };
 
 
