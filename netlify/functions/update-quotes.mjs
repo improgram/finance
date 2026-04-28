@@ -34,26 +34,6 @@ const MAX_ITEMS = 50;
 
 // -------------------- Helpers Market --------------------
 
-const isMarketOpen = () => {
-  const now = new Date();
-  const brTime = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    weekday: "short"
-  }).formatToParts(now);
-
-  const get = (type) => brTime.find(p => p.type === type)?.value;
-  const hour = Number(get("hour"));
-  const minute = Number(get("minute"));
-  // weekday === "Sat" => Nao usar pois depende do locale "en-US".
-  const day = new Date().getDay();
-  if (day === 0 || day === 6) return false;
-  const minutes = hour * 60 + minute;
-  return minutes >= 600 && minutes <= 1135;
-};
-
 const getFormattedDateTime = () =>
   new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -279,7 +259,7 @@ const getNextTicker = async (store, list) => {
   const nextIndex = (index + 1) % list.length;
 
   console.log("📍 index atual:", index, "| current:", currentIndex, "| next:", nextIndex);
-  // Sequencia correta:
+  // Sequencia correta: índice está sendo persistido no Blobs e sem race condition
   // index atual: 0 | current: 0 | next: 1
   // index atual: 1 | current: 1 | next: 0
   // index atual: 0 | current: 0 | next: 1

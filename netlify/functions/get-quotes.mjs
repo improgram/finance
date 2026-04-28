@@ -18,9 +18,11 @@ const HEADERS = {
 };
 
 const formatFullTime = (ts) => {
-  if (!ts || ts <= 0) return "Data não encontrada";
+  if (!ts || ts <= 0) return null;
   return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit",
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "medium"
   }).format(new Date(ts));
 };
 
@@ -63,13 +65,10 @@ const safeParse = (raw) => {
 
 export default async () => {
   console.log("📥 get-quotes chamado");
-
   const store = getStore({ name: "quotes-blobs" });
-
   try {
     const rawSnapshot = await store.get("last-valid-snapshot");
     const snapshot = safeParse(rawSnapshot);
-
     const safeData = Array.isArray(snapshot?.data)
       ? snapshot.data.filter(i => typeof i?.symbol === "string")
       : [];
@@ -97,8 +96,8 @@ export default async () => {
       data: { etfs, acoes },
       meta: {
         total: safeData.length,
-        updatedAt,
-        collectedAtFull: formatFullTime(updatedAt)
+        updatedAt,       
+        updatedLabel: formatFullTime(updatedAt) || "N/A"
       }
     });
 
