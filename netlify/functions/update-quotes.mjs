@@ -398,9 +398,9 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 const exec = async ( { store, apiToken, tickers } ) => {
     //  mercado fechado
-    if (!isMarketOpen()) {
-      return { ok: false, reason: "Mercado Fechado" };
-    }
+    //if (!isMarketOpen()) {
+    //  return { ok: false, reason: "Mercado Fechado" };
+    //}
 
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
