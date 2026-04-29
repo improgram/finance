@@ -397,11 +397,10 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 const exec = async ( { store, apiToken, tickers } ) => {
-  /* Teste temporario no mercado fechado
+    //  mercado fechado
     if (!isMarketOpen()) {
       return { ok: false, reason: "Mercado Fechado" };
     }
-  */
 
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
@@ -506,8 +505,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
       // --- Se safeGet retornar lixo → quebra depois.
       // snapshot stateless por ticker: sem race condition
 
-
-      // --- momento seguro para consolidar estado pois ja existe payload , symbol e dados ja normalizados
+      // --- momento seguro para consolidar estado pois ja existe payload, symbol e dados ja normalizados
       // --- Salvar snapshot
       const SNAP_KEY = "last-valid-snapshot";
       try {
