@@ -44,18 +44,17 @@ const getFormattedDateTime = () =>
 const getCloses = (hist) => hist.map(d => d.close);
 const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const hasEnoughHist = (hist) => hist.length >= 10;
-const safeValue = (value) =>
-       (value == null || Number.isNaN(value)) ? null : value;
+const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
 const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
 
 const filterByDays = (hist, days) => {
   const now = Math.floor(Date.now() / 1000);
   const limit = now - (days * 24 * 60 * 60);
-  return hist.filter(d => d.date >= limit);
+  const normalizeTs = (t) => t > 1e12 ? Math.floor(t / 1000) : t;
+  return hist.filter(d => normalizeTs(d.date) >= limit);
 };
 
-const safeWithFallback = (newPreco, oldPreco) =>
-  newPreco == null ? (oldPreco ?? null) : newPreco;
+const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;
 
 const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
@@ -125,8 +124,9 @@ const safeGet = async (store, key) => {
   }
 
   // 🔥 GARANTE OBJETO SEMPRE
-  return (parsed && typeof parsed === "object") ? parsed : { value: parsed };
-};
+  if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  };
 
 
 //-- Evitar tickers-list vazio
@@ -322,10 +322,16 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
 };
 
 
-
 const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
-    const resBrapi = await fetchWithTimeout(url, {}, 3000);
+    let resBrapi;
+    try {
+      resBrapi = await fetchWithTimeout(url, {}, 3000);
+    } catch (error) {
+      console.error(`⚠️ Erro de rede/timeout/Abort na tentativa `, error);
+      continue;
+    }
+
     if (resBrapi?.status === 429) {
       await setGlobal429(store);
       console.warn(`🚨 BRAPI com erro 429 detectado (${symbol}) tentativa ${i + 1}`);
@@ -355,14 +361,22 @@ const fetchYahoo = async (symbol, store) => {
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
     if (!meta) return null;
+    const timestamps = resultYahoo?.timestamp || [];
+    const closes = resultYahoo?.indicators?.quote?.[0]?.close || [];
     return {
       symbol,
       regularMarketPrice: meta.regularMarketPrice,
       previousClose: meta.previousClose,
       changePercent:
           meta.regularMarketChangePercent != null
-          ? meta.regularMarketChangePercent * 100
+          ? meta.regularMarketChangePercent ?? null
           : null,
+      historicalDataPrice: timestamps
+        .map((t, i) => ({
+          date: t,
+          close: closes[i] ?? null
+        }))
+        .filter(d => d.date && d.close != null),
       currency: meta.currency,
       source: "yahoo"
     };
@@ -381,9 +395,12 @@ const fetchBrapi = async (symbol, token, store ) => {
           jsonBrapi = await resBrapi.json();
         } catch {}
         console.warn("⚠️ BRAPI status:", resBrapi?.status);
-        const result = jsonBrapi?.results?.[0];
-        if (!result) return null;
-        return result;
+        const resultBrapi = jsonBrapi?.results?.[0];
+        if (!resultBrapi) return null;
+        return {
+          ...resultBrapi,
+          historicalDataPrice: resultBrapi?.historicalDataPrice ?? []
+        };
     }
     return null;
   } catch (err) {
@@ -397,11 +414,6 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 const exec = async ( { store, apiToken, tickers } ) => {
-    //  mercado fechado
-    //if (!isMarketOpen()) {
-    //  return { ok: false, reason: "Mercado Fechado" };
-    //}
-
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
       return { ok: false, reason: "tickers inválidos" };
@@ -418,7 +430,9 @@ const exec = async ( { store, apiToken, tickers } ) => {
         "5PRE11": { description: "Pré-fixado" }
     };
     const symbol = await getNextTicker(store, tickers);
-    if (!symbol) { return { ok: false, reason: "fila vazia" }; }
+    if (!symbol) {
+      return { ok: false, reason: "fila vazia" };
+    }
 
       // ---------------- CACHE FIRST ----------------
       const cacheKey = `snapshot-${symbol}`;
@@ -429,11 +443,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
         Date.now() - cached.updatedAt < CACHE_TTL
       ) {
         console.log("⚡ Cache hit valido:", symbol, cached.source);
-        return {
-          ok: true,
-          symbol,
-          source: "cache-fresh"
-        };
+        return { ok: true, symbol, source: "cache-fresh", data: cached };
       }
 
       // --------- proteção global contra flood após 429 e timestamp inválido
@@ -442,11 +452,10 @@ const exec = async ( { store, apiToken, tickers } ) => {
         const elapsed = Date.now() - global429;
         if (elapsed < COOLDOWN_429) {
           console.warn("⛔ cooldown global ativo");
-          return {
-            ok: true,
-            symbol,
-            source: "cooldown"
-          };
+          if (!cached) {
+            return { ok: false, reason: "rate-limited" };
+          }
+          return { ok: true, symbol, source: "global-429", data: cached };
         }
       }
       await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
@@ -454,9 +463,11 @@ const exec = async ( { store, apiToken, tickers } ) => {
       // ----------- Yahoo segundo ------------
 
       let data = null;
+      let historicalDataPrice = [];
       let source = null;
       try {
         data = await fetchYahoo(symbol, store);
+        historicalDataPrice = data?.historicalDataPrice ?? [];
         if (data) { source = "yahoo"; }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
@@ -464,29 +475,49 @@ const exec = async ( { store, apiToken, tickers } ) => {
       if (!data) {
         try {
           data = await fetchBrapi(symbol, apiToken, store);
-          if (data) { source = "brapi"; }
+          if (data) {
+            source = "brapi";
+            historicalDataPrice = data.historicalDataPrice ?? [];
+          }
         } catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
       }
+
       // Falback = cache antigo = e atualiza updatedAt = Evitar side-effect silencioso
-      if (!data && cached) {
-        data = {
-          ...cached,
-          updatedAt: Date.now()
-        };
-        source = "cache-old";
-        await safeSet(store, cacheKey, data);
+      if (!data && cached) {    // cached vem do snapshot e não da API
+        source = "Cache Antigo";
+        data = cached || null;
+        historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
 
-      // ------------ Fallback final absoluto-----------------
+       // ------------ Fallback final absoluto-----------------
       if (!data) { return { ok: false, reason: "Sem Dados" }; }
+
+
+      // --------------- Antes do payload
+      const dayLow = data.regularMarketDayLow ?? null;
+      const dayHigh = data.regularMarketDayHigh ?? null;
+      const fiftyTwoWeekLow = data.fiftyTwoWeekLow ?? null;
+      const fiftyTwoWeekHigh = data.fiftyTwoWeekHigh ?? null;
+      const hist = getValidHist(historicalDataPrice);
+      const min7d = hist.length ? getMin(getCloses(filterByDays(hist, 7))) : null;
+      const min30d = hist.length ? getMin(getCloses(filterByDays(hist, 30))) : null;
+      const variation30d = getVariation30d(hist, data.regularMarketPrice);
 
       // -------------------- Payload--------------
       const payload = {
-        ...data,
         source,
         symbol,
         shortName: data?.shortName,
         longName: data?.longName,
+        regularMarketPrice: data?.regularMarketPrice,
+        regularMarketDayLow: dayLow,
+        regularMarketDayHigh: dayHigh,
+        fiftyTwoWeekLow,
+        fiftyTwoWeekHigh,
+        historicalDataPrice: hist,
+        min7d,
+        min30d,
+        variation30d,
         updatedAt: Date.now(),                    // Timestamp para lógica de front-end
         updatedLabel: getFormattedDateTime(),     // String formatada DD/MM/AAAA HH:MM:SS
         description: ETF_INFO[symbol]?.description || "Ativo Financeiro",
@@ -512,7 +543,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
         const prev = await safeGet(store, SNAP_KEY);
         let newSnapshot = [];
         if (Array.isArray(prev?.data)) {
-          const map = new Map(prev.data.map(i => [i.symbol, i]));
+          const map = new Map( (prev.data || []).filter(i => i?.symbol).map(i => [i.symbol, i]) );
           // substitui ou adiciona o ticker atual
           map.set(symbol, payload);
           newSnapshot = Array.from(map.values())
@@ -532,12 +563,10 @@ const exec = async ( { store, apiToken, tickers } ) => {
       }
 
       // ------------- Retorno  ---------
-      console.log("💾 salvo:", symbol);
-      return {
-        ok: true,
-        symbol,
-        source
-      };
+      console.log(`💾 salvo ${symbol} → source: ${source}`);
+      console.table({ symbol, source });
+      console.log(JSON.stringify({ symbol, source }));
+      return { ok: true, symbol, source, data };
 
 }
 //  FiM da const exec
