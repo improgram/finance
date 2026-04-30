@@ -101,7 +101,7 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
     containerEtf = document.getElementById('etfs-container');
-    containerAcoes = document.getElementById('corpoTabela2');
+    containerAcoes = document.getElementById('acoes-container');
     if (!containerEtf || !containerAcoes) {
         console.error('Containers não encontrados no DOM');
         return;     // 🚨 impede execução do app quebrado
