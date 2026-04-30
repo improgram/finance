@@ -62,8 +62,8 @@ const state = {
 
 const filterRows = (data, map, termo) => {
     const normalizeTerm = termo?.trim().toLowerCase() || '';
-
     data.forEach(item => {
+        if (!item.symbol) return;
         const row = map.get(item.symbol);
         if (!row) return;
 
@@ -72,7 +72,6 @@ const filterRows = (data, map, termo) => {
             item.symbol?.toLowerCase().includes(normalizeTerm) ||
             item.description?.toLowerCase().includes(normalizeTerm) ||
             item.longName?.toLowerCase().includes(normalizeTerm);
-
         row.style.display = match ? '' : 'none';
     });
 };
@@ -101,8 +100,12 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    containerEtf = document.getElementById('quotes-container');
+    containerEtf = document.getElementById('etfs-container');
     containerAcoes = document.getElementById('corpoTabela2');
+    if (!containerEtf || !containerAcoes) {
+        console.error('Containers não encontrados no DOM');
+        return;     // 🚨 impede execução do app quebrado
+    }
     fetchQuotes();
 });
 
@@ -113,7 +116,7 @@ const createEtfRow = (symbol) => {
     row.dataset.symbol = symbol;
     row.innerHTML = `
         <td><strong class="symbol"></strong></td>
-        <td class="desc"></td>
+        <td class="description"></td>
         <td class="price"></td>
         <td class="var"></td>
         <td class="range"></td>
@@ -140,7 +143,7 @@ const createAcaoRow = (symbol) => {
         <td class="min30"></td>
         <td class="var30"></td>
         <td class="min1y"></td>
-        <td class="max1y"></td>
+        <td class="max"></td>
     `;
     return row;
 };
@@ -149,7 +152,7 @@ const createAcaoRow = (symbol) => {
 // CAMADA 3 — STATE (estado global controlado)
 // state guarda dados normalizados
 
-const normalizeQuote = (q) => ({
+const normalizeState = (q) => ({
     symbol: q.symbol,
     description: q.description || '-',
     longName: q.longName || q.description || '-',
@@ -171,21 +174,18 @@ const normalizeQuote = (q) => ({
 
 // 🌍 FORMATADORES
 
-const br = new Intl.NumberFormat('pt-BR', {
+const numberFormatterBR = new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
 });
 const formatNumber = (value) =>
     typeof value === 'number'
-        ? br.format(value)
+        ? numberFormatterBR.format(value)
         : 'Sem histórico';
-
-const formatPrice = (value) =>
-    value != null ? br.format(value) : '---';
 
 const formatPercent = (value) =>
     typeof value === "number"
-        ? `${br.format(value)}%`
+        ? `${numberFormatterBR.format(value)}%`
         : '---';
 
 // DOMAIN HELPERS (regras puras)
@@ -266,8 +266,11 @@ const updateTimestamp = (meta) => {
 
 // flash + otimização real
 const updatePriceCell = (priceEl, newPriceRaw) => {
+    if (!priceEl) return;
     const oldPriceRaw = priceEl.dataset.value;
-    if (oldPriceRaw !== undefined && Number(oldPriceRaw) !== Number(newPriceRaw)) {
+    const oldPrice = Number(oldPriceRaw);
+    const newPrice = Number(newPriceRaw);
+    if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
         priceEl.classList.add('flash');
         setTimeout(() => priceEl.classList.remove('flash'), 500);
     }
@@ -275,50 +278,53 @@ const updatePriceCell = (priceEl, newPriceRaw) => {
     priceEl.textContent = formatNumber(newPriceRaw);
 };
 
-const updateEtfRow = (row, quote) => {
-    const variacao = getVariacao(quote);
-    const variacao30d = getVariacao30d(quote);
+const updateCommonRow = (row, data) => {
     const elSymbol = row.querySelector('.symbol');
-    if (elSymbol) elSymbol.textContent = quote.symbol;
-    row.querySelector('.desc').textContent = quote.description;
-    updatePriceCell(row.querySelector('.price'), quote.regularMarketPrice);
-    const varEl = row.querySelector('.var');
-    varEl.textContent = variacao !== null ? formatPercent(variacao) : '---';
-    varEl.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
-    row.querySelector('.range').textContent = getDayRange(quote);
-    row.querySelector('.min7').textContent = formatNumber(quote.min7d);
-    row.querySelector('.min30').textContent = formatNumber(quote.min30d);
-    const var30El = row.querySelector('.var30');
-    var30El.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
-    var30El.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
-    row.querySelector('.max').textContent = formatNumber(quote.fiftyTwoWeekHigh);
+        if (elSymbol) elSymbol.textContent = data.symbol;
+    const variacao = getVariacao(data);
+    const variacao30d = getVariacao30d(data);
+    const elPrice = row.querySelector('.price');
+        if (elPrice) updatePriceCell(elPrice, data.regularMarketPrice);
+    const elVar = row.querySelector('.var');
+        if (elVar) {
+            elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
+            elVar.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
+        }
+    const elRange = row.querySelector('.range');
+        if (elRange) elRange.textContent = getDayRange(data);
+    const elMin7 = row.querySelector('.min7');
+        if (elMin7) elMin7.textContent = formatNumber(data.min7d);
+    const elMin30 = row.querySelector('.min30');
+        if (elMin30) elMin30.textContent = formatNumber(data.min30d);
+    const elVar30 = row.querySelector('.var30');
+        if (elVar30) {
+            elVar30.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
+            elVar30.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
+        }
+    const elMax = row.querySelector('.max');
+        if(elMax) elMax.textContent = formatNumber(data.fiftyTwoWeekHigh);
+};
+
+
+const updateEtfRow = (row, etf) => {
+    updateCommonRow(row, etf);
+    const elDescription = row.querySelector('.description');
+        if (elDescription) elDescription.textContent = etf.description;
 };
 
 
 const updateAcaoRow = (row, acao) => {
-    const variacao = getVariacao(acao);
-    const variacao30d = getVariacao30d(acao);
-    const elSymbol = row.querySelector('.symbol');
-    if (elSymbol) elSymbol.textContent = acao.symbol;
-    row.querySelector('.name').textContent = acao.longName;
-    updatePriceCell(row.querySelector('.price'), acao.regularMarketPrice);
-    const varEl = row.querySelector('.var');
-    varEl.textContent = variacao !== null ? formatPercent(variacao) : '---';
-    varEl.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
-    row.querySelector('.range').textContent = getDayRange(acao);
-    row.querySelector('.min7').textContent = formatNumber(acao.min7d);
-    row.querySelector('.min30').textContent = formatNumber(acao.min30d);
-    const var30El = row.querySelector('.var30');
-    var30El.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
-    var30El.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
-    row.querySelector('.min1y').textContent = formatNumber(acao.fiftyTwoWeekLow);
-    row.querySelector('.max1y').textContent = formatNumber(acao.fiftyTwoWeekHigh);
+    updateCommonRow(row, acao);
+    const elName = row.querySelector('.name');
+        if (elName) elName.textContent = acao.longName;
+    const elMin1y = row.querySelector('.min1y');    // Minima do ultimo ano somente
+        if (elMin1y) elMin1y.textContent = formatNumber(acao.fiftyTwoWeekLow);
     const logo = row.querySelector('.logo');
-    logo.src = acao.logourl || `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;
+        if (logo) {logo.src = acao.logourl || `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;}
 };
 
 
-// CAMADA 8 — CONTROLLER (orquestradores) → DECIDE criar ou atualizar
+// CAMADA 7 — CONTROLLER (orquestradores) → DECIDE criar ou atualizar
 // somente Main
 // decidem quando limpar, reaproveitar e chamar a view
 // não criam DOM (view), Nao sao: dados(state), Nao são regras puras (domain)
@@ -338,19 +344,25 @@ const patchTables = (etfs, acoes) => {
 
 
 // fetchQuotes → delega
+// validação + loading + chamada API + normalização + decisão de render
+// atualização de state + timestamp + erro
 
 const fetchQuotes = async () => {
     const handleError = (err) => {
-        console.error("Erro ao carregar quotes:", err);
+        console.error("Erro ao carregar quotes", err);
         showError?.();
         updateTimestamp?.({ updatedLabel: "Erro na atualização" });
         hideLoading();
     };
     try {
+        // Validar antes do DOM e impedir chamadas desnecessárias da API
+        if (!containerEtf || !containerAcoes) {
+            throw new Error('Containers não inicializados');
+        }
         showLoading();
         const json = await getQuotes();
-        const etfs = (json.data?.etfs || []).map(normalizeQuote);
-        const acoes = (json.data?.acoes || []).map(normalizeQuote);
+        const etfs = (json.data?.etfs || []).map(normalizeState);
+        const acoes = (json.data?.acoes || []).map(normalizeState);
         state.etfs = etfs;
         state.acoes = acoes;
         const signature = buildSnapshotSignature(etfs, acoes);
@@ -368,11 +380,13 @@ const fetchQuotes = async () => {
         hideLoading();              // ✅ FINAL
 
         // ✔️ garantir DOM pronto antes do filtro = 🔥 reaplica filtro após render
-        // garante execução após microtasks do render
-        queueMicrotask(() => {
-            applyFilters();
-        });
-        // try + catch: prevenir erro de API ou rede ou erro de parsing
+        // garante execução após microtasks do render e setTimeout(browser antigo)
+        if (typeof queueMicrotask === 'function') {
+            queueMicrotask(applyFilters);
+        } else {
+            setTimeout(applyFilters, 0);
+        }
+        //FiM do try e inicio do catch: prevenir erro de API ou rede ou erro de parsing
     } catch (err) {
         handleError(err);
     }
@@ -382,14 +396,15 @@ const fetchQuotes = async () => {
 
 const renderOrUpdateEtfs = (data, container, map) => {
     const fragment = document.createDocumentFragment();
-    data.forEach(quote => {
-        let row = map.get(quote.symbol);
+    data.forEach(etf => {
+        if (!etf.symbol) return;
+        let row = map.get(etf.symbol);
         if (!row) {
-            row = createEtfRow(quote.symbol);
-            map.set(quote.symbol, row);
+            row = createEtfRow(etf.symbol);
+            map.set(etf.symbol, row);
             fragment.appendChild(row);
         }
-        updateEtfRow(row, quote);
+        updateEtfRow(row, etf);
     });
     if (container) {
         container.appendChild(fragment);
@@ -400,6 +415,7 @@ const renderOrUpdateEtfs = (data, container, map) => {
 const renderOrUpdateAcoes = (data, container, map) => {
     const fragment = document.createDocumentFragment();
     data.forEach(acao => {
+        if (!acao.symbol) return;
         let row = map.get(acao.symbol);
         if (!row) {
             row = createAcaoRow(acao.symbol);
@@ -418,30 +434,25 @@ const renderOrUpdateAcoes = (data, container, map) => {
 
 // CAMADA 1 — API  → busca
 // CAMADA 2 — STRUCTURE (createRow)
-
 // CAMADA 3 — STATE (state + normalize)
-// normalize → padroniza
-// state → armazena
-// Se só guarda dados entao → STATE
-
+    // normalize → padroniza
+    // state → armazena
+    // Se só guarda dados entao → STATE
 
 // CAMADA 4 — DOMAIN (regras puras)
-// Se só transforma dados entao → DOMAIN
-
+    // Se só transforma dados entao → DOMAIN
 
 // CAMADA 5 — VIEW = manipula DOM
-// (renderização DOM) = (manipulação visual)
-
+    // (renderização DOM) = (manipulação visual)
 
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
-// VIEW (render + update + filterRows)
-// view → desenha
-// Se só mexe no DOM entao → VIEW
-// filter (view state) → reaplicado sempre
-// flash + otimização real
-// updatePriceCell + updateEtfRow + updateAcaoRow
+    // VIEW (render + update + filterRows)
+    // view → desenha
+    // Se só mexe no DOM entao → VIEW
+    // filter (view state) → reaplicado sempre
+    // flash + otimização real
+    // updatePriceCell + updateEtfRow + updateAcaoRow
 
-
-// CAMADA 8 — CONTROLLER (fetch + rebuild + patch)
-// controller → decide render
-// Se chama outras funções entao é → CONTROLLER
+// CAMADA 7 — CONTROLLER (fetch + rebuild + patch)
+    // controller → decide render
+    // Se chama outras funções entao é → CONTROLLER
