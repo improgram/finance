@@ -78,6 +78,30 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
+// Buscar preços historicos:
+// Yahoo = preço rápido e BRAPI = enriquecimento de dados
+const getMax = (arr) => arr.length ? Math.max(...arr) : null;
+
+const getDayRangeFromHist = (hist) => {
+  const lastDay = filterByDays(hist, 1);
+  if (!lastDay.length) return { low: null, high: null };
+
+  const closes = lastDay.map(d => d.close).filter(v => v != null);
+  return {
+    low: getMin(closes),
+    high: getMax(closes)
+  };
+};
+
+const get52WeekRangeFromHist = (hist) => {
+  if (!hist.length) return { low: null, high: null };
+
+  const closes = hist.map(d => d.close).filter(v => v != null);
+  return {
+    low: getMin(closes),
+    high: getMax(closes)
+  };
+};
 
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
@@ -349,6 +373,8 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
 // Na ordem : CACHE (Blobs) - YAHOO - BRAPI - 4. previousData
 
 // ---------------- YAHOO  ----------------
+// O endpoint v8/finance/chart é focado em preço + histórico
+// Ele não fornece dados fundamentais ou extremos (low/high)
 const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
@@ -468,18 +494,36 @@ const exec = async ( { store, apiToken, tickers } ) => {
       try {
         data = await fetchYahoo(symbol, store);
         historicalDataPrice = data?.historicalDataPrice ?? [];
-        if (data) { source = "yahoo"; }
+        if (data) { source = "YAHOO"; }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
       // -------------- Brapi terceiro -----------
-      if (!data) {
+      let brapiData = null;
+      // chama BRAPI se:
+      // 1. Yahoo falhou OU
+      // 2. Yahoo veio incompleto
+      if ( !data || (data && data.regularMarketDayLow == null &&
+          data.fiftyTwoWeekLow == null )
+      ) {
         try {
-          data = await fetchBrapi(symbol, apiToken, store);
-          if (data) {
-            source = "brapi";
-            historicalDataPrice = data.historicalDataPrice ?? [];
-          }
-        } catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
+          brapiData = await fetchBrapi(symbol, apiToken, store);
+        } catch (err) {
+          console.warn("⚠️ BRAPI erro:", err.message);
+        }
+      }
+      // merge inteligente (BRAPI complementa Yahoo)
+      if (brapiData) {
+        data = {
+          ...data,
+          ...brapiData,
+          // mantém histórico mais confiável (Yahoo geralmente melhor aqui)
+          historicalDataPrice:
+            data?.historicalDataPrice?.length
+              ? data.historicalDataPrice
+              : brapiData.historicalDataPrice ?? []
+        };
+
+        source = data?.source === "yahoo" ? "YAHOO+BRAPI" : "BRAPI";
       }
 
       // Falback = cache antigo = e atualiza updatedAt = Evitar side-effect silencioso
@@ -494,11 +538,19 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
 
       // --------------- Antes do payload
-      const dayLow = data.regularMarketDayLow ?? null;
-      const dayHigh = data.regularMarketDayHigh ?? null;
-      const fiftyTwoWeekLow = data.fiftyTwoWeekLow ?? null;
-      const fiftyTwoWeekHigh = data.fiftyTwoWeekHigh ?? null;
+
       const hist = getValidHist(historicalDataPrice);
+
+      // cálculos fallback
+      const dayRangeCalc = getDayRangeFromHist(hist);
+      const week52Calc = get52WeekRangeFromHist(hist);
+
+      // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
+      const dayLow = safeValue(data.regularMarketDayLow ?? dayRangeCalc.low);
+      const dayHigh = safeValue(data.regularMarketDayHigh ?? dayRangeCalc.high);
+      const fiftyTwoWeekLow = safeValue(data.fiftyTwoWeekLow ?? week52Calc.low);
+      const fiftyTwoWeekHigh = safeValue(data.fiftyTwoWeekHigh ?? week52Calc.high);
+
       const min7d = hist.length ? getMin(getCloses(filterByDays(hist, 7))) : null;
       const min30d = hist.length ? getMin(getCloses(filterByDays(hist, 30))) : null;
       const variation30d = getVariation30d(hist, data.regularMarketPrice);
@@ -564,8 +616,6 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
       // ------------- Retorno  ---------
       console.log(`💾 salvo ${symbol} → source: ${source}`);
-      console.table({ symbol, source });
-      console.log(JSON.stringify({ symbol, source }));
       return { ok: true, symbol, source, data };
 
 }
