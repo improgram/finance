@@ -84,6 +84,17 @@ const getVariation30d = (hist, currentPrice) => {
   return ((currentPrice - base) / base) * 100;
 };
 
+// cálculo próprio de variação diária (FALLBACK REAL)
+const getDailyVariation = (hist, currentPrice) => {
+    const valid = getValidHist(hist);
+    if (valid.length < 2 || currentPrice == null) return null;
+    const sorted = valid.sort((a, b) => a.date - b.date);
+    const last = sorted[sorted.length - 1]?.close;
+    const prev = sorted[sorted.length - 2]?.close;
+    if (!last || !prev) return null;
+    return ((last - prev) / prev) * 100;
+};
+
 
 // Buscar preços historicos:
 // Yahoo = preço rápido e BRAPI = enriquecimento de dados
@@ -102,7 +113,6 @@ const getDayRangeFromHist = (hist) => {
 
 const get52WeekRangeFromHist = (hist) => {
   if (!hist.length) return { low: null, high: null };
-
   const closes = hist.map(d => d.close).filter(v => v != null);
   return {
     low: getMin(closes),
@@ -112,6 +122,11 @@ const get52WeekRangeFromHist = (hist) => {
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
+const safeSet = async (store, key, value) => {
+  return await store.set(key, JSON.stringify(value));
+};
 
 const setGlobal429 = async (store) => {
   const now = Date.now();
@@ -125,47 +140,51 @@ const getGlobal429 = async (store) => {
   return data?.timestamp || 0;
 };
 
-
-// Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
-const safeSet = async (store, key, value) => {
-  return await store.set(key, JSON.stringify(value));
-};
-
-
 // -------Blindar leitura = evitar retorno do objeto invalido
-const safeGet = async (store, key) => {
-  const raw = await store.get(key);
-  if (!raw) return null;
-  let parsed = null;
-  if (raw instanceof Uint8Array) {
-    try {
-      parsed = JSON.parse(new TextDecoder().decode(raw));
-    } catch {
-      return null;
-    }
-  } else if (typeof raw === "string") {
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      console.warn("⚠️ JSON inválido no storage:", key);
-      return null;
-    }
-  } else if (typeof raw === "object") {
-    parsed = raw;
+// Padronização global de storage (ANTI-CRASH STRUCTURE)
+const normalizeStorage = (data) => {
+  if (!data) return null;
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && "data" in data) {
+    return data.data;
   }
-
-  // 🔥 GARANTIR OBJETO SEMPRE: elimina: numbers e strings simples válidas e Aceitar primitivos
-  // arrays viram { value: [...] } e depois você depende de prev?.data e isso cria inconsistência no snapshot
-  // Evitar fazer isso falhar: Array.isArray(prev?.data)
-  if (parsed == null) return null;
-  if (typeof parsed !== "object") return { value: parsed };
-  return parsed;
-
+  if (data && typeof data === "object" && "value" in data) {
+    return data.value;
+  }
+  return data;
 };
 
-  // Sera utilizado na let index dentro da getNextTicker
-  const unwrap = (v) =>
-  (v && typeof v === "object" && "value" in v) ? v.value : v;
+// helper separado:
+const unwrapData = (value) =>
+  value && typeof value === "object" && "data" in value
+    ? value.data
+    : value;
+
+// prev pode ser array → prev.data === undefined e/ou objeto diferente → estrutura inconsistente
+// prev pode ser: array direto ❌ objeto sem data ❌ null ❌
+
+const safeGet = async (store, key) => {
+  try {
+    const raw = await store.get(key);
+    if (!raw) return null;
+    let parsed;
+    if (raw instanceof Uint8Array) {
+      parsed = JSON.parse(new TextDecoder().decode(raw));
+    } else if (typeof raw === "string") {
+      parsed = JSON.parse(raw);
+    } else {
+      parsed = raw;
+    }
+    return parsed; // NÃO normalizar aqui
+  } catch (err) {
+    console.warn("⚠️ safeGet error:", key, err.message);
+    return null;
+  }
+};
+
+// Sera utilizado na let index dentro da getNextTicker
+const unwrap = (v) =>
+(v && typeof v === "object" && "value" in v) ? v.value : v;
 
 
 
@@ -288,7 +307,7 @@ const getNextTicker = async (store, list) => {
 
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  let index = Number(unwrap(stored));
+  let index = Number(stored);
   if (!Number.isFinite(index)) index = 0;
 
   // evitar crescimento inútil do índice
@@ -409,8 +428,8 @@ const fetchYahoo = async (symbol, store) => {
           close: closes[i] ?? null
         }))
         .filter(d => d.date && d.close != null),
-      currency: meta.currency,
-      source: "yahoo"
+          currency: meta.currency,
+          source: "yahoo"
     };
   } catch { return null; }
 };
@@ -522,20 +541,17 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
       // merge inteligente (BRAPI complementa Yahoo)
       if (brapiData) {
-        data = {
-          ...(data || {}),
-          ...(brapiData || {}),
-          historicalDataPrice:
-           data?.historicalDataPrice?.length
-            ? data.historicalDataPrice
-            : (brapiData?.historicalDataPrice?.length
-                ? brapiData.historicalDataPrice
-                : historicalDataPrice)
-        };
-        if (data && brapiData) source = "YAHOO + BRAPI";
-        else if (brapiData) source = "BRAPI";
-        else if (data) source = "YAHOO";
-      }
+          brapiData = {
+            ...brapiData,
+            regularMarketPrice: brapiData?.regularMarketPrice ?? brapiData?.close ?? null,
+            previousClose: brapiData?.regularMarketPreviousClose ?? brapiData?.previousClose ?? null,
+            changePercent: brapiData?.changePercent ?? brapiData?.regularMarketChangePercent ?? null
+          };
+        }
+
+      if (data && brapiData) source = "YAHOO + BRAPI";
+      else if (brapiData) source = "BRAPI";
+      else if (data) source = "YAHOO";
 
       // Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
@@ -557,10 +573,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
     const dayRangeCalc = getDayRangeFromHist(hist);
     const week52Calc = get52WeekRangeFromHist(hist);
     const changePercent = data?.regularMarketChangePercent ?? data?.changePercent ??
-      ( data?.regularMarketPrice != null && data?.previousClose != null && Number.isFinite(data?.previousClose)
-      ? ((data.regularMarketPrice - data.previousClose) / data.previousClose) * 100
-      : null
-    );
+      getDailyVariation(hist, data?.regularMarketPrice);
     // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     // depois do merge
     const dayLow = safeValue(data?.regularMarketDayLow ?? dayRangeCalc.low);
@@ -631,17 +644,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
         } else {
           newSnapshot = [payload];
         }
-        if (Array.isArray(prev?.data)) {
-          const map = new Map( (prev.data || []).filter(i => i?.symbol).map(i => [i.symbol, i]) );
-          // substitui ou adiciona o ticker atual
-          map.set(symbol, payload);
-          newSnapshot = Array.from(map.values())
-            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-            .slice(0, MAX_ITEMS);
-        } else {
-          // primeiro snapshot da vida
-          newSnapshot = [payload];
-        }
+
         await safeSet(store, SNAP_KEY, {
           data: newSnapshot,
           updatedAt: Date.now()
