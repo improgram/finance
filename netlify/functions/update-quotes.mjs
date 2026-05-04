@@ -41,7 +41,7 @@ const getFormattedDateTime = () =>
     timeStyle: "medium"
   }).format(new Date());
 
-const getCloses = (hist) => hist.map(d => d.close);
+const getCloses = (hist = []) => hist.map(d => d.close);
 const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const hasEnoughHist = (hist) => hist.length >= 10;
 const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
@@ -62,21 +62,28 @@ const getValidHist = (hist) => (hist || []).filter(d =>
 
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    const target = new Date(now);
-    target.setMonth(target.getMonth() - 1);
-    const targetTs = Math.floor(target.getTime() / 1000);
-    let base = null;
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const target = new Date(now);
+  target.setMonth(target.getMonth() - 1);
+  const targetTs = Math.floor(target.getTime() / 1000);
+  let base = null;
+
   for (let i = hist.length - 1; i >= 0; i--) {
-      if (hist[i].date <= targetTs) {
-        base = hist[i].close;
-        break;
-      }
+    if (hist[i].date <= targetTs) {
+      base = hist[i].close;
+      break;
+    }
   }
-  if (!base) return null;
+
+  // 🔥 fallback inteligente
+  if (!base && hist.length > 0) {
+    base = hist[0].close;
+  }
+  if (!base || base === 0) return null;
   return ((currentPrice - base) / base) * 100;
 };
+
 
 // Buscar preços historicos:
 // Yahoo = preço rápido e BRAPI = enriquecimento de dados
@@ -102,7 +109,6 @@ const get52WeekRangeFromHist = (hist) => {
     high: getMax(closes)
   };
 };
-
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -141,16 +147,26 @@ const safeGet = async (store, key) => {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      return { value: String(raw) };
+      console.warn("⚠️ JSON inválido no storage:", key);
+      return null;
     }
   } else if (typeof raw === "object") {
     parsed = raw;
   }
 
-  // 🔥 GARANTE OBJETO SEMPRE
-  if (!parsed || typeof parsed !== "object") return null;
-    return parsed;
-  };
+  // 🔥 GARANTIR OBJETO SEMPRE: elimina: numbers e strings simples válidas e Aceitar primitivos
+  // arrays viram { value: [...] } e depois você depende de prev?.data e isso cria inconsistência no snapshot
+  // Evitar fazer isso falhar: Array.isArray(prev?.data)
+  if (parsed == null) return null;
+  if (typeof parsed !== "object") return { value: parsed };
+  return parsed;
+
+};
+
+  // Sera utilizado na let index dentro da getNextTicker
+  const unwrap = (v) =>
+  (v && typeof v === "object" && "value" in v) ? v.value : v;
+
 
 
 //-- Evitar tickers-list vazio
@@ -189,7 +205,6 @@ const safeParseTickers = (raw) => {
 
 const sanitizeTickers = (list) => {
   if (!Array.isArray(list)) return [];
-
   return [...new Set(list)]
     .map(t => String(t).trim().toUpperCase())
     .filter(t => /^[A-Z0-9]+$/.test(t));
@@ -206,7 +221,6 @@ const getTickers = async (store) => {
       ? data
       : data?.value ?? data;
   const tickers = sanitizeTickers(safeParseTickers(raw));
-
   // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
   if (Array.isArray(raw)) {
     const cleaned = sanitizeTickers(raw);
@@ -225,12 +239,11 @@ const getTickers = async (store) => {
     await safeSet(store, "tickers-list", fallback);
     return fallback.slice(0, MAX_ITEMS);
   }
-
   return tickers.slice(0, MAX_ITEMS);
 };
 
 
-// ------
+// ------ createResponse padrao para os Return Json
 const createResponse = (body, status = 200) => {
   return new Response(JSON.stringify(body, null, 2), {
     status,
@@ -275,7 +288,7 @@ const getNextTicker = async (store, list) => {
 
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  let index = Number(stored?.value);
+  let index = Number(unwrap(stored));
   if (!Number.isFinite(index)) index = 0;
 
   // evitar crescimento inútil do índice
@@ -314,32 +327,26 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
     try {
       const resYahoo = await fetchWithTimeout(url, {}, 3000);
-
       // 1. Sucesso: Retorna a resposta imediatamente
       if (resYahoo && resYahoo.ok) {
         return resYahoo;
       }
-
       // 2. Tratamento de Rate Limit (429)
       if (resYahoo?.status === 429) {
         await setGlobal429(store);
         console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
-
         // Espera antes da próxima tentativa (Backoff simples)
         await sleep((i + 1) * 1000);
         continue; // Pula para a próxima iteração do for
       }
-
       // 3. Outros erros (404, 500, etc)
       console.error(`❌ Erro Yahoo: Status ${resYahoo?.status} em ${symbol}`);
       // Aqui você decide se quer dar 'continue' para tentar de novo ou 'return null'
       break;
-
     } catch (error) {
       console.error(`⚠️ Erro de rede/timeout na tentativa ${i + 1}:`, error);
     }
   }
-
   // Se sair do loop sem retornar, significa que todas as tentativas falharam
   console.log(`💀 Falha definitiva para ${symbol} após ${attempts} tentativas.`);
   return null;
@@ -355,7 +362,6 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
       console.error(`⚠️ Erro de rede/timeout/Abort na tentativa `, error);
       continue;
     }
-
     if (resBrapi?.status === 429) {
       await setGlobal429(store);
       console.warn(`🚨 BRAPI com erro 429 detectado (${symbol}) tentativa ${i + 1}`);
@@ -370,14 +376,14 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
 };
 
 
-// Na ordem : CACHE (Blobs) - YAHOO - BRAPI - 4. previousData
+// Na ordem : 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4. previousData
 
 // ---------------- YAHOO  ----------------
 // O endpoint v8/finance/chart é focado em preço + histórico
 // Ele não fornece dados fundamentais ou extremos (low/high)
 const fetchYahoo = async (symbol, store) => {
   try {
-    const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=1mo&interval=1d`;
+    const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
     const resYahoo = await fetchWithRetryYahoo(urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
     if (!resYahoo || !resYahoo.ok) {
       console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
@@ -420,9 +426,12 @@ const fetchBrapi = async (symbol, token, store ) => {
         try {
           jsonBrapi = await resBrapi.json();
         } catch {}
-        console.warn("⚠️ BRAPI status:", resBrapi?.status);
+        console.log("✅ BRAPI Chamada OK");
         const resultBrapi = jsonBrapi?.results?.[0];
-        if (!resultBrapi) return null;
+        if (!resultBrapi) {
+          console.warn("⚠️ BRAPI sem resultado válido");
+          return null;
+        }
         return {
           ...resultBrapi,
           historicalDataPrice: resultBrapi?.historicalDataPrice ?? []
@@ -440,6 +449,7 @@ const fetchBrapi = async (symbol, token, store ) => {
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 const exec = async ( { store, apiToken, tickers } ) => {
+
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
       return { ok: false, reason: "tickers inválidos" };
@@ -483,77 +493,84 @@ const exec = async ( { store, apiToken, tickers } ) => {
           }
           return { ok: true, symbol, source: "global-429", data: cached };
         }
-      }
-      await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+      }                               // Só dormir se não tiver cache:
+      if (!cached) await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
 
-      // ----------- Yahoo segundo ------------
+    // ----------- Yahoo segundo -------------------------
 
       let data = null;
-      let historicalDataPrice = [];
       let source = null;
+      let historicalDataPrice = [];
       try {
         data = await fetchYahoo(symbol, store);
-        historicalDataPrice = data?.historicalDataPrice ?? [];
-        if (data) { source = "YAHOO"; }
+        if (data) {
+          source = "YAHOO";
+          historicalDataPrice = data?.historicalDataPrice || [];
+        }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
-      // -------------- Brapi terceiro -----------
+    // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
       let brapiData = null;
-      // chama BRAPI se:
-      // 1. Yahoo falhou OU
-      // 2. Yahoo veio incompleto
-      if ( !data || (data && data.regularMarketDayLow == null &&
-          data.fiftyTwoWeekLow == null )
-      ) {
+      const missingCriticalFields = !data || data.regularMarketPrice == null || !data.historicalDataPrice?.length;
+      if (!data || missingCriticalFields) {
         try {
           brapiData = await fetchBrapi(symbol, apiToken, store);
         } catch (err) {
-          console.warn("⚠️ BRAPI erro:", err.message);
-        }
+            console.warn("⚠️ BRAPI erro:", err.message);
+          }
       }
+
       // merge inteligente (BRAPI complementa Yahoo)
       if (brapiData) {
         data = {
-          ...data,
-          ...brapiData,
-          // mantém histórico mais confiável (Yahoo geralmente melhor aqui)
+          ...(data || {}),
+          ...(brapiData || {}),
           historicalDataPrice:
-            data?.historicalDataPrice?.length
-              ? data.historicalDataPrice
-              : brapiData.historicalDataPrice ?? []
+           data?.historicalDataPrice?.length
+            ? data.historicalDataPrice
+            : (brapiData?.historicalDataPrice?.length
+                ? brapiData.historicalDataPrice
+                : historicalDataPrice)
         };
-
-        source = data?.source === "yahoo" ? "YAHOO+BRAPI" : "BRAPI";
+        if (data && brapiData) source = "YAHOO + BRAPI";
+        else if (brapiData) source = "BRAPI";
+        else if (data) source = "YAHOO";
       }
 
-      // Falback = cache antigo = e atualiza updatedAt = Evitar side-effect silencioso
+      // Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
         source = "Cache Antigo";
         data = cached || null;
         historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
 
-       // ------------ Fallback final absoluto-----------------
-      if (!data) { return { ok: false, reason: "Sem Dados" }; }
+      // ------------ Fallback final absoluto-----------------
+    if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
 
-      // --------------- Antes do payload
+    // --------------- Antes do payload e Depois do merge (data + brapiData)
+    const hist = getValidHist(data?.historicalDataPrice || []);
+    const mergedHist = getValidHist( data?.historicalDataPrice?.length
+      ? data.historicalDataPrice : brapiData?.historicalDataPrice || []
+    );
+    // cálculos fallback
+    const dayRangeCalc = getDayRangeFromHist(hist);
+    const week52Calc = get52WeekRangeFromHist(hist);
+    const changePercent = data?.regularMarketChangePercent ?? data?.changePercent ??
+      ( data?.regularMarketPrice != null && data?.previousClose != null && Number.isFinite(data?.previousClose)
+      ? ((data.regularMarketPrice - data.previousClose) / data.previousClose) * 100
+      : null
+    );
+    // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
+    // depois do merge
+    const dayLow = safeValue(data?.regularMarketDayLow ?? dayRangeCalc.low);
+    const dayHigh = safeValue(data?.regularMarketDayHigh ?? dayRangeCalc.high);
+    const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
+    const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
 
-      const hist = getValidHist(historicalDataPrice);
-
-      // cálculos fallback
-      const dayRangeCalc = getDayRangeFromHist(hist);
-      const week52Calc = get52WeekRangeFromHist(hist);
-
-      // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
-      const dayLow = safeValue(data.regularMarketDayLow ?? dayRangeCalc.low);
-      const dayHigh = safeValue(data.regularMarketDayHigh ?? dayRangeCalc.high);
-      const fiftyTwoWeekLow = safeValue(data.fiftyTwoWeekLow ?? week52Calc.low);
-      const fiftyTwoWeekHigh = safeValue(data.fiftyTwoWeekHigh ?? week52Calc.high);
-
-      const min7d = hist.length ? getMin(getCloses(filterByDays(hist, 7))) : null;
-      const min30d = hist.length ? getMin(getCloses(filterByDays(hist, 30))) : null;
-      const variation30d = getVariation30d(hist, data.regularMarketPrice);
+    const min7d = hist.length ? getMin(getCloses(filterByDays(hist, 7))) : null;
+    const min30d = hist.length ? getMin(getCloses(filterByDays(hist, 30))) : null;
+    const variation30d = getVariation30d(hist, data.regularMarketPrice);
 
       // -------------------- Payload--------------
       const payload = {
@@ -562,11 +579,12 @@ const exec = async ( { store, apiToken, tickers } ) => {
         shortName: data?.shortName,
         longName: data?.longName,
         regularMarketPrice: data?.regularMarketPrice,
+        changePercent,
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
         fiftyTwoWeekLow,
         fiftyTwoWeekHigh,
-        historicalDataPrice: hist,
+        historicalDataPrice: mergedHist,
         min7d,
         min30d,
         variation30d,
@@ -593,7 +611,26 @@ const exec = async ( { store, apiToken, tickers } ) => {
       const SNAP_KEY = "last-valid-snapshot";
       try {
         const prev = await safeGet(store, SNAP_KEY);
+
+        // 🔒 PROTEÇÃO DUPLA (garante que nunca cresce sem controle)
+        const prevArray = Array.isArray(prev?.data)
+          ? prev.data.slice(0, MAX_ITEMS)
+          : [];
+
         let newSnapshot = [];
+        if (prevArray.length) {
+          const map = new Map(
+            prevArray
+              .filter(i => i?.symbol)
+              .map(i => [i.symbol, i])
+          );
+          map.set(symbol, payload);
+          newSnapshot = Array.from(map.values())
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+            .slice(0, MAX_ITEMS);
+        } else {
+          newSnapshot = [payload];
+        }
         if (Array.isArray(prev?.data)) {
           const map = new Map( (prev.data || []).filter(i => i?.symbol).map(i => [i.symbol, i]) );
           // substitui ou adiciona o ticker atual
@@ -616,7 +653,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
       // ------------- Retorno  ---------
       console.log(`💾 salvo ${symbol} → source: ${source}`);
-      return { ok: true, symbol, source, data };
+      return { ok: true, symbol, source, data: payload };
 
 }
 //  FiM da const exec
@@ -636,7 +673,7 @@ export default async () => {
 
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
-  const MAX_EXECUTION_TIME = 6500;
+  const MAX_EXECUTION_TIME = 7000;
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
