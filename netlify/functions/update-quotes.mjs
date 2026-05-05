@@ -46,15 +46,15 @@ const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 const hasEnoughHist = (hist) => hist.length >= 10;
 const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
 const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
+const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;
 
 const filterByDays = (hist, days) => {
+  if (!Array.isArray(hist)) return [];
   const now = Math.floor(Date.now() / 1000);
   const limit = now - (days * 24 * 60 * 60);
   const normalizeTs = (t) => t > 1e12 ? Math.floor(t / 1000) : t;
   return hist.filter(d => normalizeTs(d.date) >= limit);
 };
-
-const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;
 
 const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
@@ -75,10 +75,9 @@ const getVariation30d = (hist, currentPrice) => {
       break;
     }
   }
-
   // 🔥 fallback inteligente
-  if (!base && hist.length > 0) {
-    base = hist[0].close;
+  if ((!base || base === 0) && hist.length > 0) {
+    base = hist.slice(-30)[0]?.close ?? hist[0]?.close ?? null;
   }
   if (!base || base === 0) return null;
   return ((currentPrice - base) / base) * 100;
@@ -88,7 +87,7 @@ const getVariation30d = (hist, currentPrice) => {
 const getDailyVariation = (hist, currentPrice) => {
     const valid = getValidHist(hist);
     if (valid.length < 2 || currentPrice == null) return null;
-    const sorted = valid.sort((a, b) => a.date - b.date);
+    const sorted = [...valid].sort((a, b) => a.date - b.date);
     const last = sorted[sorted.length - 1]?.close;
     const prev = sorted[sorted.length - 2]?.close;
     if (!last || !prev) return null;
@@ -124,6 +123,8 @@ const get52WeekRangeFromHist = (hist) => {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
+// safeSet sempre stringify → pode gerar dupla serialização Se alguém passar string
+// Se quiser aceitar string, então precisa tratar no safeGet.
 const safeSet = async (store, key, value) => {
   return await store.set(key, JSON.stringify(value));
 };
@@ -145,8 +146,9 @@ const getGlobal429 = async (store) => {
 const normalizeStorage = (data) => {
   if (!data) return null;
   if (Array.isArray(data)) return data;
+  // Se data.data NÃO for array → poderia quebrar depois
   if (data && typeof data === "object" && "data" in data) {
-    return data.data;
+    return Array.isArray(data.data) ? data.data : [];
   }
   if (data && typeof data === "object" && "value" in data) {
     return data.value;
@@ -307,7 +309,8 @@ const getNextTicker = async (store, list) => {
 
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  let index = Number(stored);
+  // cobre erros de: objeto { value } , número puro, lixo → fallback 0
+  let index = Number( stored && typeof stored === "object" ? stored.value : stored );
   if (!Number.isFinite(index)) index = 0;
 
   // evitar crescimento inútil do índice
@@ -335,7 +338,15 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   const id = setTimeout(() => controller.abort(), timeout);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
+  } catch (error) {
+    if (error.name === "AbortError") {
+      console.warn("⏱ timeout");
+      } else {
+      console.error("⚠️ erro fetch:", error);
+      }
+      return null;
+  }
+  finally {
     clearTimeout(id);
   }
 };
@@ -350,7 +361,12 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       if (resYahoo && resYahoo.ok) {
         return resYahoo;
       }
-      // 2. Tratamento de Rate Limit (429)
+      // 2. Debug para caso o fetchWithTimeout retornar null
+      if (!resYahoo) {
+        console.warn(`⚠️ sem resposta Yahoo (${symbol})`);
+        continue;
+      }
+      // 3. Tratamento de Rate Limit (429)
       if (resYahoo?.status === 429) {
         await setGlobal429(store);
         console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
@@ -408,7 +424,15 @@ const fetchYahoo = async (symbol, store) => {
       console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
       return null;
     }
-    const jsonYahoo = await resYahoo.json();
+    // evita crash Se API retornar HTML + mantém fallback BRAPI
+    let jsonYahoo = null;
+    try {
+      jsonYahoo = await resYahoo.json();
+    } catch (err) {
+      console.warn("⚠️ Yahoo JSON inválido");
+      return null;
+    }
+
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
     if (!meta) return null;
@@ -565,15 +589,19 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
 
     // --------------- Antes do payload e Depois do merge (data + brapiData)
-    const hist = getValidHist(data?.historicalDataPrice || []);
-    const mergedHist = getValidHist( data?.historicalDataPrice?.length
-      ? data.historicalDataPrice : brapiData?.historicalDataPrice || []
-    );
+    const rawHist = data?.historicalDataPrice ?? cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
+    const hist = getValidHist(rawHist);
+    // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais.
+  //const mergedHist = getValidHist( (data?.historicalDataPrice?.length > 5 ? data.historicalDataPrice : brapiData?.historicalDataPrice) || [] );
+    const mergedHist = getValidHist( data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice || [] );
     // cálculos fallback
     const dayRangeCalc = getDayRangeFromHist(hist);
     const week52Calc = get52WeekRangeFromHist(hist);
-    const changePercent = data?.regularMarketChangePercent ?? data?.changePercent ??
-      getDailyVariation(hist, data?.regularMarketPrice);
+    const changePercent = data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
+//const changePercent = data?.regularMarketChangePercent ?? data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
+    // regularMarketChangePercent NÃO existe no payload e só existe changePercent
+    // const changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ??
+    // getDailyVariation(hist, data?.regularMarketPrice);
     // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     // depois do merge
     const dayLow = safeValue(data?.regularMarketDayLow ?? dayRangeCalc.low);
@@ -626,9 +654,9 @@ const exec = async ( { store, apiToken, tickers } ) => {
         const prev = await safeGet(store, SNAP_KEY);
 
         // 🔒 PROTEÇÃO DUPLA (garante que nunca cresce sem controle)
-        const prevArray = Array.isArray(prev?.data)
-          ? prev.data.slice(0, MAX_ITEMS)
-          : [];
+        const prevNormalized = normalizeStorage(prev);
+        // Evitar erros Se prev for: array direto, string, formato antigo
+        const prevArray = Array.isArray(prevNormalized) ? prevNormalized.slice(0, MAX_ITEMS) : [];
 
         let newSnapshot = [];
         if (prevArray.length) {
