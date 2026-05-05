@@ -155,7 +155,7 @@ const createAcaoRow = (symbol) => {
 const normalizeState = (q) => ({
     symbol: q.symbol,
     description: q.description || '-',
-    longName: q.longName || q.description || '-',
+    longName: q.longName || q.shortName || q.description || (q.symbol ? q.symbol : '-') ,
     regularMarketPrice: q.regularMarketPrice ?? null,
     // 🔥 fallback inteligente
     regularMarketChangePercent: q.regularMarketChangePercent ?? q.changePercent ?? null,
@@ -284,7 +284,25 @@ const updateCommonRow = (row, data) => {
     const variacao = getVariacao(data);
     const variacao30d = getVariacao30d(data);
     const elPrice = row.querySelector('.price');
-        if (elPrice) updatePriceCell(elPrice, data.regularMarketPrice);
+        if (elPrice) {
+            updatePriceCell(elPrice, data.regularMarketPrice);
+            const price = data.regularMarketPrice;
+            const min7 = data.min7d;
+            const min30 = data.min30d;
+            // limpa classes anteriores (importante pra evitar sujeira visual)
+            elPrice.classList.remove('danger-price');
+            // condição: preço menor que min7d OU min30d
+            if (
+                typeof price === 'number' &&
+                (
+                    (typeof min7 === 'number' && price < min7) ||
+                    (typeof min30 === 'number' && price < min30)
+                )
+            ) {
+                elPrice.classList.add('danger-price');
+            }
+        }
+
     const elVar = row.querySelector('.var');
         if (elVar) {
             elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';

@@ -7,14 +7,9 @@
 // CommonJS (require)  = (antigo)
 // ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
-// trata se do Coletor) Roda via CRON, busca na Brapi
+// trata se do Coletor) Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage
+// CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
-
-
-// ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
-
-const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
-const RATE_LIMIT_KEY = "global-429";
 
 // ---------------- CONFIG ----------------
 import * as netlifyBlobs from "@netlify/blobs";
@@ -23,6 +18,11 @@ const getStore = netlifyBlobs?.getStore;
 if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
+
+// ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
+
+const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
+const RATE_LIMIT_KEY = "global-429";
 
 console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
@@ -489,6 +489,69 @@ const fetchBrapi = async (symbol, token, store ) => {
 };
 
 
+// -------- function fetchAlphaVantage
+// ❌ não é boa pra histórico intraday BR e ❌ tem rate limit MUITO agressivo (5 req/min free)
+
+const fetchAlphaVantage = async (symbol, apiKey, store) => {
+  try {
+    // 🔒 respeita cooldown global
+    const global429 = await getGlobal429(store);
+    if (Date.now() - global429 < COOLDOWN_429) {
+      console.warn("⛔ pulando Alpha (cooldown global)");
+      return null;
+    }
+
+    const avSymbol = `${symbol}.SA`;
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${avSymbol}&outputsize=compact&apikey=${apiKey}`;
+    const res = await fetchWithTimeout(url, {}, 4000);
+    if (!res || !res.ok) {
+      console.warn("⚠️ Alpha Vantage sem resposta");
+      return null;
+    }
+    let json = null;
+    try {
+      json = await res.json();
+    } catch {
+      console.warn("⚠️ Alpha JSON inválido");
+      return null;
+    }
+    // rate limit da Alpha
+    if (json?.Note) {
+      console.warn("🚨 Alpha Vantage rate limit atingido");
+      await setGlobal429(store);
+      return null;
+    }
+    const series = json["Time Series (Daily)"];
+    if (!series) return null;
+
+    const entries = Object.entries(series)
+      .sort((a, b) => new Date(b[0]) - new Date(a[0]));
+
+    const historicalDataPrice = entries.map(([date, values]) => ({
+      date: Math.floor(new Date(date).getTime() / 1000),
+      close: Number(values["4. close"])
+    }));
+    const latest = historicalDataPrice[0];
+    const previous = historicalDataPrice[1];
+    return {
+      symbol,
+      regularMarketPrice: latest?.close ?? null,
+      previousClose: previous?.close ?? null,
+      changePercent:
+        latest && previous && previous.close
+          ? ((latest.close - previous.close) / previous.close) * 100
+          : null,
+      historicalDataPrice,
+      source: "alpha"
+    };
+
+  } catch (err) {
+    console.warn("⚠️ Alpha erro:", err.message);
+    return null;
+  }
+};
+
+
 // ----------- EXEC: Leitura linear:  lock - exec - timeout - race
 // ----------  exec() deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
@@ -553,6 +616,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
         }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
+
     // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
       let brapiData = null;
       const missingCriticalFields = !data || data.regularMarketPrice == null || !data.historicalDataPrice?.length;
@@ -573,10 +637,30 @@ const exec = async ( { store, apiToken, tickers } ) => {
             changePercent: brapiData?.changePercent ?? brapiData?.regularMarketChangePercent ?? null
           };
         }
-
       if (data && brapiData) source = "YAHOO + BRAPI";
       else if (brapiData) source = "BRAPI";
       else if (data) source = "YAHOO";
+
+
+      // ---------------------- ALPHA VANTAGE (ÚLTIMO FALLBACK) ----------------
+
+      let alphaData = null;
+      if (!data && !brapiData) {
+        try {
+          const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
+          if (alphaKey) {
+            alphaData = await fetchAlphaVantage(symbol, alphaKey, store);
+          }
+        } catch (err) {
+          console.warn("⚠️ Alpha erro:", err.message);
+        }
+      }
+      if (alphaData) {
+        data = alphaData;
+        historicalDataPrice = alphaData.historicalDataPrice || [];
+        source = "ALPHA VANTAGE";
+      }
+
 
       // Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
@@ -585,7 +669,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
         historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
 
-      // ------------ Fallback final absoluto-----------------
+    // ------------ Fallback final absoluto-----------------
     if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
 
@@ -605,7 +689,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
 // changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ??
 // changePercent(ANTIGA) = data?.changePercent ?? getDailyVariation(baseHist, data?.regularMarketPrice);
     // getDailyVariation(hist, data?.regularMarketPrice);
-    
+
     // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     // depois do merge
     const baseHist = mergedHist.length ? mergedHist : hist;
@@ -625,8 +709,8 @@ const exec = async ( { store, apiToken, tickers } ) => {
       const payload = {
         source,
         symbol,
-        shortName: data?.shortName,
-        longName: data?.longName,
+        shortName: data?.shortName ?? null,
+        longName: data?.longName ?? data?.shortName ?? brapiData?.longName ?? brapiData?.shortName ?? symbol,
         regularMarketPrice: data?.regularMarketPrice,
         changePercent,
         regularMarketDayLow: dayLow,
@@ -712,7 +796,8 @@ export default async () => {
 
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
-  const MAX_EXECUTION_TIME = 7000;
+  // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s)
+  const MAX_EXECUTION_TIME = 10000;
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
