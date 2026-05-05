@@ -60,24 +60,25 @@ const getValidHist = (hist) => (hist || []).filter(d =>
   d && typeof d.date === "number" && typeof d.close === "number"
 );
 
+
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
+  const valid = getValidHist(hist)
+    .filter(d => d.close > 0)
+    .sort((a, b) => a.date - b.date);
+
+  if (!valid.length) return null;
   const now = new Date();
   now.setHours(0,0,0,0);
+
   const target = new Date(now);
   target.setMonth(target.getMonth() - 1);
   const targetTs = Math.floor(target.getTime() / 1000);
-  let base = null;
-
-  for (let i = hist.length - 1; i >= 0; i--) {
-    if (hist[i].date <= targetTs) {
-      base = hist[i].close;
-      break;
-    }
-  }
-  // 🔥 fallback inteligente
-  if ((!base || base === 0) && hist.length > 0) {
-    base = hist.slice(-30)[0]?.close ?? hist[0]?.close ?? null;
+  // findLast: só funciona em runtimes modernos (Node 18+)
+  // OK pois o ambiente nao vai mudar (ou Netlify edge antigo)
+  let base = valid.findLast(d => d.date <= targetTs)?.close;
+  if (!base) {
+    base = valid[0]?.close ?? null;
   }
   if (!base || base === 0) return null;
   return ((currentPrice - base) / base) * 100;
@@ -85,13 +86,13 @@ const getVariation30d = (hist, currentPrice) => {
 
 // cálculo próprio de variação diária (FALLBACK REAL)
 const getDailyVariation = (hist, currentPrice) => {
-    const valid = getValidHist(hist);
-    if (valid.length < 2 || currentPrice == null) return null;
-    const sorted = [...valid].sort((a, b) => a.date - b.date);
-    const last = sorted[sorted.length - 1]?.close;
-    const prev = sorted[sorted.length - 2]?.close;
-    if (!last || !prev) return null;
-    return ((last - prev) / prev) * 100;
+  const valid = getValidHist(hist).filter(d => d.close > 0);
+  if (valid.length < 2) return null;
+  const sorted = [...valid].sort((a, b) => a.date - b.date);
+  const last = sorted.at(-1)?.close;
+  const prev = sorted.at(-2)?.close;
+  if (!last || !prev || prev === 0) return null;
+  return ((last - prev) / prev) * 100;
 };
 
 
@@ -591,28 +592,35 @@ const exec = async ( { store, apiToken, tickers } ) => {
     // --------------- Antes do payload e Depois do merge (data + brapiData)
     const rawHist = data?.historicalDataPrice ?? cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
     const hist = getValidHist(rawHist);
-    // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais.
-  //const mergedHist = getValidHist( (data?.historicalDataPrice?.length > 5 ? data.historicalDataPrice : brapiData?.historicalDataPrice) || [] );
-    const mergedHist = getValidHist( data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice || [] );
+    // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
+// mergedHist = getValidHist( (data?.historicalDataPrice?.length > 5 ? data.historicalDataPrice : brapiData?.historicalDataPrice) || [] );
+// mergedHist = getValidHist( data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice || [] );
+    const yahooHist = getValidHist(data?.historicalDataPrice || []);
+    const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
+    const mergedHist = yahooHist.length >= 5 ? yahooHist : brapiHist.length ? brapiHist : yahooHist;
     // cálculos fallback
-    const dayRangeCalc = getDayRangeFromHist(hist);
-    const week52Calc = get52WeekRangeFromHist(hist);
-    const changePercent = data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
-//const changePercent = data?.regularMarketChangePercent ?? data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
     // regularMarketChangePercent NÃO existe no payload e só existe changePercent
-    // const changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ??
+// changePercent(ANTIGA) = data?.changePercent ?? data?.regularMarketChangePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
+// changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
+// changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ??
+// changePercent(ANTIGA) = data?.changePercent ?? getDailyVariation(baseHist, data?.regularMarketPrice);
     // getDailyVariation(hist, data?.regularMarketPrice);
+    
     // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     // depois do merge
+    const baseHist = mergedHist.length ? mergedHist : hist;
+    const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
+    const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
+    const variation30d = getVariation30d(baseHist, data.regularMarketPrice);
+    // Prioriza dado calculado (mais confiável)
+    const calcDaily = getDailyVariation(baseHist, data?.regularMarketPrice);
+    const changePercent = calcDaily ?? data?.changePercent ?? null;
+    const dayRangeCalc = getDayRangeFromHist(baseHist);
+    const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = safeValue(data?.regularMarketDayLow ?? dayRangeCalc.low);
     const dayHigh = safeValue(data?.regularMarketDayHigh ?? dayRangeCalc.high);
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
-
-    const min7d = hist.length ? getMin(getCloses(filterByDays(hist, 7))) : null;
-    const min30d = hist.length ? getMin(getCloses(filterByDays(hist, 30))) : null;
-    const variation30d = getVariation30d(hist, data.regularMarketPrice);
-
       // -------------------- Payload--------------
       const payload = {
         source,
