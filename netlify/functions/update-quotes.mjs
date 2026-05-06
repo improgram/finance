@@ -638,8 +638,9 @@ const exec = async ( { store, apiToken, tickers } ) => {
           };
         }
       if (data && brapiData) source = "YAHOO + BRAPI";
-      else if (brapiData) source = "BRAPI";
       else if (data) source = "YAHOO";
+      else if (brapiData) source = "BRAPI";
+      else if (alphaData) source = "ALPHA VANTAGE";
 
 
       // ---------------------- ALPHA VANTAGE (ÚLTIMO FALLBACK) ----------------
@@ -660,6 +661,22 @@ const exec = async ( { store, apiToken, tickers } ) => {
         historicalDataPrice = alphaData.historicalDataPrice || [];
         source = "ALPHA VANTAGE";
       }
+
+      // depois de Yahoo + BRAPI + Alpha resolvidos: entra o MERGE
+
+      const merged = {
+        symbol,
+        shortName: data?.shortName ?? brapiData?.shortName ?? null,
+        longName: data?.longName ?? brapiData?.longName ?? symbol,
+        regularMarketPrice: data?.regularMarketPrice ?? brapiData?.regularMarketPrice ?? null,
+        previousClose: data?.previousClose ?? brapiData?.previousClose ?? null,
+        changePercent: data?.changePercent ?? brapiData?.changePercent ?? null,
+        regularMarketDayLow: data?.regularMarketDayLow ?? brapiData?.regularMarketDayLow ?? null,
+        regularMarketDayHigh: data?.regularMarketDayHigh ?? brapiData?.regularMarketDayHigh ?? null,
+        fiftyTwoWeekLow: data?.fiftyTwoWeekLow ?? brapiData?.fiftyTwoWeekLow ?? null,
+        fiftyTwoWeekHigh: data?.fiftyTwoWeekHigh ?? brapiData?.fiftyTwoWeekHigh ?? null,
+        historicalDataPrice: data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? []
+      };
 
 
       // Falback = cache antigo = Evitar side-effect silencioso
@@ -692,7 +709,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
     // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     // depois do merge
-    const baseHist = mergedHist.length ? mergedHist : hist;
+    const baseHist = mergedHist;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
     const variation30d = getVariation30d(baseHist, data.regularMarketPrice);

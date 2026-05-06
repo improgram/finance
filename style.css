@@ -154,14 +154,24 @@ body {
     padding: 6px 4px;
 }
 
+/* Quando o mouse estiver sobre o .dropdown, exibe o .submenu */
+.dropdown:hover .submenu {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out; /* Opcional: efeito suave */
+}
+
 .submenu {
     display: none; /* 🔒 escondido inicialmente */
     position: absolute;
     background: #0f1115;
     list-style: none;
-    padding: 10px;
+    padding: 10px;      /* Cria uma área invisível para o mouse atravessar */
     border-radius: 6px;
-    top: 30px;
+    left: 0;
+    /*top: 30px;*/
+    top: 100%; /* Cola exatamente abaixo do topo */
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
 }
 
 .submenu li {
@@ -177,7 +187,15 @@ body {
     text-decoration: none;
     font-size: 14px;
 }
+
+/* Animação simples de entrada */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* FiM do Submenu */
+
 
 h1, h2 {
     text-align: center;
