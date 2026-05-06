@@ -28,9 +28,12 @@ console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
-const CACHE_TTL = 5 * 60 * 1000;
 const MAX_ITEMS = 50;
-
+const hour = new Date().getHours();
+const CACHE_TTL =
+  hour >= 10 && hour <= 18
+    ? 5 * 60 * 1000   // 5 min
+    : 30 * 60 * 1000; // 30 min
 
 // -------------------- Helpers Market --------------------
 
@@ -565,6 +568,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
         B5P211: { description: "NTN-B (inflação) Curto/Medio" },
+        GOAT11: { description: "IMAB11(80%) e S&P(19%)" },
         IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
         IRFM11: { description: "Pré-fixado (LTN 26/29/31) e NTN-B" },
         IVVB11: { description: "S&P 500 dos EUA" },
@@ -619,16 +623,24 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
     // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
       let brapiData = null;
-      const missingCriticalFields = !data || data.regularMarketPrice == null || !data.historicalDataPrice?.length;
-      if (!data || missingCriticalFields) {
+
+      // 🔥 avaliação de qualidade do Yahoo: não substitui o merge e ele só decide quando chamar Brapi
+      const isYahooWeak =
+        !data ||
+        data.regularMarketPrice == null ||
+        !Array.isArray(data.historicalDataPrice) ||
+        data.historicalDataPrice.length < 5;
+
+      // só chama BRAPI se realmente precisar
+      if (isYahooWeak) {
         try {
           brapiData = await fetchBrapi(symbol, apiToken, store);
         } catch (err) {
-            console.warn("⚠️ BRAPI erro:", err.message);
-          }
+          console.warn("⚠️ BRAPI erro:", err.message);
+        }
       }
 
-      // merge inteligente (BRAPI complementa Yahoo)
+      // merge inteligente: Yahoo → prioridade e (BRAPI complementa Yahoo)
       if (brapiData) {
           brapiData = {
             ...brapiData,
@@ -640,8 +652,6 @@ const exec = async ( { store, apiToken, tickers } ) => {
       if (data && brapiData) source = "YAHOO + BRAPI";
       else if (data) source = "YAHOO";
       else if (brapiData) source = "BRAPI";
-      else if (alphaData) source = "ALPHA VANTAGE";
-
 
       // ---------------------- ALPHA VANTAGE (ÚLTIMO FALLBACK) ----------------
 
