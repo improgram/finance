@@ -691,7 +691,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
 
     // --------------- Antes do payload e Depois do merge (data + brapiData)
-    const rawHist = data?.historicalDataPrice ?? cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
+    const rawHist = merged?.historicalDataPrice ?? cached?.historicalDataPrice ?? [];
     const hist = getValidHist(rawHist);
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
 // mergedHist = getValidHist( (data?.historicalDataPrice?.length > 5 ? data.historicalDataPrice : brapiData?.historicalDataPrice) || [] );
@@ -726,15 +726,15 @@ const exec = async ( { store, apiToken, tickers } ) => {
       const payload = {
         source,
         symbol,
-        shortName: data?.shortName ?? null,
-        longName: data?.longName ?? data?.shortName ?? brapiData?.longName ?? brapiData?.shortName ?? symbol,
-        regularMarketPrice: data?.regularMarketPrice,
-        changePercent,
+        shortName: merged.shortName,
+        longName: merged.longName,
+        regularMarketPrice: merged.regularMarketPrice,
+        changePercent: changePercent,
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
         fiftyTwoWeekLow,
         fiftyTwoWeekHigh,
-        historicalDataPrice: mergedHist,
+        historicalDataPrice: merged.historicalDataPrice,
         min7d,
         min30d,
         variation30d,
