@@ -444,6 +444,8 @@ const fetchYahoo = async (symbol, store) => {
     const closes = resultYahoo?.indicators?.quote?.[0]?.close || [];
     return {
       symbol,
+      shortName: meta.shortName ?? null,
+      longName: meta.longName ?? null,
       regularMarketPrice: meta.regularMarketPrice,
       previousClose: meta.previousClose,
       changePercent:
@@ -457,7 +459,7 @@ const fetchYahoo = async (symbol, store) => {
         }))
         .filter(d => d.date && d.close != null),
           currency: meta.currency,
-          source: "yahoo"
+          source: "Yahoo"
     };
   } catch { return null; }
 };
@@ -676,8 +678,8 @@ const exec = async ( { store, apiToken, tickers } ) => {
 
       const merged = {
         symbol,
-        shortName: data?.shortName ?? brapiData?.shortName ?? null,
-        longName: data?.longName ?? brapiData?.longName ?? symbol,
+        shortName: data?.shortName ?? brapiData?.shortName ?? brapiData?.symbol ?? symbol,
+        longName: data?.longName ?? brapiData?.longName ?? brapiData?.shortName ?? symbol,
         regularMarketPrice: data?.regularMarketPrice ?? brapiData?.regularMarketPrice ?? null,
         previousClose: data?.previousClose ?? brapiData?.previousClose ?? null,
         changePercent: data?.changePercent ?? brapiData?.changePercent ?? null,

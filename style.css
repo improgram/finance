@@ -273,12 +273,12 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 60px;                /* da segunda tabela(tableAcoes) tera 60px nos logos*/
-    height: 60px;      /* Define uma altura fixa para a célula ser quadrada */
-    padding: 0;      /* Pequeno respiro para o logo não colar nas bordas */
+    width: 50px;                /* da segunda tabela(tableAcoes) tera 50px nos logos*/
+    height: 50px;               /* Define uma altura fixa para a célula ser quadrada */
+    padding: 0;                 /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
     text-align: center;
-    min-width: 61px;           /* Garante que a coluna não encolha */
+    min-width: 50px;            /* Garante que a coluna não encolha */
 }
 
 /* Regra para a imagem ocupar o espaço total */
