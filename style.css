@@ -199,7 +199,7 @@ body {
 
 h1, h2 {
     text-align: center;
-    margin-top: 2px;
+    margin-top: 6px;
 }
 
 .search-container {
@@ -326,23 +326,6 @@ tr:hover {                      /* passar mouse */
     background-color: #f8f9fa;          /* Um leve fundo cinza para destacar a linha ativa */
     cursor: pointer;
 }
-
-/* Quando passar o mouse na linha, as letras das células aumentam */
-tr:hover td {
-    color: #000; /* Escurece o texto para dar mais leitura */
-    transform: scale(1.02);
-    transition: transform 0.2s ease;
-    font-weight: 500;
-    display: inline-block; /* Necessário para o transform funcionar bem em alguns navegadores */
-    width: 100%; /* Garante que o conteúdo ocupe a célula ao escalar */
-}
-
-/* Opcional: Se quiser que apenas o texto de colunas específicas aumente (ex: Ticker ou Preço) */
-/*
-tr:hover td.price {
-    font-size: 1.1rem;
-}
-*/
 
 #tabelaTickers td:nth-child(3),     /* Terceira coluna(Empresa) da Segunda Tabela*/
 #tabelaTickers th:nth-child(3) {
