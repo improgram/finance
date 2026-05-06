@@ -827,7 +827,7 @@ export default async () => {
 
 
 // ---------------- CRON ----------------
-// Cron: a cada 30 min,  12h-21h UTC (10h às 18h Brasília), (1-5) Seg a Sex
+// Cron: a cada 30 min,  13h-21h UTC (10:30h às 18h Brasília), (1-5) Seg a Sex
 export const config = {
-  schedule: "*/30 12-21 * * 1-5"
+  schedule: "*/30 13-21 * * 1-5"
 };
