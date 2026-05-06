@@ -105,18 +105,20 @@ const getDailyVariation = (hist, currentPrice) => {
 const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
 const getDayRangeFromHist = (hist) => {
-  if (!hist.length) return { low: null, high: null };
-  const last = hist.at(-1);
-  //const lows = lastDay.map(d => d.low).filter(v => v != null);
-  //const highs = lastDay.map(d => d.high).filter(v => v != null);
-
+  if (!Array.isArray(hist) || !hist.length) {
+    return { low: null, high: null };
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const dayStart = now - 86400;
+  const today = hist.filter(d => d.date >= dayStart);
+  const lows = today.map(d => d.low ?? d.close).filter(Boolean);
+  const highs = today.map(d => d.high ?? d.close).filter(Boolean);
   return {
-    low: last?.low ?? null,
-    high: last?.high ?? null
-    //low: getMin(lows),
-    //high: getMax(highs)
+    low: lows.length ? Math.min(...lows) : null,
+    high: highs.length ? Math.max(...highs) : null
   };
 };
+
 
 const get52WeekRangeFromHist = (hist) => {
   if (!hist.length) return { low: null, high: null };
