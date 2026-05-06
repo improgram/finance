@@ -135,11 +135,11 @@ const formatLongName = (name) => {
   return name
     .replace(/\bS\.A\.?\b/gi, "")
     .replace(/\bSA\b/gi, "")
+    .replace(/\bHOLDING\b/gi, "")
+    .replace(/\bINVESTMENTS?\b/gi, "")
+    .replace(/\bINVESTMENTOS?\b/gi, "")
     .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .slice(0, 4)
-    .join(" ");
+    .trim();
 };
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
