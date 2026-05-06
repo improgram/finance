@@ -269,8 +269,8 @@ table td:first-child {
                             para que o texto continue legível sobre outras células roladas */
 }
 
-.tableAcoes td:first-child {    /* primeira célula (<td>) de cada linha (<tr>) */
-    width: 50px;                /* da segunda tabela(tableAcoes) tera 50px nos logos*/
+.tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
+    width: 50px;                /* de cada linha (<tr>) tera 50px nos logos */
     height: 50px;               /* Define uma altura fixa para a célula ser quadrada */
     padding: 0;                 /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
@@ -282,10 +282,10 @@ table td:first-child {
 .img-logo-tabela {
     width: 100%;            /* Ocupa toda a largura da célula (descontando o padding) */
     height: 100%;           /* Ocupa toda a altura da célula */
-    object-fit: contain;    /* Garante que o logo não seja distorcido */
-    border-radius: 2px;
     display: block;         /* Remove espaços vazios abaixo da imagem */
-    margin: 0 auto;
+    object-fit: cover;    /* Garante que o logo não seja distorcido */
+    transform: scale(1.02);
+    border-radius: 2px;
 }
 
 table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */

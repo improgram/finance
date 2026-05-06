@@ -129,6 +129,19 @@ const get52WeekRangeFromHist = (hist) => {
   };
 };
 
+const formatLongName = (name) => {
+  if (!name) return null;
+
+  return name
+    .replace(/\bS\.A\.?\b/gi, "")
+    .replace(/\bSA\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 4)
+    .join(" ");
+};
+
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -238,14 +251,12 @@ const safeParseTickers = (raw) => {
 
 
 // -- LIMPEZA NO BOOT
-
 const sanitizeTickers = (list) => {
   if (!Array.isArray(list)) return [];
   return [...new Set(list)]
     .map(t => String(t).trim().toUpperCase())
     .filter(t => /^[A-Z0-9]+$/.test(t));
 };
-
 
 // --- Helper para buscar tickers dinâmicos no Blobs - já faz parse e trata fallback
 
@@ -693,7 +704,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
       const merged = {
         symbol,
         shortName: data?.shortName ?? brapiData?.shortName ?? brapiData?.symbol ?? symbol,
-        longName: data?.longName ?? brapiData?.longName ?? brapiData?.shortName ?? symbol,
+        longName: formatLongName(data?.longName ?? brapiData?.longName ?? symbol),
         regularMarketPrice: data?.regularMarketPrice ?? brapiData?.regularMarketPrice ?? null,
         previousClose: data?.previousClose ?? brapiData?.previousClose ?? null,
         changePercent: data?.changePercent ?? brapiData?.changePercent ?? null,
