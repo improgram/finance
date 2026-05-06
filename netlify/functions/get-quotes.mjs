@@ -1,12 +1,9 @@
 // Busca no storage (Blobs) assim a API fica leve
-// retorna JSON
-// o que o frontend faz leitura esta aqui
+// Codigo que o frontend faz leitura esta aqui
 // (O Distribuidor): É a API que o seu site chama.
 // Ela lê todos os Blobs e entrega um JSON consolidado.
 //  Código rodará no lado do servidor ou serverless (netlify) NAO no navegador
 //  Acionado apenas quando o Frontend faz o pedido
-//  A chave será lida das variáveis de ambiente do Netlify
-
 
 import { getStore } from "@netlify/blobs";
 
@@ -28,7 +25,6 @@ const formatFullTime = (ts) => {
 
 const jsonResponse = (data, status = 200) =>
   new Response(JSON.stringify(data, null, 2), { status, headers: HEADERS });
-
 
 
 // ------------ LÓGICA DE NORMALIZAÇÃO  ---
@@ -96,7 +92,7 @@ export default async () => {
       data: { etfs, acoes },
       meta: {
         total: safeData.length,
-        updatedAt,       
+        updatedAt,
         updatedLabel: formatFullTime(updatedAt) || "N/A"
       }
     });

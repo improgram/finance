@@ -1,13 +1,14 @@
-// schedule (cron)
 // lógica completa
-// chamada da Brapi
+// chamada da Brapi:  A chave será lida das variáveis de ambiente do Netlify
 // processamento
 // salvamento no Blobs
+// retorna JSON
+// schedule (cron)
 
 // CommonJS (require)  = (antigo)
 // ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
-// trata se do Coletor) Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage
+// Coletor Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
 
@@ -60,7 +61,9 @@ const filterByDays = (hist, days) => {
 };
 
 const getValidHist = (hist) => (hist || []).filter(d =>
-  d && typeof d.date === "number" && typeof d.close === "number"
+  d &&
+  typeof d.date === "number" &&
+  typeof d.close === "number"
 );
 
 
@@ -77,9 +80,8 @@ const getVariation30d = (hist, currentPrice) => {
   const target = new Date(now);
   target.setMonth(target.getMonth() - 1);
   const targetTs = Math.floor(target.getTime() / 1000);
-  // findLast: só funciona em runtimes modernos (Node 18+)
-  // OK pois o ambiente nao vai mudar (ou Netlify edge antigo)
-  let base = valid.findLast(d => d.date <= targetTs)?.close;
+  // findLast: só funciona em runtimes modernos (Node 18+) entao usar reverse
+  let base = [...valid].reverse().find(d => d.date <= targetTs)?.close;
   if (!base) {
     base = valid[0]?.close ?? null;
   }
@@ -99,18 +101,20 @@ const getDailyVariation = (hist, currentPrice) => {
 };
 
 
-// Buscar preços historicos:
-// Yahoo = preço rápido e BRAPI = enriquecimento de dados
+// Buscar preços historicos: Yahoo = preço rápido e BRAPI = enriquecimento de dados
 const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
 const getDayRangeFromHist = (hist) => {
-  const lastDay = filterByDays(hist, 1);
-  if (!lastDay.length) return { low: null, high: null };
+  if (!hist.length) return { low: null, high: null };
+  const last = hist.at(-1);
+  //const lows = lastDay.map(d => d.low).filter(v => v != null);
+  //const highs = lastDay.map(d => d.high).filter(v => v != null);
 
-  const closes = lastDay.map(d => d.close).filter(v => v != null);
   return {
-    low: getMin(closes),
-    high: getMax(closes)
+    low: last?.low ?? null,
+    high: last?.high ?? null
+    //low: getMin(lows),
+    //high: getMax(highs)
   };
 };
 
@@ -129,9 +133,17 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
 // safeSet sempre stringify → pode gerar dupla serialização Se alguém passar string
 // Se quiser aceitar string, então precisa tratar no safeGet.
+// O JSON.stringify(value) Pode gerar double stringify e Pode quebrar leitura futura do timestamp
 const safeSet = async (store, key, value) => {
-  return await store.set(key, JSON.stringify(value));
+  try {
+    const data = JSON.stringify(value ?? null);
+    return await store.set(key, data);
+  } catch (err) {
+    console.warn("⚠️ safeSet falhou:", key, err.message);
+    return null;
+  }
 };
+
 
 const setGlobal429 = async (store) => {
   const now = Date.now();
@@ -142,7 +154,11 @@ const setGlobal429 = async (store) => {
 
 const getGlobal429 = async (store) => {
   const data = await safeGet(store, RATE_LIMIT_KEY);
-  return data?.timestamp || 0;
+  // Evitar timestamp inválido
+   if (!data || typeof data.timestamp !== "number") {
+    return 0;
+  }
+  return data?.timestamp;
 };
 
 // -------Blindar leitura = evitar retorno do objeto invalido
@@ -160,38 +176,31 @@ const normalizeStorage = (data) => {
   return data;
 };
 
-// helper separado:
-const unwrapData = (value) =>
-  value && typeof value === "object" && "data" in value
-    ? value.data
-    : value;
-
 // prev pode ser array → prev.data === undefined e/ou objeto diferente → estrutura inconsistente
 // prev pode ser: array direto ❌ objeto sem data ❌ null ❌
-
-const safeGet = async (store, key) => {
+// usar function declaration pois a getGlobal429 chama a safeGet
+async function safeGet (store, key) {
   try {
     const raw = await store.get(key);
     if (!raw) return null;
+
     let parsed;
+
     if (raw instanceof Uint8Array) {
       parsed = JSON.parse(new TextDecoder().decode(raw));
     } else if (typeof raw === "string") {
       parsed = JSON.parse(raw);
+    } else if (typeof raw === "object") {
+      parsed = raw; // já é objeto válido
     } else {
-      parsed = raw;
+      return null;
     }
-    return parsed; // NÃO normalizar aqui
+    return parsed; // 🔥 IMPORTANTE
   } catch (err) {
-    console.warn("⚠️ safeGet error:", key, err.message);
+    console.warn("⚠️ JSON inválido no safeGet:", key, err.message);
     return null;
   }
 };
-
-// Sera utilizado na let index dentro da getNextTicker
-const unwrap = (v) =>
-(v && typeof v === "object" && "value" in v) ? v.value : v;
-
 
 
 //-- Evitar tickers-list vazio
@@ -313,9 +322,9 @@ const getNextTicker = async (store, list) => {
 
   const key = "ticker-index";
   const stored = await safeGet(store, key);
-  // cobre erros de: objeto { value } , número puro, lixo → fallback 0
+  // cobre erros de: objeto { value }, número puro, lixo → fallback 0 e Se stored = {} → vira NaN
   let index = Number( stored && typeof stored === "object" ? stored.value : stored );
-  if (!Number.isFinite(index)) index = 0;
+  if (!Number.isInteger(index)) index = 0;
 
   // evitar crescimento inútil do índice
   const currentIndex = index % list.length;
@@ -348,7 +357,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
       } else {
       console.error("⚠️ erro fetch:", error);
       }
-      return null;
+      return new Response(null, { status: 408 });
   }
   finally {
     clearTimeout(id);
@@ -442,6 +451,8 @@ const fetchYahoo = async (symbol, store) => {
     if (!meta) return null;
     const timestamps = resultYahoo?.timestamp || [];
     const closes = resultYahoo?.indicators?.quote?.[0]?.close || [];
+    const lows = resultYahoo?.indicators?.quote?.[0]?.low || [];
+    const highs = resultYahoo?.indicators?.quote?.[0]?.high || [];
     return {
       symbol,
       shortName: meta.shortName ?? null,
@@ -455,12 +466,13 @@ const fetchYahoo = async (symbol, store) => {
       historicalDataPrice: timestamps
         .map((t, i) => ({
           date: t,
-          close: closes[i] ?? null
+          close: closes[i] ?? null,
+          low: lows[i] ?? null,
+          high: highs[i] ?? null
         }))
         .filter(d => d.date && d.close != null),
-          currency: meta.currency,
-          source: "Yahoo"
     };
+    // fim do Try
   } catch { return null; }
 };
 
@@ -694,7 +706,7 @@ const exec = async ( { store, apiToken, tickers } ) => {
       // Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
         source = "Cache Antigo";
-        data = cached || null;
+        data = cached;
         historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
 
@@ -705,33 +717,34 @@ const exec = async ( { store, apiToken, tickers } ) => {
     // --------------- Antes do payload e Depois do merge (data + brapiData)
     const rawHist = merged?.historicalDataPrice ?? cached?.historicalDataPrice ?? [];
     const hist = getValidHist(rawHist);
-    // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
-// mergedHist = getValidHist( (data?.historicalDataPrice?.length > 5 ? data.historicalDataPrice : brapiData?.historicalDataPrice) || [] );
-// mergedHist = getValidHist( data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice || [] );
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
     const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
-    const mergedHist = yahooHist.length >= 5 ? yahooHist : brapiHist.length ? brapiHist : yahooHist;
-    // cálculos fallback
-    // regularMarketChangePercent NÃO existe no payload e só existe changePercent
-// changePercent(ANTIGA) = data?.changePercent ?? data?.regularMarketChangePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
-// changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ?? getDailyVariation(hist, data?.regularMarketPrice);
-// changePercent(ANTIGA) = data?.regularMarketChangePercent ?? data?.changePercent ??
-// changePercent(ANTIGA) = data?.changePercent ?? getDailyVariation(baseHist, data?.regularMarketPrice);
-    // getDailyVariation(hist, data?.regularMarketPrice);
+    // const mergedHist = yahooHist.length >= brapiHist.length ? yahooHist : brapiHist;
+    // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
+    // Nao perder dados bons do outro provider e deduplicar por timestamp
+    const map = new Map();
+      for (const d of [...yahooHist, ...brapiHist]) {
+        if (d?.date && d?.close != null) map.set(d.date, d);
+      }
+    const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
 
-    // prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
-    // depois do merge
+    // cálculos fallback
+    // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     const baseHist = mergedHist;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
-    const variation30d = getVariation30d(baseHist, data.regularMarketPrice);
+    // Se data for null (ex: caiu no fallback de cache), sem o ?. pode quebrar
+    const variation30d = getVariation30d(baseHist, data?.regularMarketPrice);
     // Prioriza dado calculado (mais confiável)
-    const calcDaily = getDailyVariation(baseHist, data?.regularMarketPrice);
-    const changePercent = calcDaily ?? data?.changePercent ?? null;
+    const price = merged.regularMarketPrice;
+    const calcDaily = getDailyVariation(baseHist, price);
+
+    // regularMarketChangePercent NÃO existe no payload e só existe changePercent
+    const changePercent = calcDaily ?? merged?.changePercent ?? null;
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
-    const dayLow = safeValue(data?.regularMarketDayLow ?? dayRangeCalc.low);
-    const dayHigh = safeValue(data?.regularMarketDayHigh ?? dayRangeCalc.high);
+    const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
+    const dayHigh = safeValue(dayRangeCalc.high ?? data?.regularMarketDayHigh);
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
       // -------------------- Payload--------------
@@ -777,7 +790,8 @@ const exec = async ( { store, apiToken, tickers } ) => {
         // 🔒 PROTEÇÃO DUPLA (garante que nunca cresce sem controle)
         const prevNormalized = normalizeStorage(prev);
         // Evitar erros Se prev for: array direto, string, formato antigo
-        const prevArray = Array.isArray(prevNormalized) ? prevNormalized.slice(0, MAX_ITEMS) : [];
+        // Se prevNormalized = { data: [] } → pode perder dados sem perceber
+        const prevArray = Array.isArray(prevNormalized) ? prevNormalized : prevNormalized?.data ?? [];
 
         let newSnapshot = [];
         if (prevArray.length) {

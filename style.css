@@ -37,10 +37,6 @@ body {
         rgb(79, 79, 79) 60% );
 }
 
-:heading {              /*(mínimo, ideal, máximo) */
-    font-size: clamp(0.7rem, 2.0vw, 1.4rem);
-}
-
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -155,9 +151,10 @@ body {
 }
 
 /* Quando o mouse estiver sobre o .dropdown, exibe o .submenu */
-.dropdown:hover .submenu {
+.dropdown:hover .submenu,
+.dropdown.active .submenu {
     display: block;
-    animation: fadeIn 0.2s ease-in-out; /* Opcional: efeito suave */
+    animation: fadeIn 0.2s ease-in-out;     /* Opcional: efeito suave */
 }
 
 .submenu {
@@ -403,6 +400,12 @@ tr:hover {                      /* passar mouse */
     .dropdown {
         flex-direction: column;
         width: 100%;
+    }
+
+    .dropdown.active .submenu {
+        position: static;               /* No mobile, o submenu empurra o conteúdo para baixo */
+        width: 100%;
+        background: #1a1d23;
     }
 
     .submenu {
