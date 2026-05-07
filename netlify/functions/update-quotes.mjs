@@ -138,7 +138,9 @@ const formatLongName = (name) => {
     .replace(/\bHOLDING\b/gi, "")
     .replace(/\bINVESTMENTS?\b/gi, "")
     .replace(/\bINVESTMENTOS?\b/gi, "")
+    .replace(/\bPARTICIPAÇÕES?\b/gi, "")
     .replace(/\s+/g, " ")
+    .replace(/\s+\./g, "")
     .trim();
 };
 
