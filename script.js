@@ -121,7 +121,8 @@ const createEtfRow = (symbol) => {
         <td class="var"></td>
         <td class="range"></td>
         <td class="min7"></td>
-        <td class="min30"></td>
+        <td class="volume"></td>
+        <td class="avg-volume"></td>
         <td class="var30"></td>
         <td class="max"></td>
     `;
@@ -164,6 +165,8 @@ const normalizeState = (q) => ({
     variation30d: q.variation30d ?? null,
     regularMarketDayLow: q.regularMarketDayLow ?? null,
     regularMarketDayHigh: q.regularMarketDayHigh ?? null,
+    volume: q.volume ?? null,
+    averageVolume: q.averageVolume ?? null,
     fiftyTwoWeekHigh: q.fiftyTwoWeekHigh ?? null,
     fiftyTwoWeekLow: q.fiftyTwoWeekLow ?? null,
     logourl: q.logourl
@@ -171,9 +174,7 @@ const normalizeState = (q) => ({
 
 
 // CAMADA 4 — HELPERS GLOBAIS
-
 // 🌍 FORMATADORES
-
 const numberFormatterBR = new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -204,6 +205,21 @@ const getDayRange = (obj) =>
     obj.regularMarketDayLow != null && obj.regularMarketDayHigh != null
         ? `${formatNumber(obj.regularMarketDayLow)} - ${formatNumber(obj.regularMarketDayHigh)}`
         : '-';
+
+const formatVolume = (value) => {
+    if (typeof value !== 'number') return '---';
+    if (value >= 1_000_000_000) {
+        return `${(value / 1_000_000_000).toFixed(2)}B`;
+    }
+    if (value >= 1_000_000) {
+        return `${(value / 1_000_000).toFixed(2)}M`;
+    }
+    if (value >= 1_000) {
+        return `${(value / 1_000).toFixed(1)}K`;
+    }
+    return formatNumber(value);
+};
+
 
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
@@ -321,6 +337,12 @@ const updateCommonRow = (row, data) => {
         }
     const elMax = row.querySelector('.max');
         if(elMax) elMax.textContent = formatNumber(data.fiftyTwoWeekHigh);
+
+    const elVolume = row.querySelector('.volume');
+    if (elVolume) {elVolume.textContent = formatVolume(data.volume);}
+
+    const elAvgVolume = row.querySelector('.avg-volume');
+    if (elAvgVolume) {elAvgVolume.textContent = formatVolume(data.averageVolume);}
 };
 
 
@@ -359,7 +381,6 @@ const patchTables = (etfs, acoes) => {
             renderOrUpdateEtfs(etfs, containerEtf, etfMap);
             renderOrUpdateAcoes(acoes, containerAcoes, acoesMap);
 };
-
 
 // fetchQuotes → delega
 // validação + loading + chamada API + normalização + decisão de render
