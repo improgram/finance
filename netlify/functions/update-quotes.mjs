@@ -36,6 +36,7 @@ const CACHE_TTL =
     ? 5 * 60 * 1000   // 5 min
     : 30 * 60 * 1000; // 30 min
 
+
 // -------------------- Helpers Market --------------------
 
 const getFormattedDateTime = () =>
@@ -65,7 +66,6 @@ const getValidHist = (hist) => (hist || []).filter(d =>
   typeof d.date === "number" &&
   typeof d.close === "number"
 );
-
 
 const getVariation30d = (hist, currentPrice) => {
   if (!hist.length || currentPrice == null) return null;
@@ -137,12 +137,28 @@ const formatLongName = (name) => {
     .replace(/\bSA\b/gi, "")
     .replace(/\bHOLDING\b/gi, "")
     .replace(/\bINVESTMENTS?\b/gi, "")
-    .replace(/\bINVESTMENTOS?\b/gi, "")
+    .replace(/\bINVESTIMENTOS?\b/gi, "")
     .replace(/\bPARTICIPAÇÕES?\b/gi, "")
     .replace(/\s+/g, " ")
     .replace(/\s+\./g, "")
     .trim();
 };
+
+const isMarketCloseValidation = () => {
+  const now = new Date();
+
+  const brHour = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hour12: false
+    }).format(now)
+  );
+
+  return brHour >= 18 && brHour <= 19;
+};
+
+
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -361,6 +377,12 @@ const getNextTicker = async (store, list) => {
 
 
 // ---------------- FETCH ----------------
+
+// Inicia um cronômetro de 3 segundos.
+// Dispara a requisição fetch avisando que ela pode ser cancelada.
+// Se o fetch for rápido: O cronômetro é desligado e você recebe os dados.
+// Se o fetch demorar: O cronômetro estoura, o AbortController cancela a requisição, e você cai no erro de timeout.
+// força a requisição a cancelar caso ela demore mais do que o esperado: 3s
 const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
@@ -368,7 +390,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (error) {
     if (error.name === "AbortError") {
-      console.warn("⏱ timeout");
+      console.warn(" ⏱ TIMEOUT 3s ");
       } else {
       console.error("⚠️ erro fetch:", error);
       }
@@ -855,7 +877,7 @@ export default async () => {
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s)
-  const MAX_EXECUTION_TIME = 10000;
+  const MAX_EXECUTION_TIME = 10000;   // 10s
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
@@ -885,7 +907,7 @@ export default async () => {
 
 
 // ---------------- CRON ----------------
-// Cron: a cada 30 min,  13h-21h UTC (10:30h às 18h Brasília), (1-5) Seg a Sex
+// Cron: a cada 15 min,  13h-21h UTC (10:30h às 18h Brasília), (1-5) Seg a Sex
 export const config = {
-  schedule: "*/30 13-21 * * 1-5"
+  schedule: "*/15 13-21 * * 1-5"
 };

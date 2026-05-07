@@ -133,17 +133,17 @@ const createAcaoRow = (symbol) => {
     const row = document.createElement('tr');
     row.dataset.symbol = symbol;
     row.innerHTML = `
-        <td><img class="logo" width="24" height="24"></td>
-        <td class="symbol"></td>
-        <td class="name"></td>
-        <td class="price"></td>
-        <td class="var"></td>
-        <td class="range"></td>
-        <td class="min7"></td>
-        <td class="min30"></td>
-        <td class="var30"></td>
-        <td class="min1y"></td>
-        <td class="max"></td>
+        <td><img class="logo"> </td>
+        <td class="symbol"> </td>
+        <td class="name"> </td>
+        <td class="price"> </td>
+        <td class="var"> </td>
+        <td class="range"> </td>
+        <td class="min7"> </td>
+        <td class="min30"> </td>
+        <td class="var30"> </td>
+        <td class="min1y"> </td>
+        <td class="max"> </td>
     `;
     return row;
 };
