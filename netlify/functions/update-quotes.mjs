@@ -141,14 +141,16 @@ const formatLongName = (name) => {
     .replace(/\bSA\b/gi, "")
     .replace(/\bHOLDING\b/gi, "")
     .replace(/\bINVESTMENTS?\b/gi, "")
-    .replace(/\bINVESTIMENTOS?\b/gi, "")
-    .replace(/\bPARTICIPAÇÕES?\b/gi, "")
+    .replace(/\bInvestimentos?\b/gi, "")
+    .replace(/\bParticipações?\b/gi, "")
     .replace(/\s+/g, " ")
     .replace(/\s+\./g, "")
+    .replace(/\s+\e/g, "")
     .trim();
 };
 
 // Após 18h: busca somente: preço, fechamento, variação diária
+// modo fechamento somente após pregão
 const isCloseMode = () => {
   const now = new Date();
   const hour = Number(
@@ -158,7 +160,7 @@ const isCloseMode = () => {
       hour12: false
     }).format(now)
   );
-  return hour >= 18;
+  return hour >= 18 && hour <= 20;
 };
 
 
@@ -933,8 +935,8 @@ export default async () => {
 // FiM do MAIN export default async
 
 
-// ---------------- CRON ----------------
-// Cron: a cada 15 min e (1-5) Seg a Sex
+// ---------------- CRON ---------------- Netlify cron sempre usa UTC
+// Cron      a cada 15 min  e   (10h as 18h)  e (1-5) Seg a Sex
 export const config = {
-  schedule: "*/15 13-20 * * 1-5"
+  schedule: "*/15 13-21 * * 1-5"
 };
