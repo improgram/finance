@@ -30,7 +30,14 @@ const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
 const MAX_ITEMS = 50;
-const hour = new Date().getHours();
+const hour = Number(
+  new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false
+  }).format(new Date())
+);
+
 const CACHE_TTL =
   hour >= 10 && hour <= 18
     ? 5 * 60 * 1000   // 5 min
@@ -75,10 +82,7 @@ const getVariation30d = (hist, currentPrice) => {
   if (!valid.length) return null;
   const now = new Date();
   now.setHours(0,0,0,0);
-
-  const target = new Date(now);
-  target.setMonth(target.getMonth() - 1);
-  const targetTs = Math.floor(target.getTime() / 1000);
+  const targetTs = Math.floor(Date.now()/1000) - (30 * 24 * 60 * 60);
   // findLast: só funciona em runtimes modernos (Node 18+) entao usar reverse
   let base = [...valid].reverse().find(d => d.date <= targetTs)?.close;
   if (!base) {
@@ -107,8 +111,9 @@ const getDayRangeFromHist = (hist) => {
   if (!Array.isArray(hist) || !hist.length) {
     return { low: null, high: null };
   }
-  const now = Math.floor(Date.now() / 1000);
-  const dayStart = now - 86400;
+  const start = new Date();
+    start.setHours(0,0,0,0);
+  const dayStart = Math.floor(start.getTime() / 1000);
   const today = hist.filter(d => d.date >= dayStart);
   const lows = today.map(d => d.low ?? d.close).filter(Boolean);
   const highs = today.map(d => d.high ?? d.close).filter(Boolean);
@@ -181,28 +186,22 @@ const setGlobal429 = async (store) => {
   });
 };
 
-const getGlobal429 = async (store) => {
-  const data = await safeGet(store, RATE_LIMIT_KEY);
-  // Evitar timestamp inválido
-   if (!data || typeof data.timestamp !== "number") {
-    return 0;
-  }
-  return data?.timestamp;
-};
-
 // -------Blindar leitura = evitar retorno do objeto invalido
-// Padronização global de storage (ANTI-CRASH STRUCTURE)
+// ---- Padronização global de storage (ANTI-CRASH STRUCTURE)
 const normalizeStorage = (data) => {
   if (!data) return null;
-  if (Array.isArray(data)) return data;
-  // Se data.data NÃO for array → poderia quebrar depois
-  if (data && typeof data === "object" && "data" in data) {
-    return Array.isArray(data.data) ? data.data : [];
+  if (Array.isArray(data)) {
+    return { data };
   }
-  if (data && typeof data === "object" && "value" in data) {
-    return data.value;
+  if (typeof data === "object") {
+    if (Array.isArray(data.data)) {
+      return data;
+    }
+    if (Array.isArray(data.value)) {
+      return { data: data.value };
+    }
   }
-  return data;
+  return { data: [] };
 };
 
 // prev pode ser array → prev.data === undefined e/ou objeto diferente → estrutura inconsistente
@@ -228,6 +227,17 @@ async function safeGet (store, key) {
     return null;
   }
 };
+
+
+const getGlobal429 = async (store) => {
+  const data = await safeGet(store, RATE_LIMIT_KEY);
+  // Evitar timestamp inválido
+   if (!data || typeof data.timestamp !== "number") {
+    return 0;
+  }
+  return data?.timestamp;
+};
+
 
 //-- Evitar tickers-list vazio
 const updateTickersList = async (store, tickers) => {
@@ -403,12 +413,7 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       if (resYahoo && resYahoo.ok) {
         return resYahoo;
       }
-      // 2. Debug para caso o fetchWithTimeout retornar null
-      if (!resYahoo) {
-        console.warn(`⚠️ sem resposta Yahoo (${symbol})`);
-        continue;
-      }
-      // 3. Tratamento de Rate Limit (429)
+      // 2. Tratamento de Rate Limit (429)
       if (resYahoo?.status === 429) {
         await setGlobal429(store);
         console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
@@ -502,7 +507,10 @@ const fetchYahoo = async (symbol, store) => {
         .filter(d => d.date && d.close != null),
     };
     // fim do Try
-  } catch { return null; }
+  } catch (err) {
+  console.warn("⚠️ fetchYahoo:", err.message);
+  return null;
+  }
 };
 
 // ---------------- BRAPI FALLBACK ----------------
@@ -599,19 +607,20 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
 
 // -------fetch ultra leve = busca somente: preço + fechamento + variação diária e ( SEM histórico.)
 const fetchYahooQuoteOnly = async (symbol, store) => {
+  let jsonQuoteOnly;
   try {
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
     const res = await fetchWithRetryYahoo(url, store, symbol);
     if (!res?.ok) return null;
-    const json = await res.json();
-    const item = json?.quoteResponse?.result?.[0];
+    jsonQuoteOnly = await res.json();
+    const item = jsonQuoteOnly?.quoteResponse?.result?.[0];
     if (!item) return null;
     return {
       symbol,
       shortName: item.shortName ?? null,
       longName: item.longName ?? null,
       regularMarketPrice: item.regularMarketPrice ?? null,
-      previousClose: item.regularMarketPreviousClose ?? null,
+      previousClose: item.regularMarketPreviousClose ?? item.previousClose ?? null,
       changePercent: item.regularMarketChangePercent ?? null
     };
   } catch {
@@ -625,6 +634,7 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
 // ----------  processTickerUpdate () deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
 // pipeline principal + orchestrator + coordinator + state machine
+
 const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
      if (!Array.isArray(tickers) || tickers.length === 0) {
@@ -643,6 +653,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
         "5PRE11": { description: "Pré-fixado" }
     };
+
     const symbol = await getNextTicker(store, tickers);
     if (!symbol) {
       return { ok: false, reason: "fila vazia" };
@@ -679,9 +690,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       let data = null;
       let source = null;
       let historicalDataPrice = [];
+      const closeMode = isCloseMode();
       try {
-        //data = await fetchYahoo(symbol, store);
-        const closeMode = isCloseMode();
         data = closeMode
           ? await fetchYahooQuoteOnly(symbol, store)
           : await fetchYahoo(symbol, store);
@@ -743,8 +753,14 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         source = "ALPHA VANTAGE";
       }
 
-      // depois de Yahoo + BRAPI + Alpha resolvidos: entra o MERGE
+      // Falback = cache antigo = Evitar side-effect silencioso
+      if (!data && cached) {    // cached vem do snapshot e não da API
+        source = "Cache Antigo";
+        data = cached;
+        historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
+      }
 
+      // depois de Yahoo + BRAPI + Alpha + cache resolvidos: entra o MERGE
       const merged = {
         symbol,
         shortName: data?.shortName ?? brapiData?.shortName ?? brapiData?.symbol ?? symbol,
@@ -760,16 +776,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? [] )
       };
 
-
-      // Falback = cache antigo = Evitar side-effect silencioso
-      if (!data && cached) {    // cached vem do snapshot e não da API
-        source = "Cache Antigo";
-        data = cached;
-        historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
-      }
-
-    // ------------ Fallback final absoluto-----------------
-    if (!data) { return { ok: false, reason: "Sem Dados" }; }
+      // ------------ Fallback final absoluto-----------------
+      if (!data) { return { ok: false, reason: "Sem Dados" }; }
 
 
     // --------------- Antes do payload e Depois do merge (data + brapiData)
@@ -794,13 +802,11 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
     // Se data for null (ex: caiu no fallback de cache), sem o ?. pode quebrar
-    const variation30d = getVariation30d(baseHist, data?.regularMarketPrice);
     // Prioriza dado calculado (mais confiável)
     const price = merged.regularMarketPrice;
+    const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
-
-    // regularMarketChangePercent NÃO existe no payload e só existe changePercent
-    const changePercent = calcDaily ?? merged?.changePercent ?? null;
+    const changePercent = Number.isFinite(merged?.changePercent) ? merged.changePercent : calcDaily ?? null;
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
@@ -813,13 +819,14 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         symbol,
         shortName: merged.shortName,
         longName: merged.longName,
-        regularMarketPrice: merged.regularMarketPrice,
+        regularMarketPrice: safeValue(merged.regularMarketPrice),
         changePercent: changePercent,
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
+        previousClose: merged.previousClose ?? null,
         fiftyTwoWeekLow,
         fiftyTwoWeekHigh,
-        historicalDataPrice: merged.historicalDataPrice,
+        historicalDataPrice: mergedHist.slice(-90),
         min7d,
         min30d,
         variation30d,
@@ -846,12 +853,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       const SNAP_KEY = "last-valid-snapshot";
       try {
         const prev = await safeGet(store, SNAP_KEY);
-
         // 🔒 PROTEÇÃO DUPLA (garante que nunca cresce sem controle)
-        const prevNormalized = normalizeStorage(prev);
-        // Evitar erros Se prev for: array direto, string, formato antigo
-        // Se prevNormalized = { data: [] } → pode perder dados sem perceber
-        const prevArray = Array.isArray(prevNormalized) ? prevNormalized : prevNormalized?.data ?? [];
+        // Evitar erros Se prevArray for: array direto, string, formato antigo
+        const prevArray = normalizeStorage(prev).data;
 
         let newSnapshot = [];
         if (prevArray.length) {
@@ -882,7 +886,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       return { ok: true, symbol, source, data: payload };
 
 }
-//  FiM da const exec
+//  FiM da const processTickerUpdate
 //  engloba toda a lógica principal até o último return createResponse
 
 
@@ -900,7 +904,7 @@ export default async () => {
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s)
-  const MAX_EXECUTION_TIME = 8500;   // 8.5s
+  const MAX_EXECUTION_TIME = 10000;   // 10 s
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
@@ -930,7 +934,7 @@ export default async () => {
 
 
 // ---------------- CRON ----------------
-// Cron: a cada 15 min,  13h-21h UTC (10:30h às 18h Brasília), (1-5) Seg a Sex
+// Cron: a cada 15 min e (1-5) Seg a Sex
 export const config = {
-  schedule: "*/15 13-21 * * 1-5"
+  schedule: "*/15 13-20 * * 1-5"
 };
