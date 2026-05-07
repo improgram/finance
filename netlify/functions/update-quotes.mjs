@@ -36,7 +36,6 @@ const CACHE_TTL =
     ? 5 * 60 * 1000   // 5 min
     : 30 * 60 * 1000; // 30 min
 
-
 // -------------------- Helpers Market --------------------
 
 const getFormattedDateTime = () =>
@@ -144,20 +143,18 @@ const formatLongName = (name) => {
     .trim();
 };
 
-const isMarketCloseValidation = () => {
+// Após 18h: busca somente: preço, fechamento, variação diária
+const isCloseMode = () => {
   const now = new Date();
-
-  const brHour = Number(
+  const hour = Number(
     new Intl.DateTimeFormat("pt-BR", {
       timeZone: "America/Sao_Paulo",
       hour: "2-digit",
       hour12: false
     }).format(now)
   );
-
-  return brHour >= 18 && brHour <= 19;
+  return hour >= 18;
 };
-
 
 
 // ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
@@ -176,7 +173,6 @@ const safeSet = async (store, key, value) => {
     return null;
   }
 };
-
 
 const setGlobal429 = async (store) => {
   const now = Date.now();
@@ -216,9 +212,7 @@ async function safeGet (store, key) {
   try {
     const raw = await store.get(key);
     if (!raw) return null;
-
     let parsed;
-
     if (raw instanceof Uint8Array) {
       parsed = JSON.parse(new TextDecoder().decode(raw));
     } else if (typeof raw === "string") {
@@ -235,7 +229,6 @@ async function safeGet (store, key) {
   }
 };
 
-
 //-- Evitar tickers-list vazio
 const updateTickersList = async (store, tickers) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
@@ -248,7 +241,6 @@ const updateTickersList = async (store, tickers) => {
   await safeSet(store, "tickers-list", clean);
   console.log("📦 tickers-list atualizada:", clean.length);
 };
-
 
 // ------- parser seguro = util para blindar a leitura do tickers-list
 // ------- normalizar tickers SEM exceção
@@ -266,7 +258,6 @@ const safeParseTickers = (raw) => {
   }
   return [];
 };
-
 
 // -- LIMPEZA NO BOOT
 const sanitizeTickers = (list) => {
@@ -387,14 +378,15 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    return await fetch(url, { ...options,
+      signal: controller.signal });
   } catch (error) {
     if (error.name === "AbortError") {
       console.warn(" ⏱ TIMEOUT 3s ");
       } else {
       console.error("⚠️ erro fetch:", error);
       }
-      return new Response(null, { status: 408 });
+      throw new Error("timeout");
   }
   finally {
     clearTimeout(id);
@@ -605,11 +597,35 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
   }
 };
 
+// -------fetch ultra leve = busca somente: preço + fechamento + variação diária e ( SEM histórico.)
+const fetchYahooQuoteOnly = async (symbol, store) => {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
+    const res = await fetchWithRetryYahoo(url, store, symbol);
+    if (!res?.ok) return null;
+    const json = await res.json();
+    const item = json?.quoteResponse?.result?.[0];
+    if (!item) return null;
+    return {
+      symbol,
+      shortName: item.shortName ?? null,
+      longName: item.longName ?? null,
+      regularMarketPrice: item.regularMarketPrice ?? null,
+      previousClose: item.regularMarketPreviousClose ?? null,
+      changePercent: item.regularMarketChangePercent ?? null
+    };
+  } catch {
+    return null;
+  }
+};
 
-// ----------- EXEC: Leitura linear:  lock - exec - timeout - race
-// ----------  exec() deve retornar apenas dados = não usa createResponse
+
+
+// ----------- EXEC: Leitura linear:  lock - processTickerUpdate  - timeout - race
+// ----------  processTickerUpdate () deve retornar apenas dados = não usa createResponse
 // ----------- retorna objetos simples ({ ok, reason }, { ok, symbol })
-const exec = async ( { store, apiToken, tickers } ) => {
+// pipeline principal + orchestrator + coordinator + state machine
+const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
@@ -664,7 +680,11 @@ const exec = async ( { store, apiToken, tickers } ) => {
       let source = null;
       let historicalDataPrice = [];
       try {
-        data = await fetchYahoo(symbol, store);
+        //data = await fetchYahoo(symbol, store);
+        const closeMode = isCloseMode();
+        data = closeMode
+          ? await fetchYahooQuoteOnly(symbol, store)
+          : await fetchYahoo(symbol, store);
         if (data) {
           source = "YAHOO";
           historicalDataPrice = data?.historicalDataPrice || [];
@@ -682,8 +702,8 @@ const exec = async ( { store, apiToken, tickers } ) => {
         !Array.isArray(data.historicalDataPrice) ||
         data.historicalDataPrice.length < 5;
 
-      // só chama BRAPI se realmente precisar
-      if (isYahooWeak) {
+      // NÃO precisa da BRAPI às 18h.
+      if (!closeMode && isYahooWeak) {
         try {
           brapiData = await fetchBrapi(symbol, apiToken, store);
         } catch (err) {
@@ -736,7 +756,8 @@ const exec = async ( { store, apiToken, tickers } ) => {
         regularMarketDayHigh: data?.regularMarketDayHigh ?? brapiData?.regularMarketDayHigh ?? null,
         fiftyTwoWeekLow: data?.fiftyTwoWeekLow ?? brapiData?.fiftyTwoWeekLow ?? null,
         fiftyTwoWeekHigh: data?.fiftyTwoWeekHigh ?? brapiData?.fiftyTwoWeekHigh ?? null,
-        historicalDataPrice: data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? []
+        historicalDataPrice: closeMode ? cached?.historicalDataPrice ?? [] : (
+          data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? [] )
       };
 
 
@@ -756,13 +777,15 @@ const exec = async ( { store, apiToken, tickers } ) => {
     const hist = getValidHist(rawHist);
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
     const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
-    // const mergedHist = yahooHist.length >= brapiHist.length ? yahooHist : brapiHist;
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
     // Nao perder dados bons do outro provider e deduplicar por timestamp
     const map = new Map();
+    // Snapshot incremental por ticker
+    // Isso evita: race condition, overwrite, perda global
       for (const d of [...yahooHist, ...brapiHist]) {
         if (d?.date && d?.close != null) map.set(d.date, d);
       }
+
     const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
 
     // cálculos fallback
@@ -877,7 +900,7 @@ export default async () => {
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s)
-  const MAX_EXECUTION_TIME = 10000;   // 10s
+  const MAX_EXECUTION_TIME = 8500;   // 8.5s
 
   //   --------------             -------------
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
@@ -891,12 +914,12 @@ export default async () => {
           // --------- lock sempre liberado
           // evitar travamento de pipeline e segurança em crash ou timeout
       const result = await Promise.race([
-        exec({
+        processTickerUpdate ({
           store,
           apiToken: API_TOKEN,
           tickers
         }),
-        timeout("exec")
+        timeout(" processTickerUpdate ")
       ]);
       return createResponse(result ?? { ok: false, error: "empty_result" });
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
