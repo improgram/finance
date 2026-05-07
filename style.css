@@ -270,12 +270,12 @@ table td:first-child {
 }
 
 .tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
-    width: 60px;                /* de cada linha (<tr>) tera 60px nos logos */
-    height: 60px;               /* Define uma altura fixa para a célula ser quadrada */
+    width: 50px;                /* de cada linha (<tr>) tera 50px nos logos */
+    height: 50px;               /* Define uma altura fixa para a célula ser quadrada */
     padding: 0;                 /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
     text-align: center;
-    min-width: 60px;            /* Garante que a coluna não encolha */
+    min-width: 50px;            /* Garante que a coluna não encolha */
 }
 
 /* Regra para a imagem ocupar o espaço total */
