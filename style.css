@@ -308,22 +308,29 @@ th {                            /* cabeçalho tabela */
     font-weight: bold;
 }
 
-td > * {
-    transition: transform .15s ease;
-}
-
 td, th {
-    padding: clamp(1.8px, 0.5vw, 8px);        /* espaçamento interno da célula */
+    padding: clamp(1.8px, 0.5vw, 8px);       /* espaçamento interno da célula */
     text-align: left;                       /* E (distância do conteúdo até a borda da célula).*/
     border-bottom: 1.5px solid #008080;
 }
 
 tr {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
 }
 
-tr:hover td > * {
-    transform: translateY(-2px);
+tr::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transition: all .2s ease;
+    pointer-events: none;
+    z-index: -1;
+}
+
+tr:hover::after {
+    background: #f8f9fa;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
 }
 
 
