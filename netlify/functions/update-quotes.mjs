@@ -575,11 +575,14 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     }
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
+        BOVA11: {description: "80 a 90 maiores empresas do Ibovespa" },
         B5P211: { description: "NTN-B (inflação) Curto/Medio" },
         GOAT11: { description: "IMAB11(80%) e S&P(19%)" },
         IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
         IRFM11: { description: "Pré-fixado (LTN 26/29/31) e NTN-B" },
         IVVB11: { description: "S&P 500 dos EUA" },
+        LFTB11: {description: "Tesouro Selic (LFT 27/28/29/30/2060)"},
+        NASD11: {description: "Apple,Microsoft,Amazon,Nvidia,Google,Meta"},
         NBIT11: { description: "Bitcoin Nasdaq" },
         PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
         "5PRE11": { description: "Pré-fixado" }

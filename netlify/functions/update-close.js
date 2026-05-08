@@ -59,14 +59,20 @@ async function safeGet (store, key) {
 
 
 // ------ createResponse padrao para os Return Json
-const createResponse = (body, status = 200) => {
-  // Se o status não for 200 ou se houver um erro/skip no corpo, usamos console.warn
-  if (status !== 200 || body.error || body.skipped) {
-    console.warn(`⚠️ [Response ${status}]:`, JSON.stringify(body));
-  } else {
-    console.log(`✅ [Response 200]: ${body.symbol || "OK"}`);
-  }
+// Utilizando Netlify Functions v2=objeto global Response espera um corpo ou uma string
+const createResponse = (body, status = 200, origin = "Update-Closes") => {
+// Se o status não for 200 ou se houver um erro/skip no corpo, usamos console.warn
+// ------ createResponse com Identificação de Origem e Debug String
 
+  const isError = status !== 200 || body.error || body.skipped;
+  //  string limpa para o log
+  const logMessage = `[${origin}] | Status: ${status} | Data: ${JSON.stringify(body)}`;
+
+  if (isError) {
+    console.warn(`⚠️Erro:  ${logMessage}`);
+  } else {
+    console.log(`✅Sem erro:  ${logMessage}`);
+  }
   return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: { "Content-Type": "application/json" }
@@ -125,9 +131,18 @@ const getNextTicker = async (store, list) => {
 const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
+
+  const defaultOptions = {
+    ...options,
+    signal: controller.signal,
+    headers: {
+      ...options.headers,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+  };
+
   try {
-    return await fetch(url, { ...options,
-      signal: controller.signal });
+    return await fetch(url, defaultOptions);
   } catch (error) {
     if (error.name === "AbortError") {
       console.warn(" ⏱ TIMEOUT 3s ");
@@ -206,11 +221,11 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
 
   const symbol = await getNextTicker(store, tickers);
   if (!symbol) {
-    return { ok: false };
+    return { ok: false, error: "Não foi possível obter próximo ticker da fila" };
   }
   const quote = await fetchYahooQuoteOnly(symbol, store);
   if (!quote) {
-    return { ok: false, error: `Falha ao buscar cotação para ${symbol}` };
+    return { ok: false, symbol, error: `Falha ao buscar cotação de ${symbol}` };
   }
 
   // pega snapshot antigo
@@ -253,6 +268,7 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
  // ------
  export default async () => {
   const store = getStore({ name: STORE_NAME });
+  const origin = "Update-Closes";
   const tickersData = await safeGet(store, "tickers-list");
 
   const tickers = Array.isArray(tickersData) ? tickersData : tickersData?.value ?? [];
@@ -261,7 +277,7 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
       ok: false,
       error: "tickers vazios",
       count: 0
-    }, 500);
+    }, 500, origin);
   }
 
   const lock = await acquireLock(store);
@@ -270,20 +286,18 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
       ok: false,
       skipped: "lock",
       reason: "Execução já ativa ou concorrência detectada"
-    }, 200);
+    }, 200, origin);
   }
   try {
-    const result = await processTickerCloseUpdate({
-      store,
-      tickers
-    });
-    return createResponse(result);
+    const result = await processTickerCloseUpdate({ store, tickers });
+    // Se o processTickerCloseUpdate retornar ok: false, o console.warn pegará
+    return createResponse(result, result.ok ? 200 : 400, origin);
   } catch (err) {
     return createResponse({
       ok: false,
       error: err.message,
       stack: err.stack?.split('\n')[0]
-    }, 500);
+    }, 500, origin);
   } finally {
     await releaseLock(store);
   }
