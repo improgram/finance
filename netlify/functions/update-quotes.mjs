@@ -807,8 +807,9 @@ export default async () => {
     } finally { await releaseLock(store); }
 };    // FiM do MAIN export default async
 
-// ---------------- CRON ---------------- Netlify cron sempre usa UTC
-// Cron      a cada 15 min  e   (10h as 18h)  e (1-5) Seg a Sex
+// --------- CRON ------- Netlify cron sempre usa UTC que significa -3
+// Cron a cada 15 min  e   (10h as 18h)  e (1-5) Seg a Sex
+
 export const config = {
   schedule: "*/15 13-21 * * 1-5"
 };

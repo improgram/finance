@@ -9,7 +9,8 @@ if (typeof getStore !== "function") {
 console.log("🚀 Iniciando Update-Closes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-close-lock";
-const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
+const LOCK_TTL = 90 * 1000;
+// 90s = evitar concorrência e não bloqueia pipeline por minutos
 
 // -------------------- Helpers Market --------------------
 
@@ -162,7 +163,8 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
 
 
 
-// -------fetch ultra leve = busca somente: preço + fechamento + variação diária e ( SEM histórico.)
+// ------- fetch ultra leve = busca somente:
+// ------- preço + fechamento + variação diária e ( SEM histórico.)
 const fetchYahooQuoteOnly = async (symbol, store) => {
   let jsonQuoteOnly;
   try {
@@ -182,8 +184,8 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
       volume: item.regularMarketVolume ?? null,
       averageVolume: item.averageDailyVolume3Month ?? item.averageDailyVolume10Day ?? null
     };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error("❌ fetchYahooQuoteOnly:", symbol, err);
   }
 };
 
@@ -275,8 +277,13 @@ const processTickerCloseUpdate = async ({
 };
 
 
-// ---------------- CRON ---------------- Netlify cron sempre usa UTC
-// Cron      a cada 3 min  e   (18h as 20h)  e (1-5) Seg a Sex
+// ---- CRON ----- Netlify cron sempre usa UTC que significa -3
+// Cron a cada 2 min  e (Após 18h as 20:14h) e (1-5) Seg a Sex
+
 export const config = {
-  schedule: "*/3 21-23 * * 1-5"
+   schedule: [
+    "15-59/2 21 * * 1-5", // 18:14 até 18:59 BRT
+    "*/2 22 * * 1-5",     // 19:00 até 19:58 BRT
+    "0-15/2 23 * * 1-5"   // 20:00 até 20:14 BRT
+  ]
 };
