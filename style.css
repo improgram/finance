@@ -255,9 +255,9 @@ table {
 }
 
 table thead th {        /* cabeçalho (th) de todas as tabelas */
-    /*position: sticky; */      /* validar */
-    /*top: 0; */         /* validar */
-    z-index: 5;
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background: #BFF;
 }
 
@@ -275,30 +275,29 @@ table td:first-child {
 
 .tableAcoes th:first-child,
 .tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
-    width: 20px;
-    min-width: 20px;
-    max-width: 20px;
-    padding: 0;
     position: sticky;
     left: 0;
+    z-index: 5;
     background: white;
-    z-index: 3;
+    width: 15px;
 }
 
 /* Regra para a imagem ocupar o espaço total */
 .img-logo-tabela {
-    width: 20px;            /* Ocupa  célula (descontando o padding) */
-    height: 20px;           /* Ocupa 24 px da da célula */
+    width: 14px;            /* Ocupa  célula (descontando o padding) */
+    height: 14px;           /* Ocupa 15 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
     margin: auto;
 }
 
+// Segunda coluna (TICKER)
 .tableAcoes td:nth-child(2),
 .tableAcoes th:nth-child(2) {
     position: relative;
     z-index: 1;
+    background: white;
 }
 
 table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
@@ -326,12 +325,19 @@ tr {
     position: relative;
 }
 
-tr:hover td {
-    background: #f8f9fa;
-    box-shadow: 0 4px 12px rgba(0,0,0,.2);
-    transition: background .2s ease;
+table tbody tr {
+    transition: all 0.15s ease;
 }
 
+table tbody tr:hover {
+    background-color: #e9eef5;
+    filter: brightness(0.98);
+    transform: translateY(-2px);
+}
+
+table tbody tr:hover td {
+    font-weight: 600;
+}
 
 #tabelaTickers td:nth-child(3),     /* Terceira coluna(Empresa) da Segunda Tabela*/
 #tabelaTickers th:nth-child(3) {
