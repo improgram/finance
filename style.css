@@ -252,6 +252,7 @@ table {
     border-radius: 8px;
     border-collapse: separate;
     border-spacing: 0;
+    table-layout: fixed;    /* navegador respeitar melhor as larguras definidas */
 }
 
 table thead th {        /* cabeçalho (th) de todas as tabelas */
@@ -269,13 +270,14 @@ table td:first-child {
                             para que o texto continue legível sobre outras células roladas */
 }
 
+.tableAcoes th:first-child,
 .tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
-    width: 5px;                /* de cada linha (<tr>) tera 10px nos logos */
-    height: 5px;               /* Define uma altura fixa para a célula ser quadrada */
+    width: 15px;                /* de cada linha (<tr>) tem     15px      nos logos */
+    height: 15px;               /* Define uma altura fixa para a célula ser quadrada */
     padding: 0;                 /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
     text-align: center;
-    min-width: 5px;            /* Garante que a coluna não encolha */
+    min-width: 15px;            /* Garante que a coluna não encolha */
 }
 
 /* Regra para a imagem ocupar o espaço total */
@@ -317,10 +319,10 @@ tr {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-tr:hover {                      /* passar mouse */
-    transform: translateY(-2px);            /* Linha sobe levemente */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2); /* Sombra mais visível */
-    background-color: #f8f9fa;          /* Um leve fundo cinza para destacar a linha ativa */
+tr:hover {                                    /* passar mouse */
+    /*transform: translateY(-2px);            Linha sobe levemente */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);   /* Sombra mais visível */
+    background-color: #e8f8fa;           /* Um leve fundo cinza para destacar a linha ativa */
     cursor: pointer;
 }
 
