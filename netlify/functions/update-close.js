@@ -91,7 +91,7 @@ const acquireLock = async (store) => {
   }
   const lock = { timestamp: now };
   await safeSet(store, LOCK_KEY, lock);
-  await sleep(200);
+  await sleep(300);     // sleep é workaround de consistência eventual do blob store
   return lock;
 };
 
@@ -154,7 +154,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
       } else {
       console.error("⚠️ erro fetch:", error);
       }
-      throw new Error("timeout");
+      throw new Error(`timeout after ${timeout}ms`);
   }
   finally {
     clearTimeout(id);
@@ -172,7 +172,12 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       // 2. Adição da verificação de 401
       if (resYahoo?.status === 401) {
         console.warn(`🚨 Unauthorized : bloqueio do Yahoo (${symbol}) - Tentativa ${i + 1}`);
-        return { status: 401, ok: false };
+        return {
+          ok: false,
+          status: 401,
+          error: "Unauthorized : bloqueio do Yahoo",
+          isYahooAuthError: true
+        };
       }
 
       // 3. Somente Debug no console do Rate Limit (429)
@@ -210,7 +215,7 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
 
     // Identifica especificamente o erro de autorização para o retorno
     if (res?.status === 401) {
-      return { error: "Unauthorized : bloqueio do Yahoo", isAuthError: true };
+      return { error: "Unauthorized : bloqueio do Yahoo", isYahooAuthError: true };
     }
 
     if (!res?.ok) {
@@ -264,23 +269,13 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
   }
   const quote = await fetchYahooQuoteOnly(symbol, store);
 
-  // Se for o erro de bloqueio/auth
-  if (quote?.isAuthError) {
-    return {
-      ok: false,
-      symbol,
-      error: quote.error,
-      isYahooAuthError: true
-    };
-  }
-
   if (!quote?.ok) {
     // A função fetchYahooQuoteOnly() falhou = entao retornou false
     return {
       ok: false,
       symbol,
       error: quote?.error || "Erro desconhecido",
-      isYahooAuthError: quote?.isAuthError || false
+      isYahooAuthError: quote?.isYahooAuthError || false
     };
   }
 
@@ -364,13 +359,13 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
 
 
 // ---- CRON ----- Netlify cron sempre usa UTC
-// Cron a cada 2 min  e (Após 18h as 20:15h) e (1-5) Seg a Sex
+// Cron a cada 5 min  e (Após 18h as 20:15h) e (1-5) Seg a Sex
 
 export const config = {
    schedule: [
-    "15-59/2 21 * * 1-5",  // ~18:15 até 18:59 BRT
-    "*/2 22 * * 1-5",      // 19:00 até 19:58 BRT
-    "0-15/2 23 * * 1-5",   // 20:00 até 20:14 BRT
+    "15-59/5 21 * * 1-5",  // ~18:15 até 18:55 BRT
+    "*/5 22 * * 1-5",      // 19:00 até 19:55 BRT
+    "0-15/5 23 * * 1-5",   // 20:00 até 20:15 BRT
     "15 23 * * 1-5"         // 20:15
   ]
 };
