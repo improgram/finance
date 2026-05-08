@@ -308,8 +308,8 @@ th {                            /* cabeçalho tabela */
     font-weight: bold;
 }
 
-td {
-    transition: color 0.3s ease, background-color 0.3s ease;
+td > * {
+    transition: transform .15s ease;
 }
 
 td, th {
@@ -322,12 +322,10 @@ tr {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-tr:hover {                                    /* passar mouse */
-    /*transform: translateY(-2px);            Linha sobe levemente */
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);   /* Sombra mais visível */
-    background-color: #e8f8fa;           /* Um leve fundo cinza para destacar a linha ativa */
-    cursor: pointer;
+tr:hover td > * {
+    transform: translateY(-2px);
 }
+
 
 #tabelaTickers td:nth-child(3),     /* Terceira coluna(Empresa) da Segunda Tabela*/
 #tabelaTickers th:nth-child(3) {
