@@ -60,11 +60,19 @@ async function safeGet (store, key) {
 
 // ------ createResponse padrao para os Return Json
 const createResponse = (body, status = 200) => {
+  // Se o status não for 200 ou se houver um erro/skip no corpo, usamos console.warn
+  if (status !== 200 || body.error || body.skipped) {
+    console.warn(`⚠️ [Response ${status}]:`, JSON.stringify(body));
+  } else {
+    console.log(`✅ [Response 200]: ${body.symbol || "OK"}`);
+  }
+
   return new Response(JSON.stringify(body, null, 2), {
     status,
     headers: { "Content-Type": "application/json" }
   });
 };
+
 
 // ---------------- LOCK GLOBAL ----------------
 const acquireLock = async (store) => {
@@ -79,6 +87,7 @@ const acquireLock = async (store) => {
   await sleep(200);
   return lock;
 };
+
 //--------- Para remover Lock imediatamente
 const releaseLock = async (store) => {
   try {
@@ -161,7 +170,10 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   return null;
 };
 
-
+// O endpoint: ... query1.finance.yahoo.com/v7/finance/quote ficou mais protegido
+// Em ambientes serverless (Netlify/Vercel/AWS), o Yahoo frequentemente:
+// bloqueia IPs , exige User-Agent, exige cookies, detecta tráfego automatizado
+// Então o 401 NÃO é erro do código. É bloqueio do Yahoo.
 
 // ------- fetch ultra leve = busca somente:
 // ------- preço + fechamento + variação diária e ( SEM histórico.)
@@ -190,10 +202,7 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
 };
 
 // --------- ----
-const processTickerCloseUpdate = async ({
-  store,
-  tickers
-}) => {
+const processTickerCloseUpdate = async ({store, tickers }) => {
 
   const symbol = await getNextTicker(store, tickers);
   if (!symbol) {
@@ -201,8 +210,9 @@ const processTickerCloseUpdate = async ({
   }
   const quote = await fetchYahooQuoteOnly(symbol, store);
   if (!quote) {
-    return { ok: false };
+    return { ok: false, error: `Falha ao buscar cotação para ${symbol}` };
   }
+
   // pega snapshot antigo
   const old = await safeGet(store, `snapshot-${symbol}`);
 
@@ -244,21 +254,23 @@ const processTickerCloseUpdate = async ({
  export default async () => {
   const store = getStore({ name: STORE_NAME });
   const tickersData = await safeGet(store, "tickers-list");
-  const tickers =
-    Array.isArray(tickersData)
-      ? tickersData
-      : tickersData?.value ?? [];
+
+  const tickers = Array.isArray(tickersData) ? tickersData : tickersData?.value ?? [];
   if (!tickers.length) {
     return createResponse({
       ok: false,
-      error: "tickers vazios"
+      error: "tickers vazios",
+      count: 0
     }, 500);
   }
+
   const lock = await acquireLock(store);
   if (!lock) {
     return createResponse({
-      skipped: "lock"
-    });
+      ok: false,
+      skipped: "lock",
+      reason: "Execução já ativa ou concorrência detectada"
+    }, 200);
   }
   try {
     const result = await processTickerCloseUpdate({
@@ -269,7 +281,8 @@ const processTickerCloseUpdate = async ({
   } catch (err) {
     return createResponse({
       ok: false,
-      error: err.message
+      error: err.message,
+      stack: err.stack?.split('\n')[0]
     }, 500);
   } finally {
     await releaseLock(store);
@@ -277,12 +290,12 @@ const processTickerCloseUpdate = async ({
 };
 
 
-// ---- CRON ----- Netlify cron sempre usa UTC que significa -3
+// ---- CRON ----- Netlify cron sempre usa UTC
 // Cron a cada 2 min  e (Após 18h as 20:14h) e (1-5) Seg a Sex
 
 export const config = {
    schedule: [
-    "15-59/2 21 * * 1-5", // 18:14 até 18:59 BRT
+    "15-59/2 21 * * 1-5", // 18:15 até 18:59 BRT
     "*/2 22 * * 1-5",     // 19:00 até 19:58 BRT
     "0-15/2 23 * * 1-5"   // 20:00 até 20:14 BRT
   ]
