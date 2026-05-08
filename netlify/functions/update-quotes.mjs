@@ -418,8 +418,8 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
 // ------------YAHOO = endpoint v8/finance/chart é focado em preço + histórico
 const fetchYahoo = async (symbol, store) => {
   try {
-    const urlYahoo = `https://query1.finance.yahoo.com/v8/finfetchWithRetryYahooance/chart/${symbol}.SA?range=3mo&interval=1d`;
-    const resYahoo = await (urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
+    const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
+    const resYahoo = await fetchWithRetryYahoo (urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
     if (!resYahoo || !resYahoo.ok) {
       console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
       return null;
@@ -447,6 +447,7 @@ const fetchYahoo = async (symbol, store) => {
       previousClose: meta.previousClose,
       changePercent: meta.regularMarketChangePercent != null ? meta.regularMarketChangePercent ?? null : null,
       volume: meta.regularMarketVolume ?? null,
+      averageVolume: meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,
       historicalDataPrice: timestamps
         .map((t, i) => ({
           date: t,
@@ -479,6 +480,7 @@ const fetchBrapi = async (symbol, token, store ) => {
         }
         return {
           ...resultBrapi,
+          averageVolume: resultBrapi?.averageVolume ?? resultBrapi?.averageVolume2x ?? resultBrapi?.volumeAvg ?? null,
           historicalDataPrice: resultBrapi?.historicalDataPrice ?? []
         };
     }
@@ -488,6 +490,7 @@ const fetchBrapi = async (symbol, token, store ) => {
     return null;
   }
 };
+
 // ----function fetchAlphaVantage = não é boa pra histórico intraday BR e ❌ tem rate limit MUITO agressivo (5 req/min free)
 const fetchAlphaVantage = async (symbol, apiKey, store) => {
   try {
@@ -687,7 +690,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         fiftyTwoWeekLow: data?.fiftyTwoWeekLow ?? brapiData?.fiftyTwoWeekLow ?? null,
         fiftyTwoWeekHigh: data?.fiftyTwoWeekHigh ?? brapiData?.fiftyTwoWeekHigh ?? null,
         volume: data?.volume ?? brapiData?.regularMarketVolume ?? null,
-        averageVolume: data?.averageVolume ?? null,
+        averageVolume: data?.averageVolume ?? brapiData?.averageVolume ?? null,
   historicalDataPrice:
   data?.historicalDataPrice?.length
     ? data.historicalDataPrice
