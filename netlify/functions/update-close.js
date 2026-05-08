@@ -201,7 +201,7 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
 const fetchYahooQuoteOnly = async (symbol, store) => {
   let jsonQuoteOnly;
   try {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
     const res = await fetchWithRetryYahoo(url, store, symbol);
 
     // Identifica especificamente o erro de autorização para o retorno
