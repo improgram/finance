@@ -65,8 +65,9 @@ const createResponse = (body, status = 200, origin = "Update-Closes") => {
 // ------ createResponse com Identificação de Origem e Debug String
 
   const isError = status !== 200 || body.error || body.skipped;
-  //  string limpa para o log
-  const logMessage = `[${origin}] | Status: ${status} | Data: ${JSON.stringify(body)}`;
+  const unauthorizedMsg = body.isYahooAuthError ? " | Unauthorized : bloqueio do Yahoo" : "";
+   //  string limpa para o log
+  const logMessage = `[${origin}] | Status: ${status}${unauthorizedMsg} | Data: ${JSON.stringify(body)}`;
 
   if (isError) {
     console.warn(`⚠️Erro:  ${logMessage}`);
@@ -162,10 +163,15 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
     try {
       const resYahoo = await fetchWithTimeout(url, {}, 3000);
       // 1. Sucesso: Retorna a resposta imediatamente
-      if (resYahoo && resYahoo.ok) {
-        return resYahoo;
+      if (resYahoo && resYahoo.ok) return resYahoo;
+
+      // 2. Adição da verificação de 401
+      if (resYahoo?.status === 401) {
+        console.warn(`🚨 Unauthorized : bloqueio do Yahoo (${symbol}) - Tentativa ${i + 1}`);
+        return { status: 401, ok: false };
       }
-      // 2. Somente Debug no console do Rate Limit (429)
+
+      // 3. Somente Debug no console do Rate Limit (429)
       if (resYahoo?.status === 429) {
         console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
         // Espera antes da próxima tentativa (Backoff simples)
@@ -197,8 +203,15 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
   try {
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
     const res = await fetchWithRetryYahoo(url, store, symbol);
+
+    // Identifica especificamente o erro de autorização para o retorno
+    if (res?.status === 401) {
+      return { error: "Unauthorized : bloqueio do Yahoo", isAuthError: true };
+    }
+
     if (!res?.ok) return null;
     jsonQuoteOnly = await res.json();
+
     const item = jsonQuoteOnly?.quoteResponse?.result?.[0];
     if (!item) return null;
     return {
@@ -224,7 +237,19 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
     return { ok: false, error: "Não foi possível obter próximo ticker da fila" };
   }
   const quote = await fetchYahooQuoteOnly(symbol, store);
+
+  // Se for o erro de bloqueio/auth
+  if (quote?.isAuthError) {
+    return {
+      ok: false,
+      symbol,
+      error: quote.error,
+      isYahooAuthError: true
+    };
+  }
+
   if (!quote) {
+    // A função fetchYahooQuoteOnly() falhou = entao retornou null
     return { ok: false, symbol, error: `Falha ao buscar cotação de ${symbol}` };
   }
 
@@ -290,8 +315,11 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
   }
   try {
     const result = await processTickerCloseUpdate({ store, tickers });
+    // Se result.isYahooAuthError for true, o status 401 será passado
+    const finalStatus = result.ok ? 200 : (result.isYahooAuthError ? 401 : 400);
     // Se o processTickerCloseUpdate retornar ok: false, o console.warn pegará
-    return createResponse(result, result.ok ? 200 : 400, origin);
+    return createResponse(result, finalStatus, origin);
+
   } catch (err) {
     return createResponse({
       ok: false,
