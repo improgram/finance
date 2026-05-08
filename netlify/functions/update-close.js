@@ -138,6 +138,10 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
     signal: controller.signal,
     headers: {
       ...options.headers,
+      "Accept": "application/json",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Referer": "https://finance.yahoo.com/",
+      "Origin": "https://finance.yahoo.com",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
   };
@@ -209,23 +213,45 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
       return { error: "Unauthorized : bloqueio do Yahoo", isAuthError: true };
     }
 
-    if (!res?.ok) return null;
+    if (!res?.ok) {
+      return {
+        ok: false,
+        status: res?.status || 500,
+        error: `Yahoo error ${res?.status || "unknown"}`
+      };
+    }
+
     jsonQuoteOnly = await res.json();
 
     const item = jsonQuoteOnly?.quoteResponse?.result?.[0];
-    if (!item) return null;
+    if (!item) {
+      return {
+        ok: false,
+        status: 404,
+        error: "Ticker sem dados"
+      };
+    }
+
     return {
-      symbol,
-      shortName: item.shortName ?? null,
-      longName: item.longName ?? null,
-      regularMarketPrice: item.regularMarketPrice ?? null,
-      previousClose: item.regularMarketPreviousClose ?? item.previousClose ?? null,
-      changePercent: item.regularMarketChangePercent ?? null,
-      volume: item.regularMarketVolume ?? null,
-      averageVolume: item.averageDailyVolume3Month ?? item.averageDailyVolume10Day ?? null
+      ok: true,
+      data: {
+        symbol,
+        shortName: item.shortName ?? null,
+        longName: item.longName ?? null,
+        regularMarketPrice: item.regularMarketPrice ?? null,
+        previousClose: item.regularMarketPreviousClose ?? item.previousClose ?? null,
+        changePercent: item.regularMarketChangePercent ?? null,
+        volume: item.regularMarketVolume ?? null,
+        averageVolume: item.averageDailyVolume3Month ?? item.averageDailyVolume10Day ?? null
+      }
     };
   } catch (err) {
     console.error("❌ fetchYahooQuoteOnly:", symbol, err);
+    return {
+      ok: false,
+      status: 500,
+      error: err.message
+    };
   }
 };
 
@@ -248,20 +274,25 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
     };
   }
 
-  if (!quote) {
-    // A função fetchYahooQuoteOnly() falhou = entao retornou null
-    return { ok: false, symbol, error: `Falha ao buscar cotação de ${symbol}` };
+  if (!quote?.ok) {
+    // A função fetchYahooQuoteOnly() falhou = entao retornou false
+    return {
+      ok: false,
+      symbol,
+      error: quote?.error || "Erro desconhecido",
+      isYahooAuthError: quote?.isAuthError || false
+    };
   }
 
   // pega snapshot antigo
   const old = await safeGet(store, `snapshot-${symbol}`);
-
+  const data = quote.data;
   const payload = {
     ...old,
-    regularMarketPrice: quote.regularMarketPrice ?? old?.regularMarketPrice,
-    changePercent: quote.changePercent ?? old?.changePercent,
-    volume: quote.volume ?? old?.volume,
-    averageVolume: quote.averageVolume ?? old?.averageVolume,
+    regularMarketPrice: data.regularMarketPrice ?? old?.regularMarketPrice,
+    changePercent: data.changePercent ?? old?.changePercent,
+    volume: data.volume ?? old?.volume,
+    averageVolume: data.averageVolume ?? old?.averageVolume,
     updatedAt: Date.now(),
     updatedLabel: getFormattedDateTime(),
     source: "YAHOO CLOSE",
@@ -333,12 +364,13 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
 
 
 // ---- CRON ----- Netlify cron sempre usa UTC
-// Cron a cada 2 min  e (Após 18h as 20:14h) e (1-5) Seg a Sex
+// Cron a cada 2 min  e (Após 18h as 20:15h) e (1-5) Seg a Sex
 
 export const config = {
    schedule: [
-    "15-59/2 21 * * 1-5", // 18:15 até 18:59 BRT
-    "*/2 22 * * 1-5",     // 19:00 até 19:58 BRT
-    "0-15/2 23 * * 1-5"   // 20:00 até 20:14 BRT
+    "15-59/2 21 * * 1-5",  // ~18:15 até 18:59 BRT
+    "*/2 22 * * 1-5",      // 19:00 até 19:58 BRT
+    "0-15/2 23 * * 1-5",   // 20:00 até 20:14 BRT
+    "15 23 * * 1-5"         // 20:15
   ]
 };
