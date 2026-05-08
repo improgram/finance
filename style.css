@@ -252,7 +252,6 @@ table {
     border-radius: 8px;
     border-collapse: separate;
     border-spacing: 0;
-    table-layout: fixed;    /* navegador respeitar melhor as larguras definidas */
 }
 
 table thead th {        /* cabeçalho (th) de todas as tabelas */
@@ -270,10 +269,14 @@ table td:first-child {
                             para que o texto continue legível sobre outras células roladas */
 }
 
+.tableAcoes {
+    table-layout: fixed;    /* navegador respeitar melhor as larguras definidas */
+}
+
 .tableAcoes th:first-child,
 .tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
-    width: 15px;                /* de cada linha (<tr>) tem     15px      nos logos */
-    height: 15px;               /* Define uma altura fixa para a célula ser quadrada */
+    width: 10px;                /* de cada linha (<tr>) tem     10px      nos logos */
+    height: 10px;               /* Define uma altura fixa para a célula ser quadrada */
     padding: 0;                 /* Pequeno respiro para o logo não colar nas bordas */
     vertical-align: middle;
     text-align: center;
