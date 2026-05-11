@@ -1,12 +1,6 @@
-// lógica completa
 // chamada da Brapi:  A chave será lida das variáveis de ambiente do Netlify
-// processamento
-// salvamento no Blobs
-// retorna JSON
-// schedule (cron)
-
-// CommonJS (require)  = (antigo)
-// ES Modules (import/export) = (novo)
+// processamento + salvamento no Blobs + retorna JSON + schedule (cron)
+// CommonJS (require)  = (antigo) e ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
 // Coletor Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
@@ -139,6 +133,7 @@ const formatLongName = (name) => {
   return name
     .replace(/\bS\.A\.?\b/gi, "")
     .replace(/\bSA\b/gi, "")
+    .replace(/\bS\/A\b/gi, "")        // =>  S/A
     .replace(/\bHOLDING\b/gi, "")
     .replace(/\bINVESTMENTS?\b/gi, "")
     .replace(/\bInvestimentos?\b/gi, "")
@@ -176,6 +171,8 @@ const setGlobal429 = async (store) => {
   });
 };
 
+// -------Blindar leitura = evitar retorno do objeto invalido
+// Padronização global de storage (ANTI-CRASH STRUCTURE)
 const normalizeStorage = (data) => {
   if (!data) return null;
   if (Array.isArray(data)) {
@@ -235,6 +232,8 @@ const updateTickersList = async (store, tickers) => {
   console.log("📦 tickers-list atualizada:", clean.length);
 };
 
+// ------- parser seguro = util para blindar a leitura do tickers-list
+// ------- normalizar tickers SEM exceção
 const safeParseTickers = (raw) => {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
@@ -319,6 +318,8 @@ const releaseLock = async (store) => {
   }
 };
 // ---------------- FILA (SEM LOCK) ----------------
+// eliminar escrita concorrente do ticker-index e sem race condition real
+// BUG LÓGICO (divisão por zero) corrigido
 const getNextTicker = async (store, list) => {
   if (!Array.isArray(list) || list.length === 0) {
     console.warn("⚠️ getNextTicker recebeu lista vazia");
@@ -329,9 +330,14 @@ const getNextTicker = async (store, list) => {
   // cobre erros de: objeto { value }, número puro, lixo → fallback 0 e Se stored = {} → vira NaN
   let index = Number( stored && typeof stored === "object" ? stored.value : stored );
   if (!Number.isInteger(index)) index = 0;
+  // evitar crescimento inútil do índice
   const currentIndex = index % list.length;
   const nextIndex = (index + 1) % list.length;
   console.log("📍 index atual:", index, "| current:", currentIndex, "| next:", nextIndex);
+  // Sequencia correta: índice está sendo persistido no Blobs e sem race condition
+  // index atual: 0 | current: 0 | next: 1
+  // index atual: 1 | current: 1 | next: 0
+  // index atual: 0 | current: 0 | next: 1
   await safeSet(store, key, {
     value: nextIndex,
     updatedAt: Date.now()
@@ -363,6 +369,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
     clearTimeout(id);
   }
 };
+
 // ---------------- RETRY WRAPPERS (YAHOO / BRAPI) ----------------
 const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
@@ -414,8 +421,9 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
   }
   return null;
 };
-// Na ordem : 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4. previousData
-// ------------YAHOO = endpoint v8/finance/chart é focado em preço + histórico
+// Na ordem : 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4.AlphaVantage - 5. previousData
+// ------------ YAHOO = endpoint v8/finance/chart é focado em preço + histórico
+// ------------ Ele não fornece dados fundamentais ou extremos (low/high)
 const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
@@ -462,6 +470,7 @@ const fetchYahoo = async (symbol, store) => {
   return null;
   }
 };
+
 // ---------------- BRAPI FALLBACK ----------------
 const fetchBrapi = async (symbol, token, store ) => {
   try {
@@ -491,7 +500,8 @@ const fetchBrapi = async (symbol, token, store ) => {
   }
 };
 
-// ----function fetchAlphaVantage = não é boa pra histórico intraday BR e ❌ tem rate limit MUITO agressivo (5 req/min free)
+// ---- function fetchAlphaVantage = não é boa pra histórico intraday BR e
+// ---- ❌ tem rate limit MUITO agressivo (5 req/min free)
 const fetchAlphaVantage = async (symbol, apiKey, store) => {
   try {
     // 🔒 respeita cooldown global
@@ -570,7 +580,10 @@ const fetchYahooQuoteOnly = async (symbol, store) => {
     return null;
   }
 };
+
 // pipeline principal + orchestrator + coordinator + state machine
+// ----------- ERA EXEC: Leitura linear:  lock - exec - timeout - race
+// ----------  Era exec() deve retornar apenas dados = não usa createResponse
 const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
      if (!Array.isArray(tickers) || tickers.length === 0) {
       console.warn("⚠️ tickers inválidos ou vazios");
@@ -578,23 +591,24 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     }
     const ETF_INFO = {
         AUPO11: { description: "NTN-B + Selic" },
-        BOVA11: {description: "80 a 90 maiores empresas do Ibovespa" },
-        B5P211: { description: "NTN-B (inflação) Curto/Medio" },
+        BOVA11: { description: "80 maiores do Ibovespa" },
+        B5P211: { description: "NTN-B (inflação) Curto / Medio" },
+        CHIP11: { description: "chips e IA: NVIDIA, TSMC, ASML e Intel" },
         GOAT11: { description: "IMAB11(80%) e S&P(19%)" },
-        IMAB11: { description: "NTN-B (Inflação) Medio/Longo" },
+        IMAB11: { description: "NTN-B (Inflação) Medio / Longo" },
         IRFM11: { description: "Pré-fixado (LTN 26/29/31) e NTN-B" },
         IVVB11: { description: "S&P 500 dos EUA" },
-        LFTB11: {description: "Tesouro Selic (LFT 27/28/29/30/2060)"},
-        NASD11: {description: "Apple,Microsoft,Amazon,Nvidia,Google,Meta"},
+        LFTB11: { description: "Tesouro Selic (bLFT 27/28/29/30/2060)"},
+        NASD11: { description: "Apple, Microsoft, Amazon, Nvidia, Google e Meta"},
         NBIT11: { description: "Bitcoin Nasdaq" },
-        PACB11: { description: "NTN-B (Inflação) Longo 2050/60" },
-        "5PRE11": { description: "Pré-fixado" }
+        PACB11: { description: "NTN-B (Inflação) Longo 2050 / 2060" },
+      "5PRE11": { description: "Pré-fixado" }
     };
     const symbol = await getNextTicker(store, tickers);
     if (!symbol) {
       return { ok: false, reason: "fila vazia" };
     }
-      // ---------------- CACHE FIRST -------// ⚡ cache válido (saída imediata)
+      // ----------- CACHE FIRST ------- =>⚡ cache válido (saída imediata)
       const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
       if ( cached && typeof cached.updatedAt === "number" &&
@@ -627,6 +641,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           historicalDataPrice = data?.historicalDataPrice || [];
         }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
+
     // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
       let brapiData = null;
       // 🔥 avaliação de qualidade do Yahoo: não substitui o merge e ele só decide quando chamar Brapi
@@ -643,7 +658,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           console.warn("⚠️ BRAPI erro:", err.message);
         }
       }
-      if (brapiData) {            // merge inteligente: Yahoo → prioridade e (BRAPI complementa Yahoo)
+      
+      // merge inteligente: Yahoo → prioridade e (BRAPI complementa Yahoo)
+      if (brapiData) {
           brapiData = {
             ...brapiData,
             regularMarketPrice: brapiData?.regularMarketPrice ?? brapiData?.close ?? null,
@@ -817,5 +834,5 @@ export default async () => {
 // Cron a cada 15 min  e   (10h as 18h)  e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/15 13-21 * * 1-5"
+  schedule: "*/10 13-21 * * 1-5"
 };

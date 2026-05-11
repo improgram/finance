@@ -279,13 +279,13 @@ table td:first-child {
     left: 0;
     z-index: 5;
     background: white;
-    width: 15px;
+    width: 12px;
 }
 
 /* Regra para a imagem ocupar o espaço total */
 .img-logo-tabela {
-    width: 14px;            /* Ocupa  célula (descontando o padding) */
-    height: 14px;           /* Ocupa 15 px da da célula */
+    width: 12px;            /* Ocupa  célula (descontando o padding) */
+    height: 12px;           /* Ocupa 15 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;

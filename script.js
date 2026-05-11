@@ -135,7 +135,6 @@ const createAcaoRow = (symbol) => {
     row.dataset.symbol = symbol;
     row.innerHTML = `
         <td><img class="logo"> </td>
-        <td class="symbol"> </td>
         <td class="name"> </td>
         <td class="price"> </td>
         <td class="var"> </td>
