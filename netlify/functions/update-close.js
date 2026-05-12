@@ -11,6 +11,8 @@ const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-close-lock";
 const LOCK_TTL = 90 * 1000;
 // 90s = evitar concorrência e não bloqueia pipeline por minutos
+const AUTH_BLOCK_KEY = "yahoo-auth-block";
+const AUTH_COOLDOWN = 60 * 60 * 1000; // 1h
 
 // -------------------- Helpers Market --------------------
 
@@ -112,7 +114,7 @@ const getNextTicker = async (store, list) => {
     console.warn("⚠️ getNextTicker recebeu lista vazia");
     return null;
   }
-  const key = "ticker-index";
+  const key = "ticker-close-index";
   const stored = await safeGet(store, key);
   // cobre erros de: objeto { value }, número puro, lixo → fallback 0 e Se stored = {} → vira NaN
   let index = Number( stored && typeof stored === "object" ? stored.value : stored );
@@ -161,6 +163,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
   }
 };
 
+
 // ---------------- RETRY WRAPPERS (YAHOO / BRAPI) ----------------
 const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
@@ -171,6 +174,10 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
 
       // 2. Adição da verificação de 401
       if (resYahoo?.status === 401) {
+         // salva bloqueio global temporário
+        await safeSet(store, AUTH_BLOCK_KEY, {
+          timestamp: Date.now()
+        });
         console.warn(`🚨 Unauthorized : bloqueio do Yahoo (${symbol}) - Tentativa ${i + 1}`);
         return {
           ok: false,
@@ -208,6 +215,28 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
 // ------- fetch ultra leve = busca somente:
 // ------- preço + fechamento + variação diária e ( SEM histórico.)
 const fetchYahooQuoteOnly = async (symbol, store) => {
+  // ---- Antes de chamar Yahoo
+  const authBlock = await safeGet(store, AUTH_BLOCK_KEY);
+
+  if (
+    authBlock?.timestamp &&
+    Date.now() - authBlock.timestamp < AUTH_COOLDOWN
+  ) {
+    return {
+      ok: false,
+      skipped: "yahoo-auth-cooldown",
+       error: "Cooldown ativo após bloqueio Yahoo",
+        isYahooAuthError: true
+    };
+  }
+
+  // limpa bloqueio expirado
+  if (authBlock?.timestamp) {
+    await safeSet(store, AUTH_BLOCK_KEY, {
+      timestamp: 0
+    });
+  }
+
   let jsonQuoteOnly;
   try {
     const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
@@ -283,7 +312,7 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
   const old = await safeGet(store, `snapshot-${symbol}`);
   const data = quote.data;
   const payload = {
-    ...old,
+    ...(old || {}),
     regularMarketPrice: data.regularMarketPrice ?? old?.regularMarketPrice,
     changePercent: data.changePercent ?? old?.changePercent,
     volume: data.volume ?? old?.volume,
@@ -352,20 +381,20 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
       error: err.message,
       stack: err.stack?.split('\n')[0]
     }, 500, origin);
-  } finally {
+  } finally {const payload
     await releaseLock(store);
   }
 };
 
 
 // ---- CRON ----- Netlify cron sempre usa UTC
-// Cron a cada 5 min  e (Após 18h as 20:15h) e (1-5) Seg a Sex
+// Cron a cada 5 min e Após o fechamento da BVMF  e (1-5) Seg a Sex
 
 export const config = {
    schedule: [
-    "15-59/5 21 * * 1-5",  // ~18:15 até 18:55 BRT
-    "*/5 22 * * 1-5",      // 19:00 até 19:55 BRT
-    "0-15/5 23 * * 1-5",   // 20:00 até 20:15 BRT
-    "15 23 * * 1-5"         // 20:15
+    "15-59/5 21 * * 1-5",
+    "*/5 22 * * 1-5",
+    "0-15/5 23 * * 1-5",
+    "15 23 * * 1-5"
   ]
 };
