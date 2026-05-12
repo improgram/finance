@@ -188,6 +188,7 @@ const formatPercent = (value) =>
         ? `${numberFormatterBR.format(value)}%`
         : '---';
 
+        
 // DOMAIN HELPERS (regras puras)
 
 const getVariacao = (obj) =>

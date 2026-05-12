@@ -279,20 +279,28 @@ table td:first-child {
     left: 0;
     z-index: 5;
     background: white;
-    width: 12px;
+    /* Ajustes de largura */
+    width: 20px;      /* Defina um valor que caiba o logo confortavelmente */
+    min-width: 20px;  /* Garante que não encolha mais que isso */
+    max-width: 20px;
+
+    /* Reduz o padding lateral para a coluna poder estreitar */
+    padding-left: 1px;
+    padding-right: 1px;
+    text-align: center;
 }
 
 /* Regra para a imagem ocupar o espaço total */
-.img-logo-tabela {
-    width: 12px;            /* Ocupa  célula (descontando o padding) */
-    height: 12px;           /* Ocupa 15 px da da célula */
+.logo {
+    width: 15px;            /* Ocupa  célula (descontando o padding) */
+    height: 15px;           /* Ocupa 15 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
     margin: auto;
 }
 
-// Segunda coluna (TICKER)
+/* Segunda coluna (TICKER) */
 .tableAcoes td:nth-child(2),
 .tableAcoes th:nth-child(2) {
     position: relative;

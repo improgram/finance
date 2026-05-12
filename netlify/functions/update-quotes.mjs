@@ -14,6 +14,29 @@ if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
 
+import { MAX_ITEMS } from "../helpers/constants.js";
+
+import {
+  sleep,
+  getFormattedDateTime,
+  getMin,
+  getMax,
+  getVariation30d,
+  getDailyVariation,
+  getDayRangeFromHist,
+  get52WeekRangeFromHist,
+  safeValue,
+  filterByDays,
+  getValidHist,
+  getCloses,
+  getTickers,
+  safeSet,
+  safeGet,
+  normalizeStorage,
+  formatLongName
+} from "../helpers/helpers.js";
+
+
 // ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
 
 const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
@@ -23,193 +46,30 @@ console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
-const MAX_ITEMS = 50;
-const hour = Number(
-  new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    hour12: false
-  }).format(new Date())
-);
 
-const CACHE_TTL =
-  hour >= 10 && hour <= 18
-    ? 5 * 60 * 1000   // 5 min
-    : 30 * 60 * 1000; // 30 min
+const getCacheTTL = () => {
+  const hour = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hour12: false
+    }).format(new Date())
+  );
 
-// -------------------- Helpers Market --------------------
-
-const getFormattedDateTime = () =>
-  new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    dateStyle: "short",
-    timeStyle: "medium"
-  }).format(new Date());
-
-const getCloses = (hist = []) => hist.map(d => d.close);
-const getMin = (arr) => arr.length ? Math.min(...arr) : null;
-const hasEnoughHist = (hist) => hist.length >= 10;
-const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
-const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
-const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;
-
-const filterByDays = (hist, days) => {
-  if (!Array.isArray(hist)) return [];
-  const now = Math.floor(Date.now() / 1000);
-  const limit = now - (days * 24 * 60 * 60);
-  const normalizeTs = (t) => t > 1e12 ? Math.floor(t / 1000) : t;
-  return hist.filter(d => normalizeTs(d.date) >= limit);
+  return hour >= 10 && hour <= 18
+    ? 5 * 60 * 1000
+    : 30 * 60 * 1000;
 };
 
-const getValidHist = (hist) => (hist || []).filter(d =>
-  d &&
-  typeof d.date === "number" &&
-  typeof d.close === "number"
-);
-
-const getVariation30d = (hist, currentPrice) => {
-  if (!hist.length || currentPrice == null) return null;
-  const valid = getValidHist(hist)
-    .filter(d => d.close > 0)
-    .sort((a, b) => a.date - b.date);
-
-  if (!valid.length) return null;
-  const now = new Date();
-  now.setHours(0,0,0,0);
-  const targetTs = Math.floor(Date.now()/1000) - (30 * 24 * 60 * 60);
-  // findLast: só funciona em runtimes modernos (Node 18+) entao usar reverse
-  let base = [...valid].reverse().find(d => d.date <= targetTs)?.close;
-  if (!base) {
-    base = valid[0]?.close ?? null;
-  }
-  if (!base || base === 0) return null;
-  return ((currentPrice - base) / base) * 100;
-};
-
-// cálculo próprio de variação diária (FALLBACK REAL)
-const getDailyVariation = (hist, currentPrice) => {
-  const valid = getValidHist(hist).filter(d => d.close > 0);
-  if (valid.length < 2) return null;
-  const sorted = [...valid].sort((a, b) => a.date - b.date);
-  const last = sorted.at(-1)?.close;
-  const prev = sorted.at(-2)?.close;
-  if (!last || !prev || prev === 0) return null;
-  return ((last - prev) / prev) * 100;
-};
-
-
-// Buscar preços historicos: Yahoo = preço rápido e BRAPI = enriquecimento de dados
-const getMax = (arr) => arr.length ? Math.max(...arr) : null;
-
-const getDayRangeFromHist = (hist) => {
-  if (!Array.isArray(hist) || !hist.length) {
-    return { low: null, high: null };
-  }
-  const start = new Date();
-    start.setHours(0,0,0,0);
-  const dayStart = Math.floor(start.getTime() / 1000);
-  const today = hist.filter(d => d.date >= dayStart);
-  const lows = today.map(d => d.low ?? d.close).filter(Boolean);
-  const highs = today.map(d => d.high ?? d.close).filter(Boolean);
-  return {
-    low: lows.length ? Math.min(...lows) : null,
-    high: highs.length ? Math.max(...highs) : null
-  };
-};
-
-
-const get52WeekRangeFromHist = (hist) => {
-  if (!hist.length) return { low: null, high: null };
-  const closes = hist.map(d => d.close).filter(v => v != null);
-  return {
-    low: getMin(closes),
-    high: getMax(closes)
-  };
-};
-
-const formatLongName = (name) => {
-  if (!name) return null;
-
-  return name
-    .replace(/\bS\.A\.?\b/gi, "")
-    .replace(/\bSA\b/gi, "")
-    .replace(/\bS\/A\b/gi, "")        // =>  S/A
-    .replace(/\bHOLDING\b/gi, "")
-    .replace(/\bINVESTMENTS?\b/gi, "")
-    .replace(/\bInvestimentos?\b/gi, "")
-    .replace(/\bParticipações?\b/gi, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+\./g, "")
-    .replace(/\s+e\s+/gi, " ")
-    .replace(/\s+e$/i, "")
-    .replace(/\b[eE]\b/g, "")
-    .trim();
-};
-
-
-// ---------------- HELPERS Gerais sleep, safeGet, safeSet ------------
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-// Padronizar 100% o storage = blobs às vezes retorna objeto direto, e às vezes string
-// safeSet sempre stringify → pode gerar dupla serialização Se alguém passar string
-// Se quiser aceitar string, então precisa tratar no safeGet.
-// O JSON.stringify(value) Pode gerar double stringify e Pode quebrar leitura futura do timestamp
-const safeSet = async (store, key, value) => {
-  try {
-    const data = JSON.stringify(value ?? null);
-    return await store.set(key, data);
-  } catch (err) {
-    console.warn("⚠️ safeSet falhou:", key, err.message);
-    return null;
-  }
-};
-
-const setGlobal429 = async (store) => {
+export async function setGlobal429 (store) => {
   const now = Date.now();
   await safeSet(store, RATE_LIMIT_KEY, {
     timestamp: now
   });
 };
 
-// -------Blindar leitura = evitar retorno do objeto invalido
-// Padronização global de storage (ANTI-CRASH STRUCTURE)
-const normalizeStorage = (data) => {
-  if (!data) return null;
-  if (Array.isArray(data)) {
-    return { data };
-  }
-  if (typeof data === "object") {
-    if (Array.isArray(data.data)) {
-      return data;
-    }
-    if (Array.isArray(data.value)) {
-      return { data: data.value };
-    }
-  }
-  return { data: [] };
-};
 
-async function safeGet (store, key) {
-  try {
-    const raw = await store.get(key);
-    if (!raw) return null;
-    let parsed;
-    if (raw instanceof Uint8Array) {
-      parsed = JSON.parse(new TextDecoder().decode(raw));
-    } else if (typeof raw === "string") {
-      parsed = JSON.parse(raw);
-    } else if (typeof raw === "object") {
-      parsed = raw; // já é objeto válido
-    } else {
-      return null;
-    }
-    return parsed; // 🔥 IMPORTANTE
-  } catch (err) {
-    console.warn("⚠️ JSON inválido no safeGet:", key, err.message);
-    return null;
-  }
-};
-
+// -------------------
 const getGlobal429 = async (store) => {
   const data = await safeGet(store, RATE_LIMIT_KEY);
   // Evitar timestamp inválido
@@ -217,73 +77,6 @@ const getGlobal429 = async (store) => {
     return 0;
   }
   return data?.timestamp;
-};
-
-//-- Evitar tickers-list vazio
-const updateTickersList = async (store, tickers) => {
-  if (!Array.isArray(tickers) || tickers.length === 0) {
-    throw new Error("🚨 tentativa de salvar tickers-list vazia");
-  }
-  const clean = [...new Set(tickers.map(t => t.trim()).filter(Boolean))];
-  if (!clean.length) {
-    throw new Error("🚨 tickers-list inválida após limpeza");
-  }
-  await safeSet(store, "tickers-list", clean);
-  console.log("📦 tickers-list atualizada:", clean.length);
-};
-
-// ------- parser seguro = util para blindar a leitura do tickers-list
-// ------- normalizar tickers SEM exceção
-const safeParseTickers = (raw) => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string") {
-    return raw.split(",").map(t => t.trim()).filter(Boolean);
-  }
-  if (typeof raw === "object") {
-    if (Array.isArray(raw.value)) return raw.value;
-    if (typeof raw.value === "string") {
-      return raw.value.split(",").map(t => t.trim()).filter(Boolean);
-    }
-  }
-  return [];
-};
-
-// -- LIMPEZA NO BOOT
-const sanitizeTickers = (list) => {
-  if (!Array.isArray(list)) return [];
-  return [...new Set(list)]
-    .map(t => String(t).trim().toUpperCase())
-    .filter(t => /^[A-Z0-9]+$/.test(t));
-};
-
-// --- Helper para buscar tickers dinâmicos no Blobs - já faz parse e trata fallback
-const getTickers = async (store) => {
-  const data = await safeGet(store, "tickers-list");
-  console.log("📦 tickers raw:", data);
-  const raw =
-    Array.isArray(data)
-      ? data
-      : data?.value ?? data;
-  const tickers = sanitizeTickers(safeParseTickers(raw));
-  // 🔥 BOOT CLEANUP (REMOVE ESTADO FANTASMA)
-  if (Array.isArray(raw)) {
-    const cleaned = sanitizeTickers(raw);
-    // sobrescreve o storage com versão limpa automaticamente = Evitar regravar sempre no boot
-    if (JSON.stringify(cleaned) !== JSON.stringify(raw)) {
-      await safeSet(store, "tickers-list", cleaned);
-      console.log("🧼 tickers sanitizados no boot:", cleaned);
-    }
-  }
-  // Cria automaticamente o tickers-list se não existir
-  if (!tickers.length) {
-    console.warn("⚠️ tickers vazia → inicializando padrão");
-    const fallback = sanitizeTickers( ["BBDC4", "IRFM11"] );
-    // 🔥 bootstrap automático (uma única vez na prática)
-    await safeSet(store, "tickers-list", fallback);
-    return fallback.slice(0, MAX_ITEMS);
-  }
-  return tickers.slice(0, MAX_ITEMS);
 };
 
 // ------ createResponse padrao para os Return Json
@@ -307,6 +100,7 @@ const acquireLock = async (store) => {
   await sleep(200);
   return lock;
 };
+
 //--------- Para remover Lock imediatamente
 const releaseLock = async (store) => {
   try {
@@ -317,6 +111,7 @@ const releaseLock = async (store) => {
     });
   }
 };
+
 // ---------------- FILA (SEM LOCK) ----------------
 // eliminar escrita concorrente do ticker-index e sem race condition real
 // BUG LÓGICO (divisão por zero) corrigido
@@ -363,7 +158,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
       } else {
       console.error("⚠️ erro fetch:", error);
       }
-      throw new Error("timeout");
+      throw new Error(`timeout: ${error.message}`);
   }
   finally {
     clearTimeout(id);
@@ -593,7 +388,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         AUPO11: { description: "NTN-B + Selic" },
         BOVA11: { description: "80 maiores do Ibovespa" },
         B5P211: { description: "NTN-B (inflação) Curto / Medio" },
-        CHIP11: { description: "chips e IA: NVIDIA, TSMC, ASML e Intel" },
+        CHIP11: { description: "Chips Semicondutores e IA: NVIDIA, TSMC, Broadcom, ASML e Intel" },
         GOAT11: { description: "IMAB11(80%) e S&P(19%)" },
         IMAB11: { description: "NTN-B (Inflação) Medio / Longo" },
         IRFM11: { description: "Pré-fixado (LTN 26/29/31) e NTN-B" },
@@ -612,7 +407,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
       if ( cached && typeof cached.updatedAt === "number" &&
-        Date.now() - cached.updatedAt < CACHE_TTL
+        Date.now() - cached.updatedAt < getCacheTTL()
       ) {
         console.log("⚡ Cache hit valido:", symbol, cached.source);
         return { ok: true, symbol, source: "cache-fresh", data: cached };
@@ -658,7 +453,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           console.warn("⚠️ BRAPI erro:", err.message);
         }
       }
-      
+
       // merge inteligente: Yahoo → prioridade e (BRAPI complementa Yahoo)
       if (brapiData) {
           brapiData = {
@@ -718,7 +513,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       if (!data) { return { ok: false, reason: "Sem Dados" }; }
     // --------------- Antes do payload e Depois do merge (data + brapiData)
     const rawHist = merged?.historicalDataPrice ?? cached?.historicalDataPrice ?? [];
-    const hist = getValidHist(rawHist);
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
     const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
@@ -728,7 +522,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     // Isso evita: race condition, overwrite, perda global
       for (const d of [...yahooHist, ...brapiHist]) {
         if (d?.date && d?.close != null) map.set(d.date, d);
-      } // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
+      }
+      // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
     const baseHist = mergedHist;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
