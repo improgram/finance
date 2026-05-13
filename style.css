@@ -280,14 +280,10 @@ table td:first-child {
     z-index: 5;
     background: white;
     /* Ajustes de largura */
-    width: 45px;      /* Defina um valor que caiba o logo confortavelmente */
-    min-width: 45px;  /* Garante que não encolha mais que isso */
-    max-width: 45px;
+    width: 48px;      /* Defina um valor que caiba o logo confortavelmente */
+    /* min-width: 48px;  Garante que não encolha mais que isso */
+    /*max-width: 48px; */
     text-align: center;
-    /* Reduz o padding lateral para a coluna poder estreitar */
-    /*padding-left: 1px;*/
-    /*padding-right: 1px;*/
-
 }
 
 /* Regra para a imagem ocupar o espaço total */
