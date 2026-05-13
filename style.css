@@ -292,8 +292,8 @@ table td:first-child {
 
 /* Regra para a imagem ocupar o espaço total */
 .logo {
-    width: 50px;            /* Ocupa  célula (descontando o padding) */
-    height: 50px;           /* Ocupa 50 px da da célula */
+    width: 30px;            /* Ocupa  célula (descontando o padding) */
+    height: 30px;           /* Ocupa 50 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
