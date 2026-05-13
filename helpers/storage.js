@@ -6,7 +6,7 @@
 // Se quiser aceitar string, então precisa tratar no safeGet.
 // O JSON.stringify(value) Pode gerar double stringify e Pode quebrar leitura futura do timestamp
 
-export async function safeSet (store, key, value) => {
+export async function safeSet (store, key, value) {
   try {
     const data = JSON.stringify(value ?? null);
     return await store.set(key, data);

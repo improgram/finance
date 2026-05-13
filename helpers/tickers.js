@@ -29,7 +29,7 @@ export const safeParseTickers = (raw) => {
 
 // --- Helper para buscar tickers dinâmicos no Blobs
 // já faz parse e trata fallback
-export async function getTickers (store) => {
+export async function getTickers (store) {
   const data = await safeGet(store, "tickers-list");
   console.log("📦 tickers raw:", data);
   const raw =
