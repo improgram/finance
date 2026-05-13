@@ -280,9 +280,9 @@ table td:first-child {
     z-index: 5;
     background: white;
     /* Ajustes de largura */
-    width: 60px;      /* Defina um valor que caiba o logo confortavelmente */
-    min-width: 60px;  /* Garante que não encolha mais que isso */
-    max-width: 60px;
+    width: 50px;      /* Defina um valor que caiba o logo confortavelmente */
+    min-width: 50px;  /* Garante que não encolha mais que isso */
+    max-width: 50px;
 
     /* Reduz o padding lateral para a coluna poder estreitar */
     padding-left: 1px;
@@ -292,8 +292,8 @@ table td:first-child {
 
 /* Regra para a imagem ocupar o espaço total */
 .logo {
-    width: 15px;            /* Ocupa  célula (descontando o padding) */
-    height: 15px;           /* Ocupa 15 px da da célula */
+    width: 50px;            /* Ocupa  célula (descontando o padding) */
+    height: 50px;           /* Ocupa 50 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
