@@ -14,7 +14,7 @@ if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
 
-import { MAX_ITEMS } from "../helpers/constants.js";
+import { MAX_ITEMS } from "../../helpers/constants.js";
 
 import {
   sleep,
@@ -34,7 +34,7 @@ import {
   safeGet,
   normalizeStorage,
   formatLongName
-} from "../helpers/helpers.js";
+} from "../../helpers/helpers.js";
 
 
 // ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
@@ -378,7 +378,7 @@ const fetchRealTimeAPI = async (symbol, store) => {
         'x-rapidapi-host': 'real-time-finance-data.p.rapidapi.com'
       }
     };
-  
+
     const res = await fetchWithTimeout(url, options, 4000);
     if (!res?.ok) {
         if (res?.status === 429) await setGlobal429(store);
@@ -713,10 +713,9 @@ export default async () => {
 };
 // FiM do MAIN export default async
 
-
 // --------- CRON ------- Netlify cron sempre usa UTC
-// --------- a cada 8 min e (10h as 22h)  e (1-5) Seg a Sex
+// --------- a cada 8 min e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/8 13-25 * * 1-5"
+  schedule: "*/8 13-23,0-1 * * 1-6"
 };
