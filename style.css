@@ -280,9 +280,9 @@ table td:first-child {
     z-index: 5;
     background: white;
     /* Ajustes de largura */
-    width: 20px;      /* Defina um valor que caiba o logo confortavelmente */
-    min-width: 20px;  /* Garante que não encolha mais que isso */
-    max-width: 20px;
+    width: 60px;      /* Defina um valor que caiba o logo confortavelmente */
+    min-width: 60px;  /* Garante que não encolha mais que isso */
+    max-width: 60px;
 
     /* Reduz o padding lateral para a coluna poder estreitar */
     padding-left: 1px;

@@ -390,11 +390,13 @@ const processTickerCloseUpdate = async ({store, tickers }) => {
 // ---- CRON ----- Netlify cron sempre usa UTC
 // Cron a cada 5 min e Após o fechamento da BVMF  e (1-5) Seg a Sex
 
+/*
 export const config = {
    schedule: [
     "15-59/5 21 * * 1-5",
     "*/5 22 * * 1-5",
     "0-15/5 23 * * 1-5",
     "15 23 * * 1-5"
-  ]
-};
+//  ]
+//};
+*/

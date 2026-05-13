@@ -1,8 +1,8 @@
-// chamada da Brapi:  A chave será lida das variáveis de ambiente do Netlify
+// chamada function Netlify:  A chave será lida das variáveis de ambiente do Netlify
 // processamento + salvamento no Blobs + retorna JSON + schedule (cron)
 // CommonJS (require)  = (antigo) e ES Modules (import/export) = (novo)
 // permite o objeto de configuração simplificado.
-// Coletor Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage
+// Coletor Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage + real-time-finance-data
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
 
@@ -61,7 +61,7 @@ const getCacheTTL = () => {
     : 30 * 60 * 1000;
 };
 
-export async function setGlobal429 (store) => {
+export const setGlobal429 = async (store) => {
   const now = Date.now();
   await safeSet(store, RATE_LIMIT_KEY, {
     timestamp: now
@@ -195,6 +195,7 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
   return null;
 };
 
+
 const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
   for (let i = 0; i < attempts; i++) {
     let resBrapi;
@@ -216,9 +217,17 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
   }
   return null;
 };
+
+//--
+
+
 // Na ordem : 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4.AlphaVantage - 5. previousData
 // ------------ YAHOO = endpoint v8/finance/chart é focado em preço + histórico
 // ------------ Ele não fornece dados fundamentais ou extremos (low/high)
+// ------------ O YQL do Yahoo permite consultar dados do Yahoo! Finance.
+// ------------ Os limites de uso: Sem autenticação: até 1.000 chamadas por dia ??
+// ------------ Requisições GET por hora:	360 e por dia:	8000 ??
+
 const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
@@ -266,7 +275,8 @@ const fetchYahoo = async (symbol, store) => {
   }
 };
 
-// ---------------- BRAPI FALLBACK ----------------
+// ----------------3. BRAPI FALLBACK ----------------
+// 15.000 req por mes /
 const fetchBrapi = async (symbol, token, store ) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
@@ -295,7 +305,7 @@ const fetchBrapi = async (symbol, token, store ) => {
   }
 };
 
-// ---- function fetchAlphaVantage = não é boa pra histórico intraday BR e
+// ----4. fetchAlphaVantage = não é boa pra histórico intraday BR e
 // ---- ❌ tem rate limit MUITO agressivo (5 req/min free)
 const fetchAlphaVantage = async (symbol, apiKey, store) => {
   try {
@@ -351,7 +361,49 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
   }
 };
 
-// -------fetch ultra leve = busca somente: preço  + variação diária e ( SEM histórico.)
+// ----- 5. RapidAPI: real-time-finance-data com 200 solicitações mensais gratuitas
+//------ Baseado no Google Finance
+const fetchRealTimeAPI = async (symbol, store) => {
+  try {
+    // 🔒 Respeita cooldown global
+    const global429 = await getGlobal429(store);
+    if (Date.now() - global429 < COOLDOWN_429) return null;
+    // Formata para o padrão da API (Ex: PETR4 vira PETR4:BVMF)
+    const rapidSymbol = `${symbol}:BVMF`;
+    const url = `https://real-time-finance-data.p.rapidapi.com/stock-quote?symbol=${rapidSymbol}&language=en`;
+    const options = {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': process.env.REAL_TIME_KEY,
+        'x-rapidapi-host': 'real-time-finance-data.p.rapidapi.com'
+      }
+    };
+  
+    const res = await fetchWithTimeout(url, options, 4000);
+    if (!res?.ok) {
+        if (res?.status === 429) await setGlobal429(store);
+        return null;
+    }
+    const json = await res.json();
+    const stock = json?.data;
+    if (!stock) return null;
+    return {
+      symbol,
+      regularMarketPrice: stock.price,
+      previousClose: stock.previous_close,
+      changePercent: stock.change_percent,
+      volume: stock.volume,
+      source: "RAPID-API"
+    };
+  } catch (err) {
+    console.warn("⚠️ RapidAPI erro:", err.message);
+    return null;
+  }
+};
+
+
+// ------- fetch ultra leve = busca somente: preço  + variação diária e ( SEM histórico.)
+// ------- muito mais rápido e estável que o /v8/finance/chart (usado na fetchYahoo).
 const fetchYahooQuoteOnly = async (symbol, store) => {
   let jsonQuoteOnly;
   try {
@@ -425,6 +477,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         }
       }                               // Só dormir se não tiver cache:
       if (!cached) await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+
     // ----------- Yahoo segundo -------------------------
       let data = null;
       let source = null;
@@ -436,6 +489,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           historicalDataPrice = data?.historicalDataPrice || [];
         }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
+
 
     // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
       let brapiData = null;
@@ -466,7 +520,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       if (data && brapiData) source = "YAHOO + BRAPI";
       else if (data) source = "YAHOO";
       else if (brapiData) source = "BRAPI";
-      // ---------------------- ALPHA VANTAGE (ÚLTIMO FALLBACK) ----------------
+
+      // ---------------------- ALPHA VANTAGE (QUARTO FALLBACK) ----------------
       let alphaData = null;
       if (!data && !brapiData) {
         try {
@@ -475,7 +530,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
             alphaData = await fetchAlphaVantage(symbol, alphaKey, store);
           }
         } catch (err) {
-          console.warn("⚠️ Alpha erro:", err.message);
+          console.warn("⚠️ Alpha erro: ", err.message);
         }
       }
       if (alphaData) {
@@ -483,13 +538,45 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         historicalDataPrice = alphaData.historicalDataPrice || [];
         source = "ALPHA VANTAGE";
       }
-      // Falback = cache antigo = Evitar side-effect silencioso
+
+      // ---------------------- Real-time-finance-data (QUINTO FALLBACK) ----------------
+      let realTime = null;
+      // API sera chamada se as 3 anteriores falharem
+      if (!data && !brapiData && !alphaData) {
+        try {
+          // o process.env é um objeto que contém todas as variáveis de ambiente configuradas no painel do Netlify
+          const realTimeKey = process.env.REAL_TIME_KEY;
+          if (realTimeKey) {
+            realTime = await fetchRealTimeAPI(symbol, store);
+          }
+        } catch (err) {
+          console.warn("⚠️ Real Time : ", err.message);
+        }
+      }
+      if (realTime) {
+        data = realTime;
+        historicalDataPrice = realTime.historicalDataPrice || [];
+        source = "Real Time API";
+      }
+
+      // ------------ Após tentar Yahoo + Brapi + Alpha + Real Time
+      if (!data || data.regularMarketPrice == null) {
+        console.log("ℹ️ Tentando apenas preço rápido do Yahoo Quote Only...");
+        const quickPrice = await fetchYahooQuoteOnly(symbol, store);
+        if (quickPrice) {
+          data = { ...data, ...quickPrice };    // Mantém o histórico que já tiver e atualiza o preço
+          source = source ? `${source} + QUICK-QUOTE` : "QUICK-QUOTE";
+        }
+      }
+
+      //------------- Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
         source = "Cache Antigo";
         data = cached;
         historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
-      // depois de Yahoo + BRAPI + Alpha + cache resolvidos: entra o MERGE
+
+      // depois de resolvidos: Yahoo + BRAPI + Alpha + Real Time + cache => entra o MERGE
       const merged = {
         symbol,
         shortName: data?.shortName ?? brapiData?.shortName ?? brapiData?.symbol ?? symbol,
@@ -503,14 +590,12 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         fiftyTwoWeekHigh: data?.fiftyTwoWeekHigh ?? brapiData?.fiftyTwoWeekHigh ?? null,
         volume: data?.volume ?? brapiData?.regularMarketVolume ?? null,
         averageVolume: data?.averageVolume ?? brapiData?.averageVolume ?? null,
-  historicalDataPrice:
-  data?.historicalDataPrice?.length
-    ? data.historicalDataPrice
-    : brapiData?.historicalDataPrice ?? []
-
+      historicalDataPrice: data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? []
       };
+
       // ------------ Fallback final absoluto-----------------
       if (!data) { return { ok: false, reason: "Sem Dados" }; }
+
     // --------------- Antes do payload e Depois do merge (data + brapiData)
     const rawHist = merged?.historicalDataPrice ?? cached?.historicalDataPrice ?? [];
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
@@ -594,7 +679,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       } // ------------- Retorno  ---------
       console.log(`💾 salvo ${symbol} → source: ${source}`);
       return { ok: true, symbol, source, data: payload };
-}   //  FiM da const processTickerUpdate
+}
+//  FiM da const processTickerUpdate
+
 
 // ---------------- MAIN ----------------
 export default async () => {
@@ -623,11 +710,13 @@ export default async () => {
       return createResponse(result ?? { ok: false, error: "empty_result" });
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }
-};    // FiM do MAIN export default async
+};
+// FiM do MAIN export default async
+
 
 // --------- CRON ------- Netlify cron sempre usa UTC
-// Cron a cada 15 min  e   (10h as 18h)  e (1-5) Seg a Sex
+// --------- a cada 8 min e (10h as 22h)  e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/10 13-21 * * 1-5"
+  schedule: "*/8 13-25 * * 1-5"
 };
