@@ -280,20 +280,20 @@ table td:first-child {
     z-index: 5;
     background: white;
     /* Ajustes de largura */
-    width: 50px;      /* Defina um valor que caiba o logo confortavelmente */
-    min-width: 50px;  /* Garante que não encolha mais que isso */
-    max-width: 50px;
-
-    /* Reduz o padding lateral para a coluna poder estreitar */
-    padding-left: 1px;
-    padding-right: 1px;
+    width: 45px;      /* Defina um valor que caiba o logo confortavelmente */
+    min-width: 45px;  /* Garante que não encolha mais que isso */
+    max-width: 45px;
     text-align: center;
+    /* Reduz o padding lateral para a coluna poder estreitar */
+    /*padding-left: 1px;*/
+    /*padding-right: 1px;*/
+
 }
 
 /* Regra para a imagem ocupar o espaço total */
 .logo {
-    width: 30px;            /* Ocupa  célula (descontando o padding) */
-    height: 30px;           /* Ocupa 50 px da da célula */
+    width: 27px;            /* Ocupa  célula (descontando o padding) */
+    height: 27px;           /* Ocupa 50 px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;

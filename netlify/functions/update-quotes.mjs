@@ -560,7 +560,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
 
       // ------------ Após tentar Yahoo + Brapi + Alpha + Real Time
-      if (!data || data.regularMarketPrice == null) {
+      if (!data || data.regularMarketPrice == null || data.averageVolume == null) {
         console.log("ℹ️ Tentando apenas preço rápido do Yahoo Quote Only...");
         const quickPrice = await fetchYahooQuoteOnly(symbol, store);
         if (quickPrice) {
