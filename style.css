@@ -265,16 +265,19 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     table-layout: fixed;    /* navegador respeitar melhor as larguras definidas */
 }
 
+/* célula do cabeçalho da primeira coluna ficar acima das demais */
+.tableAcoes thead th:first-child {
+    z-index: 30;
+}
+
 .tableAcoes th:first-child,
 .tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
     position: sticky;
     left: 0;
-    z-index: 5;
+    z-index: 20;
     background: white;
     text-align: center;
-    width: 45px;
-
-
+    /*width: 40px;*/
 }
 
 .logo {
@@ -284,15 +287,6 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     margin: auto;
 }
 
-/*
-Segunda coluna da segunda Tabela
-.tableAcoes td:nth-child(2),
-.tableAcoes th:nth-child(2) {
-    position: relative;
-    z-index: 1;
-    background: white;
-}
-*/
 
 table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
     max-width: 150px;       /* apenas na segunda célula (td) de cada linha de uma tabela */

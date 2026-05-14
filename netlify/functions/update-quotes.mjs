@@ -229,7 +229,7 @@ const fetchWithRetryBrapi = async (url, store, symbol, attempts = 2) => {
 //--
 
 
-// Na ordem : 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4.AlphaVantage - 5. previousData
+// Ordem: 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4.AlphaVantage - 5.RapidAPI: real-time - 6. previousData
 // ------------ YAHOO = endpoint v8/finance/chart é focado em preço + histórico
 // ------------ Ele não fornece dados fundamentais ou extremos (low/high)
 // ------------ O YQL do Yahoo permite consultar dados do Yahoo! Finance.
