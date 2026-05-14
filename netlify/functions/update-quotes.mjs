@@ -265,6 +265,8 @@ const fetchYahoo = async (symbol, store) => {
     const closes = resultYahoo?.indicators?.quote?.[0]?.close || [];
     const lows = resultYahoo?.indicators?.quote?.[0]?.low || [];
     const highs = resultYahoo?.indicators?.quote?.[0]?.high || [];
+    const volumes = resultYahoo?.indicators?.quote?.[0]?.volume || [];
+
     return {
       symbol,
       shortName: meta.shortName ?? null,
@@ -279,7 +281,8 @@ const fetchYahoo = async (symbol, store) => {
           date: t,
           close: closes[i] ?? null,
           low: lows[i] ?? null,
-          high: highs[i] ?? null
+          high: highs[i] ?? null,
+          volume: volumes[i] ?? null
         }))
         .filter(d => d.date && d.close != null),
     };    // fim do Try
@@ -469,12 +472,10 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     // ----------- Yahoo segundo -------------------------
       let data = null;
       let source = null;
-      let historicalDataPrice = [];
       try {
         data = await fetchYahoo(symbol, store);
         if (data) {
           source = "YAHOO";
-          historicalDataPrice = data?.historicalDataPrice || [];
         }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
@@ -523,7 +524,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
       if (alphaData) {
         data = alphaData;
-        historicalDataPrice = alphaData.historicalDataPrice || [];
         source = "ALPHA VANTAGE";
       }
 
@@ -543,7 +543,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
       if (realTime) {
         data = realTime;
-        historicalDataPrice = realTime.historicalDataPrice || [];
         source = "Real Time API";
       }
 
@@ -551,7 +550,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       if (!data && cached) {    // cached vem do snapshot e não da API
         source = "Cache Antigo";
         data = cached;
-        historicalDataPrice = cached?.historicalDataPrice ?? cached?.data?.historicalDataPrice ?? [];
       }
 
       // depois de resolvidos: Yahoo + BRAPI + Alpha + Real Time + cache => entra o MERGE
@@ -590,13 +588,18 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
     const baseHist = mergedHist;
+    const previousCloseCalc = baseHist.length >= 2 ? baseHist[baseHist.length - 2]?.close ?? null : null;
+    const avgVolumeCalc = baseHist.length ? Math.round(
+          baseHist.reduce((acc, d) => acc + (d.volume || 0), 0) / baseHist.length ) : null;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
     const price = merged.regularMarketPrice;
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
-    const hasValidChange = Number.isFinite(merged?.changePercent) && Math.abs(merged.changePercent) < 100;
-    const changePercent = hasValidChange ? merged.changePercent : calcDaily ?? null;
+    const apiChange = Number(merged?.changePercent);
+    const hasValidChange = Number.isFinite(apiChange) && Math.abs(apiChange) > 0.001 && Math.abs(apiChange) < 100;
+    const changePercent = hasValidChange ? apiChange : calcDaily ?? (
+          merged.previousClose ? ((price - merged.previousClose) / merged.previousClose) * 100 : null );
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
@@ -614,11 +617,11 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         changePercent: changePercent,
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
-        previousClose: merged.previousClose ?? null,
+        previousClose: merged.previousClose ?? previousCloseCalc ?? null,
         fiftyTwoWeekLow,
         fiftyTwoWeekHigh,
         volume: safeValue(merged.volume),
-        averageVolume: safeValue(merged.averageVolume),
+        averageVolume: safeValue(merged.averageVolume) ?? safeValue(avgVolumeCalc),
         min7d,
         min30d,
         variation30d,
