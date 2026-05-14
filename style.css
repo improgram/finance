@@ -20,15 +20,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: stretch;                     /* horizontal */
-    justify-content: flex-start;                /* vertical */
-    /*gap: clamp(7px, 1.4vw, 16px);
-    padding: clamp(7px, 1.6vw, 16px);*/
-
+    justify-content: flex-start;               /* vertical */
     width: 99.9%;
     margin-left: auto;
     margin-right: auto;
-    gap: 0; /* Removido o gap para não separar a navbar do topo */
-    padding: 0; /* Removido o padding que criava bordas vazias no corpo */
+    gap: 0;         /* Removido o gap para não separar a navbar do topo */
+    padding: 0;     /* Removido o padding que criava bordas vazias no corpo */
     color: white;
       background-image: radial-gradient(
         circle at center,
@@ -41,8 +38,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;            /* ocupa toda largura da tela(99.9% do body) */
-    padding: 12px 26px;     /* Ajuste o padding interno para respiro dos itens */
+    width: 100%;            /* ocupa toda largura da tela que é 99.9% (100% do body) */
+    padding: 12px 30px;     /* Ajuste o padding interno para respiro dos itens */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
@@ -55,14 +52,14 @@ body {
     display: flex;
     list-style: none;
     align-items: center;
-    gap: 2vw;          /* Espaço entre as palavras do menu*/
-    flex-wrap: nowrap; /* Sempre na mesma linha */
+    gap: 4vw;               /* Espaço entre as palavras do menu*/
+    flex-wrap: nowrap;      /* Sempre na mesma linha */
 }
 
 .nav-center a {
     color: #ffffff;
     text-decoration: none;
-    font-size: 20px;
+    font-size: 22px;
     position: relative;
     padding: 6px 6px;
     white-space: nowrap;
@@ -196,7 +193,7 @@ body {
 
 h1, h2 {
     text-align: center;
-    margin-top: 15px;
+    margin-top: 40px;
 }
 
 .search-container {
