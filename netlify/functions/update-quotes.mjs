@@ -184,14 +184,20 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       }
       // 3. Tratamento de erros específicos (401, 404, 500)
       let errorMsg = "Erro Desconhecido";
+
       if (status === 401) {
-        errorMsg = " ❌ Não Autorizado ";
+        errorMsg = " ❌ Endpoint inconsistente ";
       } else if (status === 404) {
-        errorMsg = " ❌Recurso não encontrado (Símbolo inexistente) ";
+        errorMsg = " ❌Recurso não encontrado ";
       } else if (status === 500) {
         errorMsg = " ❌ Erro Interno do Servidor Yahoo ";
       }
-      console.error(`❌ Erro Yahoo: Status ${status} (${errorMsg}) em ${symbol}`);
+
+      if (status !== 401) {
+        console.error(`❌ Erro Yahoo: Status ${status} (${errorMsg}) em ${symbol}`);
+      } else {
+        console.warn(`⚠️ Yahoo quote bloqueado para ${symbol}`);
+      }
       // Para erros fatais como 401 ou 404, geralmente não adianta tentar de novo
       if (status === 401 || status === 404) break;
     } catch (error) {
@@ -412,10 +418,11 @@ const fetchRealTimeAPI = async (symbol, store) => {
 
 // ------- fetch ultra leve = busca somente: preço  + variação diária e ( SEM histórico.)
 // ------- muito mais rápido e estável que o /v8/finance/chart (usado na fetchYahoo).
+// ------- vários ETFs BR não funcionam no /v7/finance/quote
 const fetchYahooQuoteOnly = async (symbol, store) => {
   let jsonQuoteOnly;
   try {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.SA`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
     const res = await fetchWithRetryYahoo(url, store, symbol);
     if (!res?.ok) return null;
     jsonQuoteOnly = await res.json();
@@ -572,7 +579,11 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         console.log("ℹ️ Tentando apenas preço rápido do Yahoo Quote Only...");
         const quickPrice = await fetchYahooQuoteOnly(symbol, store);
         if (quickPrice) {
-          data = { ...data, ...quickPrice };    // Mantém o histórico que já tiver e atualiza o preço
+          data = {
+            ...( data || {} ),
+            ...quickPrice
+          };
+          // Mantém o histórico que já tiver e atualiza o preço
           source = source ? `${source} + QUICK-QUOTE` : "QUICK-QUOTE";
         }
       }
