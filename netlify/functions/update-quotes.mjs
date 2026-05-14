@@ -174,20 +174,28 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       if (resYahoo && resYahoo.ok) {
         return resYahoo;
       }
+      const status = resYahoo?.status;
       // 2. Tratamento de Rate Limit (429)
-      if (resYahoo?.status === 429) {
+      if (status === 429) {
         await setGlobal429(store);
         console.warn(`🚨 429 Yahoo (${symbol}) - Tentativa ${i + 1} de ${attempts}`);
-        // Espera antes da próxima tentativa (Backoff simples)
         await sleep((i + 1) * 1000);
-        continue; // Pula para a próxima iteração do for
+        continue;
       }
-      // 3. Outros erros (404, 500, etc)
-      console.error(`❌ Erro Yahoo: Status ${resYahoo?.status} em ${symbol}`);
-      // Aqui você decide se quer dar 'continue' para tentar de novo ou 'return null'
-      break;
+      // 3. Tratamento de erros específicos (401, 404, 500)
+      let errorMsg = "Erro Desconhecido";
+      if (status === 401) {
+        errorMsg = " ❌ Não Autorizado ";
+      } else if (status === 404) {
+        errorMsg = " ❌Recurso não encontrado (Símbolo inexistente) ";
+      } else if (status === 500) {
+        errorMsg = " ❌ Erro Interno do Servidor Yahoo ";
+      }
+      console.error(`❌ Erro Yahoo: Status ${status} (${errorMsg}) em ${symbol}`);
+      // Para erros fatais como 401 ou 404, geralmente não adianta tentar de novo
+      if (status === 401 || status === 404) break;
     } catch (error) {
-      console.error(`⚠️ Erro de rede/timeout na tentativa ${i + 1}:`, error);
+      console.error(`❌ Erro de rede/timeout na tentativa ${i + 1}:`, error);
     }
   }
   // Se sair do loop sem retornar, significa que todas as tentativas falharam
@@ -286,7 +294,7 @@ const fetchBrapi = async (symbol, token, store ) => {
         try {
           jsonBrapi = await resBrapi.json();
         } catch {}
-        console.log("✅ BRAPI Chamada OK");
+        console.log("✅ ✅ ✅ BRAPI ✅ ✅ ✅ OK");
         const resultBrapi = jsonBrapi?.results?.[0];
         if (!resultBrapi) {
           console.warn("⚠️ BRAPI sem resultado válido");

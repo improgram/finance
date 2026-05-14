@@ -261,13 +261,15 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     background: #BFF;
 }
 
+/*
 table td:first-child {
     position: sticky;   /* primeira coluna “grudar” */
     left: 0;            /* à esquerda quando  faz scroll */
     z-index: 1;         /* primeira coluna fique sobreposta às outras células quando rola o scroll*/
     background: white;  /* primeira coluna com fundo branco
-                            para que o texto continue legível sobre outras células roladas */
+                            para que o texto continue legível sobre outras células roladas
 }
+*/
 
 .tableAcoes {
     table-layout: fixed;    /* navegador respeitar melhor as larguras definidas */
@@ -279,24 +281,24 @@ table td:first-child {
     left: 0;
     z-index: 5;
     background: white;
-    /* Ajustes de largura */
-    width: 48px;      /* Defina um valor que caiba o logo confortavelmente */
+    text-align: center;
+    width: 50px;      /* Defina um valor que caiba o logo confortavelmente */
     /* min-width: 48px;  Garante que não encolha mais que isso */
     /*max-width: 48px; */
-    text-align: center;
+
 }
 
 /* Regra para a imagem ocupar o espaço total */
 .logo {
-    width: 27px;            /* Ocupa  célula (descontando o padding) */
-    height: 27px;           /* Ocupa 50 px da da célula */
+    /* width: 27px;            Ocupa  célula (descontando o padding) */
+    /* height: 27px;           /Ocupa  px da da célula */
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
     margin: auto;
 }
 
-/* Segunda coluna (TICKER) */
+/* Segunda coluna da segunda Tabela */
 .tableAcoes td:nth-child(2),
 .tableAcoes th:nth-child(2) {
     position: relative;
