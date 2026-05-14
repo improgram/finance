@@ -270,20 +270,24 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     z-index: 30;
 }
 
+/* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
+/*
 .tableAcoes th:first-child,
-.tableAcoes td:first-child {    /* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
+.tableAcoes td:first-child {
     position: sticky;
     left: 0;
     z-index: 20;
     background: white;
     text-align: center;
 }
+*/
 
 .logo {
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
     margin: auto;
+    width: 50px;
 }
 
 
