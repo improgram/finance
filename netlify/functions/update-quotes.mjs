@@ -416,33 +416,6 @@ const fetchRealTimeAPI = async (symbol, store) => {
 };
 
 
-// ------- fetch ultra leve = busca somente: preço  + variação diária e ( SEM histórico.)
-// ------- muito mais rápido e estável que o /v8/finance/chart (usado na fetchYahoo).
-// ------- vários ETFs BR não funcionam no /v7/finance/quote
-const fetchYahooQuoteOnly = async (symbol, store) => {
-  let jsonQuoteOnly;
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
-    const res = await fetchWithRetryYahoo(url, store, symbol);
-    if (!res?.ok) return null;
-    jsonQuoteOnly = await res.json();
-    const item = jsonQuoteOnly?.quoteResponse?.result?.[0];
-    if (!item) return null;
-    return {
-      symbol,
-      shortName: item.shortName ?? null,
-      longName: item.longName ?? null,
-      regularMarketPrice: item.regularMarketPrice ?? null,
-      previousClose: item.regularMarketPreviousClose ?? item.previousClose ?? null,
-      changePercent: item.regularMarketChangePercent ?? null,
-      volume: item.regularMarketVolume ?? null,
-      averageVolume: item.averageDailyVolume3Month ?? item.averageDailyVolume10Day ?? null
-    };
-  } catch {
-    return null;
-  }
-};
-
 // pipeline principal + orchestrator + coordinator + state machine
 // ----------- ERA EXEC: Leitura linear:  lock - exec - timeout - race
 // ----------  Era exec() deve retornar apenas dados = não usa createResponse
@@ -574,20 +547,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         source = "Real Time API";
       }
 
-      // ------------ Após tentar Yahoo + Brapi + Alpha + Real Time
-      if (!data || data.regularMarketPrice == null || data.averageVolume == null) {
-        console.log("ℹ️ Tentando apenas preço rápido do Yahoo Quote Only...");
-        const quickPrice = await fetchYahooQuoteOnly(symbol, store);
-        if (quickPrice) {
-          data = {
-            ...( data || {} ),
-            ...quickPrice
-          };
-          // Mantém o histórico que já tiver e atualiza o preço
-          source = source ? `${source} + QUICK-QUOTE` : "QUICK-QUOTE";
-        }
-      }
-
       //------------- Falback = cache antigo = Evitar side-effect silencioso
       if (!data && cached) {    // cached vem do snapshot e não da API
         source = "Cache Antigo";
@@ -607,16 +566,17 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         regularMarketDayHigh: data?.regularMarketDayHigh ?? brapiData?.regularMarketDayHigh ?? null,
         fiftyTwoWeekLow: data?.fiftyTwoWeekLow ?? brapiData?.fiftyTwoWeekLow ?? null,
         fiftyTwoWeekHigh: data?.fiftyTwoWeekHigh ?? brapiData?.fiftyTwoWeekHigh ?? null,
-        volume: data?.volume ?? brapiData?.regularMarketVolume ?? null,
-        averageVolume: data?.averageVolume ?? brapiData?.averageVolume ?? null,
+        volume: data?.volume > 0 ? data.volume : brapiData?.volume > 0 ? brapiData.volume : null,
+      averageVolume: data?.averageVolume > 0 ? data.averageVolume : brapiData?.averageVolume > 0 ? brapiData.averageVolume : null,
       historicalDataPrice: data?.historicalDataPrice?.length ? data.historicalDataPrice : brapiData?.historicalDataPrice ?? []
       };
 
       // ------------ Fallback final absoluto-----------------
-      if (!data) { return { ok: false, reason: "Sem Dados" }; }
+      if (!merged.regularMarketPrice) {
+        return { ok: false, reason: "Sem Dados" };
+      }
 
     // --------------- Antes do payload e Depois do merge (data + brapiData)
-    const rawHist = merged?.historicalDataPrice ?? cached?.historicalDataPrice ?? [];
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
     const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
@@ -635,7 +595,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const price = merged.regularMarketPrice;
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
-    const changePercent = Number.isFinite(merged?.changePercent) ? merged.changePercent : calcDaily ?? null;
+    const hasValidChange = Number.isFinite(merged?.changePercent) && Math.abs(merged.changePercent) < 100;
+    const changePercent = hasValidChange ? merged.changePercent : calcDaily ?? null;
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
