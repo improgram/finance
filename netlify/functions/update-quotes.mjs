@@ -466,8 +466,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           }
           return { ok: true, symbol, source: "global-429", data: cached };
         }
-      }                               // Só dormir se não tiver cache:
-      if (!cached) await sleep(300); // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+      }
+      // Só dormir se não tiver cache
+      if (!cached) await sleep(300);        // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
 
     // ----------- Yahoo segundo -------------------------
       let data = null;
@@ -596,10 +597,12 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const price = merged.regularMarketPrice;
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
-    const apiChange = Number(merged?.changePercent);
-    const hasValidChange = Number.isFinite(apiChange) && Math.abs(apiChange) > 0.001 && Math.abs(apiChange) < 100;
-    const changePercent = hasValidChange ? apiChange : calcDaily ?? (
-          merged.previousClose ? ((price - merged.previousClose) / merged.previousClose) * 100 : null );
+
+    const apiChange = merged?.changePercent;
+    const changeFromApi = typeof apiChange === "number" && Number.isFinite(apiChange) ? apiChange : null;
+    const changeFromCalc = merged.previousClose ? ((price - merged.previousClose) / merged.previousClose) * 100 : calcDaily ?? null;
+    const changePercent = changeFromApi ?? changeFromCalc;
+
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
