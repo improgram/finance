@@ -595,13 +595,23 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
     const price = merged.regularMarketPrice;
+    const previousCloseSafe = merged.previousClose ?? previousCloseCalc ?? null;
+    const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
+          ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
 
-    const apiChange = merged?.changePercent;
-    const changeFromApi = typeof apiChange === "number" && Number.isFinite(apiChange) ? apiChange : null;
-    const changeFromCalc = merged.previousClose ? ((price - merged.previousClose) / merged.previousClose) * 100 : calcDaily ?? null;
-    const changePercent = changeFromApi ?? changeFromCalc;
+    const yahooChange = Number(merged?.changePercent);
+    const previousCloseSafe = previousCloseCalc ?? merged.previousClose ?? null;
+    const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
+          ? ((price - previousCloseSafe) / previousCloseSafe) * 100
+          : null;
+    const yahooBroken = !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
+          (
+            realCalculatedChange != null &&
+            Math.abs(yahooChange - realCalculatedChange) > 1.2
+          );
+    const changePercent = !yahooBroken ? yahooChange : realCalculatedChange ?? calcDaily ?? null;
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
@@ -618,9 +628,10 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         longName: merged.longName,
         regularMarketPrice: safeValue(merged.regularMarketPrice),
         changePercent: changePercent,
+        changeSource: yahooBroken ? "CALCULATED" : "YAHOO",
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
-        previousClose: merged.previousClose ?? previousCloseCalc ?? null,
+        previousClose: previousCloseSafe,
         fiftyTwoWeekLow,
         fiftyTwoWeekHigh,
         volume: safeValue(merged.volume),
