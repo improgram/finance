@@ -42,14 +42,12 @@ body {
     justify-content: space-between;
     align-items: center;
     width: 100%;            /* ocupa toda largura da tela(99.9% do body) */
-    /*padding: 3px 25px;       Menu superior parte preta */
-    padding: 10px 25px; /* Ajuste o padding interno para respiro dos itens */
+    padding: 12px 26px; /* Ajuste o padding interno para respiro dos itens */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
     top: 0;
     z-index: 1000;
-    /*left: 0;*/
 }
 
 /* centro (menu principal) */
@@ -165,7 +163,6 @@ body {
     padding: 10px;      /* Cria uma área invisível para o mouse atravessar */
     border-radius: 6px;
     left: 0;
-    /*top: 30px;*/
     top: 100%; /* Cola exatamente abaixo do topo */
     min-width: 160px;
     box-shadow: 0 8px 16px rgba(0,0,0,0.2);
@@ -196,7 +193,7 @@ body {
 
 h1, h2 {
     text-align: center;
-    margin-top: 6px;
+    margin-top: 10px;
 }
 
 .search-container {
@@ -270,18 +267,6 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     z-index: 30;
 }
 
-/* segunda tabela(tableAcoes) = Na primeira célula (<td>) */
-/*
-.tableAcoes th:first-child,
-.tableAcoes td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 20;
-    background: white;
-    text-align: center;
-}
-*/
-
 .logo {
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
@@ -309,6 +294,7 @@ th {                            /* cabeçalho tabela */
 td, th {
     padding: clamp(1.8px, 0.5vw, 8px);       /* espaçamento interno da célula E (distância do conteúdo até a borda da célula) */
     border-bottom: 1.5px solid #008080;
+    text-align: center;
 }
 
 tr {
