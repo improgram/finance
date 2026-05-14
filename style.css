@@ -272,7 +272,7 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
     border-radius: 2px;
     margin: auto;
-    width: 50px;
+    width: 40px;
 }
 
 
