@@ -154,7 +154,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
       signal: controller.signal });
   } catch (error) {
     if (error.name === "AbortError") {
-      console.warn(" ⏱ TIMEOUT 3s ");
+      console.warn("❌ ⏱ TIMEOUT 3s ❌");
       } else {
       console.error("⚠️ erro fetch:", error);
       }
@@ -201,7 +201,7 @@ const fetchWithRetryYahoo = async (url, store, symbol, attempts = 2) => {
       // Para erros fatais como 401 ou 404, geralmente não adianta tentar de novo
       if (status === 401 || status === 404) break;
     } catch (error) {
-      console.error(`❌ Erro de rede/timeout na tentativa ${i + 1}:`, error);
+      console.error(`❌ Erro de REDE / ❌ TIMEOUT na tentativa ${i + 1}:`, error);
     }
   }
   // Se sair do loop sem retornar, significa que todas as tentativas falharam
@@ -370,7 +370,7 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
           ? ((latest.close - previous.close) / previous.close) * 100
           : null,
       historicalDataPrice,
-      source: "alpha"
+      source: "✅ ✅ ✅ ALPHA ✅ ✅ ✅ OK "
     };
   } catch (err) {
     console.warn("⚠️ Alpha erro:", err.message);
@@ -410,7 +410,7 @@ const fetchRealTimeAPI = async (symbol, store) => {
       previousClose: stock.previous_close,
       changePercent: stock.change_percent,
       volume: stock.volume,
-      source: "RAPID-API"
+      source: " ✅✅✅✅ REAL TIME API ✅✅✅✅ OK "
     };
   } catch (err) {
     console.warn("⚠️ RapidAPI erro:", err.message);
@@ -453,7 +453,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         Date.now() - cached.updatedAt < getCacheTTL()
       ) {
         console.log("⚡ Cache hit valido:", symbol, cached.source);
-        return { ok: true, symbol, source: "cache-fresh", data: cached };
+        return { ok: true, symbol, source: "✅ cache-fresh", data: cached };
       }
       // --------- proteção global contra flood após 429 e timestamp inválido
       const global429 = await getGlobal429(store);
@@ -464,7 +464,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           if (!cached) {
             return { ok: false, reason: "rate-limited" };
           }
-          return { ok: true, symbol, source: "global-429", data: cached };
+          return { ok: true, symbol, source: "❌ global-429", data: cached };
         }
       }
       // Só dormir se não tiver cache
@@ -476,7 +476,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       try {
         data = await fetchYahoo(symbol, store);
         if (data) {
-          source = "YAHOO";
+          source = " ✅ YAHOO ✅ OK";
         }
       } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
@@ -507,9 +507,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
             changePercent: brapiData?.changePercent ?? brapiData?.regularMarketChangePercent ?? null
           };
         }
-      if (data && brapiData) source = "YAHOO + BRAPI";
-      else if (data) source = "YAHOO";
-      else if (brapiData) source = "BRAPI";
+      if (data && brapiData) source = "✅ YAHOO + ✅✅ BRAPI";
+      else if (data) source = "✅ YAHOO";
+      else if (brapiData) source = "✅ ✅ BRAPI";
 
       // ---------------------- ALPHA VANTAGE (QUARTO FALLBACK) ----------------
       let alphaData = null;
@@ -525,7 +525,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
       if (alphaData) {
         data = alphaData;
-        source = "ALPHA VANTAGE";
+        source = " ✅✅✅ ALPHA VANTAGE API ✅✅✅ OK ";
       }
 
       // ---------------------- Real-time-finance-data (QUINTO FALLBACK) ----------------
@@ -544,7 +544,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
       if (realTime) {
         data = realTime;
-        source = "Real Time API";
+        source = " ✅✅✅✅ Real Time API ✅✅✅✅  OK ";
       }
 
       //------------- Falback = cache antigo = Evitar side-effect silencioso
@@ -605,7 +605,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           : null;
     const yahooBroken = !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
           ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > 1.2 );
-          
+
     const changePercent = !yahooBroken ? yahooChange : realCalculatedChange ?? calcDaily ?? null;
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
@@ -668,7 +668,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         console.log("🧠 snapshot atualizado:", symbol);
       } catch (err) {
         console.warn("⚠️ erro ao atualizar snapshot:", err.message);
-      } // ------------- Retorno  ---------
+      }
+      // -------------✅ Retorno no painel Netlify ✅---------
       console.log(`💾 salvo ${symbol} → source: ${source}`);
       return { ok: true, symbol, source, data: payload };
 }
@@ -703,11 +704,11 @@ export default async () => {
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }
 };
-// FiM do MAIN export default async
+// --------- FiM do MAIN export default async
 
 // --------- CRON ------- Netlify cron sempre usa UTC
-// --------- a cada 8 min e (1-5) Seg a Sex
+// --------- a cada 6 min e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/8 13-23,0-1 * * 1-6"
+  schedule: "*/6 13-23,0-1 * * 1-6"
 };
