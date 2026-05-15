@@ -511,6 +511,16 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       else if (data) source = "✅ YAHOO";
       else if (brapiData) source = "✅ ✅ BRAPI";
 
+
+      // ************   TEST Alpha Vantage Temporario *********
+      const FORCE_ALPHA = true;
+      const FORCE_REALTIME = false;
+
+      if (FORCE_ALPHA) {
+        data = null;
+        brapiData = null;
+      }
+
       // ---------------------- ALPHA VANTAGE (QUARTO FALLBACK) ----------------
       let alphaData = null;
       if (!data && !brapiData) {
@@ -526,6 +536,13 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       if (alphaData) {
         data = alphaData;
         source = " ✅✅✅ ALPHA VANTAGE API ✅✅✅ OK ";
+      }
+
+      // ************ TEST REAL TIME Temporario ***************
+      if (FORCE_REALTIME) {
+        data = null;
+        brapiData = null;
+        alphaData = null;
       }
 
       // ---------------------- Real-time-finance-data (QUINTO FALLBACK) ----------------
