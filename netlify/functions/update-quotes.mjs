@@ -357,7 +357,10 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
       .sort((a, b) => new Date(b[0]) - new Date(a[0]));
     const historicalDataPrice = entries.map(([date, values]) => ({
       date: Math.floor(new Date(date).getTime() / 1000),
-      close: Number(values["4. close"])
+      close: Number(values["4. close"]),
+      low: Number(values["3. low"]),
+      high: Number(values["2. high"]),
+      volume: Number(values["5. volume"])
     }));
     const latest = historicalDataPrice[0];
     const previous = historicalDataPrice[1];
@@ -369,6 +372,9 @@ const fetchAlphaVantage = async (symbol, apiKey, store) => {
         latest && previous && previous.close
           ? ((latest.close - previous.close) / previous.close) * 100
           : null,
+      regularMarketDayLow: latest?.low ?? null,
+      regularMarketDayHigh: latest?.high ?? null,
+      volume: latest?.volume ?? null,
       historicalDataPrice,
       source: "✅ ✅ ✅ ALPHA ✅ ✅ ✅ OK "
     };
