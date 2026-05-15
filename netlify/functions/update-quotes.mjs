@@ -273,7 +273,7 @@ const fetchYahoo = async (symbol, store) => {
       longName: meta.longName ?? null,
       regularMarketPrice: meta.regularMarketPrice,
       previousClose: meta.previousClose,
-      changePercent: meta.regularMarketChangePercent != null ? meta.regularMarketChangePercent ?? null : null,
+      changePercent: typeof meta.regularMarketChangePercent === "number" ? meta.regularMarketChangePercent : null,
       volume: meta.regularMarketVolume ?? null,
       averageVolume: meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,
       historicalDataPrice: timestamps
@@ -303,7 +303,7 @@ const fetchBrapi = async (symbol, token, store ) => {
         try {
           jsonBrapi = await resBrapi.json();
         } catch {}
-        console.log("✅ ✅ ✅ BRAPI ✅ ✅ ✅ OK");
+        console.log("✅ ✅ BRAPI ✅ ✅ OK");
         const resultBrapi = jsonBrapi?.results?.[0];
         if (!resultBrapi) {
           console.warn("⚠️ BRAPI sem resultado válido");
@@ -598,15 +598,21 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
 
-    const yahooChange = Number(merged?.changePercent);
-    const previousCloseSafe = previousCloseCalc ?? merged.previousClose ?? null;
+    const rawChange = merged?.changePercent;
+    const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : Number(rawChange);
+    const previousCloseSafe = merged.previousClose ?? previousCloseCalc ?? null;
+
     const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
-          ? ((price - previousCloseSafe) / previousCloseSafe) * 100
-          : null;
-    const yahooBroken = !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
+          ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
+
+    const yahooBroken = yahooChange === null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
           ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > 1.2 );
 
-    const changePercent = !yahooBroken ? yahooChange : realCalculatedChange ?? calcDaily ?? null;
+    const calculatedChange = realCalculatedChange ?? calcDaily ?? null;
+    
+    const changePercent = yahooBroken ? calculatedChange
+          : ( calculatedChange != null && Math.abs(yahooChange - calculatedChange) > 0.5 )
+          ? calculatedChange : yahooChange;
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
@@ -670,7 +676,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         console.warn("⚠️ erro ao atualizar snapshot:", err.message);
       }
       // -------------✅ Retorno no painel Netlify ✅---------
-      console.log(`💾 salvo ${symbol} → source: ${source}`);
+      console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
       return { ok: true, symbol, source, data: payload };
 }
 //  FiM da const processTickerUpdate
