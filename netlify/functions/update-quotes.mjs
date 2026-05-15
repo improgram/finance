@@ -571,9 +571,12 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       };
 
       // ------------ Fallback final absoluto-----------------
-      if (!merged.regularMarketPrice) {
+      const normalizedPrice = Number(merged.regularMarketPrice);
+
+      if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
         return { ok: false, reason: "Sem Dados" };
       }
+
 
     // --------------- Antes do payload e Depois do merge (data + brapiData)
     const yahooHist = getValidHist(data?.historicalDataPrice || []);
@@ -581,12 +584,25 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
     // Nao perder dados bons do outro provider e deduplicar por timestamp
     const map = new Map();
+
     // Snapshot incremental por ticker
     // Isso evita: race condition, overwrite, perda global
-      for (const d of [...yahooHist, ...brapiHist]) {
-        if (d?.date && d?.close != null) map.set(d.date, d);
+
+    // Yahoo tem prioridade nos candles
+    for (const d of brapiHist) {
+      if (d?.date && d?.close != null) {
+        map.set(d.date, d);
       }
-      // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
+    }
+
+    // Yahoo sobrescreve BRAPI se existir mesmo timestamp
+    for (const d of yahooHist) {
+      if (d?.date && d?.close != null) {
+        map.set(d.date, d);
+      }
+    }
+
+    // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
     const baseHist = mergedHist;
     const previousCloseCalc = baseHist.length >= 2 ? baseHist[baseHist.length - 2]?.close ?? null : null;
@@ -594,25 +610,29 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           baseHist.reduce((acc, d) => acc + (d.volume || 0), 0) / baseHist.length ) : null;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
-    const price = merged.regularMarketPrice;
+    const price = Number(merged.regularMarketPrice);
+          if (!Number.isFinite(price) || price <= 0) {
+            return { ok: false, reason: "invalid-price" };
+          }
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
 
     const rawChange = merged?.changePercent;
     const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : Number(rawChange);
-    const previousCloseSafe = merged.previousClose ?? previousCloseCalc ?? null;
+    const previousCloseSafe = merged.previousClose > 0 ? merged.previousClose : previousCloseCalc > 0
+          ? previousCloseCalc : null;
 
     const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
           ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
 
+    const DIFF_TOLERANCE = 0.5;
+    const HARD_DIFF_TOLERANCE = 1.2;
     const yahooBroken = yahooChange === null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
-          ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > 1.2 );
-
+          ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > HARD_DIFF_TOLERANCE );
     const calculatedChange = realCalculatedChange ?? calcDaily ?? null;
-    
-    const changePercent = yahooBroken ? calculatedChange
-          : ( calculatedChange != null && Math.abs(yahooChange - calculatedChange) > 0.5 )
-          ? calculatedChange : yahooChange;
+    const diff = calculatedChange != null && yahooChange != null ? Math.abs(yahooChange - calculatedChange) : 0;
+    const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
+    const changePercent = usingCalculated ? calculatedChange : yahooChange;
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
@@ -629,7 +649,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         longName: merged.longName,
         regularMarketPrice: safeValue(merged.regularMarketPrice),
         changePercent: changePercent,
-        changeSource: yahooBroken ? "CALCULATED" : "YAHOO",
+        changeSource: usingCalculated ? "CALCULATED" : "YAHOO",
         regularMarketDayLow: dayLow,
         regularMarketDayHigh: dayHigh,
         previousClose: previousCloseSafe,
