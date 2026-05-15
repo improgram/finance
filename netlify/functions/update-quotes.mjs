@@ -529,7 +529,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
       // ---------------------- ALPHA VANTAGE (QUARTO FALLBACK) ----------------
       let alphaData = null;
-      if (!data && !brapiData) {
+      //if (!data && !brapiData) {
+        if (!FORCE_REALTIME && !data && !brapiData) {
         try {
           const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
           if (alphaKey) {
@@ -543,6 +544,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         data = alphaData;
         source = " ✅✅✅ ALPHA VANTAGE API ✅✅✅ OK ";
       }
+
 
       // ************ TEST REAL TIME Temporario ***************
       if (FORCE_REALTIME) {
