@@ -519,8 +519,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
 
       // ************   TEST Alpha Vantage Temporario *********
-      const FORCE_ALPHA = true;
-      const FORCE_REALTIME = false;
+      const FORCE_ALPHA = false;
+      const FORCE_REALTIME = true;
 
       if (FORCE_ALPHA) {
         data = null;
