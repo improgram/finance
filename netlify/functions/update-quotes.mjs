@@ -621,18 +621,19 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : Number(rawChange);
     const previousCloseSafe = merged.previousClose > 0 ? merged.previousClose : previousCloseCalc > 0
           ? previousCloseCalc : null;
-
     const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
           ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
 
     const DIFF_TOLERANCE = 0.5;
     const HARD_DIFF_TOLERANCE = 1.2;
-    const yahooBroken = yahooChange === null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
-          ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > HARD_DIFF_TOLERANCE );
     const calculatedChange = realCalculatedChange ?? calcDaily ?? null;
     const diff = calculatedChange != null && yahooChange != null ? Math.abs(yahooChange - calculatedChange) : 0;
+    const yahooBroken = yahooChange == null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
+          ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > HARD_DIFF_TOLERANCE );
+
     const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
-    const changePercent = usingCalculated ? calculatedChange : yahooChange;
+    const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
+    const changePercent = Number.isFinite(finalChange) ? Number(finalChange.toFixed(2)) : null;
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
