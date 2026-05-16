@@ -285,7 +285,7 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
 
 
 table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
-    max-width: 150px;       /* apenas na segunda célula (td) de cada linha de uma tabela */
+    max-width: 180px;       /* apenas na segunda célula (td) de cada linha de uma tabela */
     white-space: normal;    /* se chegar ao limite da largura, ele pula para a linha de baixo*/
     word-wrap: break-word;  /* navegador força a quebra da palavra */
 }

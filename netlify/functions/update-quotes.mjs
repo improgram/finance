@@ -667,8 +667,12 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
     const dayRangeCalc = getDayRangeFromHist(baseHist);
     const week52Calc = get52WeekRangeFromHist(baseHist);
-    const dayLow = safeValue(dayRangeCalc.low ?? data?.regularMarketDayLow);
-    const dayHigh = safeValue(dayRangeCalc.high ?? data?.regularMarketDayHigh);
+
+    //sanitizador para preços de mercado: 0 não é número válido
+    const safeMarketValue = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+
+    const dayLow = safeMarketValue(dayRangeCalc.low) ?? safeMarketValue(data?.regularMarketDayLow);
+    const dayHigh = safeMarketValue(dayRangeCalc.high) ?? safeMarketValue(data?.regularMarketDayHigh);
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
 
@@ -767,5 +771,5 @@ export default async () => {
 // --------- a cada 6 min e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/6 13-23,0-1 * * 1-6"
+  schedule: "*/6 13-23,0-1 * * 1-5"
 };
