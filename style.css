@@ -278,9 +278,9 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
 .logo {
     display: block;         /* Remove espaços vazios abaixo da imagem */
     object-fit: contain;    /* Garante que o logo não seja distorcido */
-    border-radius: 2px;
+    border-radius: 4px;
     margin: auto;
-    width: 40px;
+    width: 38px;
 }
 
 
@@ -326,6 +326,13 @@ table tbody tr:hover td {
     max-width: 150px;               /* Limita para não esticar                      */
     white-space: normal;            /* permite quebra de linha                      */
     word-wrap: break-word;          /* força a quebra se palavra for muito longa    */
+}
+
+/* Remove o preenchimento vertical apenas da primeira coluna (onde fica o logo) */
+#tabelaTickers tbody tr td:first-child {
+    padding-top: 0;
+    padding-bottom: 0;
+    vertical-align: middle; /* Garante que o logo fique perfeitamente centralizado */
 }
 
 .price {

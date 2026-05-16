@@ -526,8 +526,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         data = null;
         brapiData = null;
       }
+      Alterar abaixo o if (!data && !brapiData) abaixo para:
       if (!FORCE_REALTIME && !data && !brapiData) {
-        ...
+      ...
       */
 
       // ---------------------- ALPHA VANTAGE (QUARTO FALLBACK) ----------------
