@@ -656,8 +656,10 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
     const rawChange = merged?.changePercent;
     const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : Number(rawChange);
-    const previousCloseSafe = merged.previousClose > 0 ? merged.previousClose : previousCloseCalc > 0
-          ? previousCloseCalc : null;
+
+    const normalizedPreviousClose = Number(merged.previousClose);
+    const previousCloseSafe = Number.isFinite(normalizedPreviousClose) && normalizedPreviousClose > 0 ? normalizedPreviousClose
+          : previousCloseCalc > 0 ? previousCloseCalc : null;
     const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
           ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
 
@@ -680,13 +682,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         };
 
     const week52Calc = get52WeekRangeFromHist(baseHist);
+    const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? normalizePrice(cached?.regularMarketDayLow) ?? null;
+    const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? normalizePrice(cached?.regularMarketDayHigh) ?? null;
 
-    //sanitizador para preços de mercado: 0 não é número válido
-    const safeMarketValue = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
-
-    const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? cached?.regularMarketDayLow ?? null;
-    const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? cached?.regularMarketDayHigh ?? null;
-    
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
 
