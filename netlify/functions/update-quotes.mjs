@@ -635,6 +635,13 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
     const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
     const baseHist = mergedHist;
+    // último candle disponível
+    const latestCandle = baseHist.length ? baseHist[baseHist.length - 1] : null;
+
+    // valida sessão real de negociação
+    const hasValidTradingSession = latestCandle && Number(latestCandle.volume) > 0 &&
+          Number(latestCandle.low) > 0 && Number(latestCandle.high) > 0;
+
     const previousCloseCalc = baseHist.length >= 2 ? baseHist[baseHist.length - 2]?.close ?? null : null;
     const avgVolumeCalc = baseHist.length ? Math.round(
           baseHist.reduce((acc, d) => acc + (d.volume || 0), 0) / baseHist.length ) : null;
@@ -665,14 +672,21 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
     const changePercent = Number.isFinite(finalChange) ? Number(finalChange.toFixed(2)) : null;
 
-    const dayRangeCalc = getDayRangeFromHist(baseHist);
+    const normalizePrice = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(baseHist) :
+        {
+          low: cached?.regularMarketDayLow ?? null,
+          high: cached?.regularMarketDayHigh ?? null
+        };
+
     const week52Calc = get52WeekRangeFromHist(baseHist);
 
     //sanitizador para preços de mercado: 0 não é número válido
     const safeMarketValue = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
 
-    const dayLow = safeMarketValue(dayRangeCalc.low) ?? safeMarketValue(data?.regularMarketDayLow);
-    const dayHigh = safeMarketValue(dayRangeCalc.high) ?? safeMarketValue(data?.regularMarketDayHigh);
+    const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? cached?.regularMarketDayLow ?? null;
+    const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? cached?.regularMarketDayHigh ?? null;
+    
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
 

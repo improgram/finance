@@ -53,26 +53,47 @@ export const getDailyVariation = (hist, currentPrice) => {
   const prev = sorted.at(-1)?.close;
   if (!prev || prev === 0) return null;
   return ((currentPrice - prev) / prev) * 100;
- 
+
 };
 
 
-// Buscar preços historicos: Yahoo = preço rápido e BRAPI = enriquecimento de dados
+// Buscar preços historicos: Yahoo = preço rápido
+// BRAPI = enriquecimento de dados
+
 export const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
-export const getDayRangeFromHist = (hist) => {
-  if (!Array.isArray(hist) || !hist.length) {
-    return { low: null, high: null };
+
+export const getDayRangeFromHist = (hist = []) => {
+  if (!Array.isArray(hist) || hist.length === 0) {
+    return {
+      low: null,
+      high: null
+    };
   }
-  const start = new Date();
-    start.setHours(0,0,0,0);
-  const dayStart = Math.floor(start.getTime() / 1000);
-  const today = hist.filter(d => d.date >= dayStart);
-  const lows = today.map(d => d.low ?? d.close).filter(Boolean);
-  const highs = today.map(d => d.high ?? d.close).filter(Boolean);
+
+  // candles válidos
+  const valid = hist
+    .filter(d =>
+      d &&
+      Number(d.low) > 0 &&
+      Number(d.high) > 0 &&
+      Number(d.close) > 0
+    )
+    .sort((a, b) => b.date - a.date);
+
+  if (!valid.length) {
+    return {
+      low: null,
+      high: null
+    };
+  }
+
+  // último candle válido
+  const last = valid[0];
+
   return {
-    low: lows.length ? Math.min(...lows) : null,
-    high: highs.length ? Math.max(...highs) : null
+    low: last.low,
+    high: last.high
   };
 };
 
