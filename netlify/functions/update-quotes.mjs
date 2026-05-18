@@ -779,9 +779,10 @@ export default async () => {
 };
 
 // --------- FiM do MAIN export default async
-// --------- CRON ------- Netlify cron sempre usa UTC
+// --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
 // --------- a cada 6 min e (1-5) Seg a Sex
 
 export const config = {
-  schedule: "*/6 13-23,0-1 * * 1-5"
+  "*/6 13-23 * * 1-5",    // Seg a Sex: das 10:00 às 20:54 (Horário BR)
+    "*/6 0-2 * * 2-6"    // Ter a Sáb (UTC): que equivale a Seg a Sex das 21:00 às 23:54 (Horário BR)
 };
