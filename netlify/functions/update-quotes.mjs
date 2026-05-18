@@ -777,8 +777,8 @@ export default async () => {
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }
 };
-// --------- FiM do MAIN export default async
 
+// --------- FiM do MAIN export default async
 // --------- CRON ------- Netlify cron sempre usa UTC
 // --------- a cada 6 min e (1-5) Seg a Sex
 

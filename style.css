@@ -359,9 +359,11 @@ table tbody tr:hover td {
     background-color: #f1c40f !important;
     color: #2c3e50 !important;
     font-weight: bold;
+    
     /* Efeito neon/brilho intenso */
     box-shadow: 0 0 10px #f1c40f, inset 0 0 5px #fff;
     outline: 2px solid #fff;
+
     /* Transição rápida */
     transition: all 0.15s ease-out;
     animation: flash-pulse 0.5s ease-out;

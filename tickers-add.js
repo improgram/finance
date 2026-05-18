@@ -57,10 +57,10 @@ const run = async () => {
 
   await updateTickersList(store, [
     "ALPA4", "ASAI3", "AUPO11", "BBDC4", "BOVA11", "B5P211",
-    "CAML3", "CHIP11", "DXCO3", "GRND3", "GOAT11", "HAPV3",
-    "IMAB11", "IRFM11", "IVVB11", "JALL3", "KLBN4", "LFTB11",
-    "NASD11", "NBIT11", "PACB11", "RAIL3", "RAIZ4", "ROXO34",
-    "SIMH3", "SLCE3", "5PRE11"
+    "CAML3", "CHIP11", "CMIN3", "DXCO3", "GRND3", "GOAT11",
+    "HAPV3", "IMAB11", "IRFM11", "IVVB11", "JALL3", "KLBN4",
+    "LFTB11", "NASD11", "NBIT11", "PACB11", "RAIL3", "RAIZ4",
+    "ROXO34", "SIMH3", "SLCE3", "VIVT3", "5PRE11"
   ]);
 };
 
