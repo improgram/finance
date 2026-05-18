@@ -104,9 +104,14 @@ window.addEventListener('DOMContentLoaded', () => {
     containerAcoes = document.getElementById('acoes-container');
     if (!containerEtf || !containerAcoes) {
         console.error('Containers não encontrados no DOM');
-        return;     // 🚨 impede execução do app quebrado
+        return;             // 🚨 impede execução do app quebrado
     }
-    fetchQuotes();
+    fetchQuotes();          // 1ª execução assim que a página carrega
+
+    // Configura a atualização automática (6.5 minutos = 366000ms)
+    // Executa logo após o intervalo de folga planejado para o backend (6 min)
+    const REFRESH_INTERVAL = 6.5 * 60 * 1000;
+    setInterval(fetchQuotes, REFRESH_INTERVAL);
 });
 
 
@@ -188,7 +193,7 @@ const formatPercent = (value) =>
         ? `${numberFormatterBR.format(value)}%`
         : '---';
 
-        
+
 // DOMAIN HELPERS (regras puras)
 
 const getVariacao = (obj) =>
@@ -229,7 +234,7 @@ function aplicarCor(valor) {
 }
 
 
-// 1° carga = limpa o DOM  /   mesmo snap=só att valores
+// 1° carga = limpa o DOM  /   mesmo snap = só att valores
 // ticket mudou ordem = rebuild    / preço mudou = update incremental
 // Se o backend mudar ordem ou snapshot resetar limpa o DOM no primeiro load
 const buildSnapshotSignature = (etfs, acoes) => {
@@ -287,8 +292,8 @@ const updatePriceCell = (priceEl, newPriceRaw) => {
     const oldPrice = Number(oldPriceRaw);
     const newPrice = Number(newPriceRaw);
     if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
-        priceEl.classList.add('flash');
-        setTimeout(() => priceEl.classList.remove('flash'), 500);
+        priceEl.classList.add('flash');                             // Adiciona a classe CSS que faz piscar
+        setTimeout(() => priceEl.classList.remove('flash'), 1000); // Remove após 1000ms
     }
     priceEl.dataset.value = newPriceRaw;
     priceEl.textContent = formatNumber(newPriceRaw);
