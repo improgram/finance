@@ -293,7 +293,7 @@ const updatePriceCell = (priceEl, newPriceRaw) => {
     const newPrice = Number(newPriceRaw);
     if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
         priceEl.classList.add('flash');                             // Adiciona a classe CSS que faz piscar
-        setTimeout(() => priceEl.classList.remove('flash'), 1000); // Remove após 1000ms
+        setTimeout(() => priceEl.classList.remove('flash'), 100000); // Remove após 100000ms
     }
     priceEl.dataset.value = newPriceRaw;
     priceEl.textContent = formatNumber(newPriceRaw);

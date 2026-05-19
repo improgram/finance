@@ -447,7 +447,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         NASD11: { description: "Apple, Amazon, Google, Meta, Microsoft, Nvidia, Testa, Netflix "},
         NBIT11: { description: "Bitcoin contratos Futuros" },
         PACB11: { description: "Inflação (NTN-B) Longo 2050 / 2060" },
-      "5PRE11": { description: "Pré-fixado (NTN 2035 e LTN 2032)" }
+      "5PRE11": { description: "Pré-fixado NTN 2035 e LTN 2032" }
     };
     const symbol = await getNextTicker(store, tickers);
     if (!symbol) {
