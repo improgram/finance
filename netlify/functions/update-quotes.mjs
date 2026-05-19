@@ -778,12 +778,13 @@ export default async () => {
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }
 };
-
 // --------- FiM do MAIN export default async
+
 // --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
 // --------- a cada 6 min e (1-5) Seg a Sex
 
 export const config = [
-  "*/6 13-23 * * 1-5",    // Seg a Sex: das 10:00 às 20:54 (Horário BR)
-    "*/6 0-2 * * 2-6"    // Ter a Sáb (UTC): Seg a Sex das 21:00 às 23:54 (Horário BR)
+  "15-59/6 13-23 * * 1-5", // 10:15 → 20:57 BR => 15,21,27,33,39,45,51,57
+  "0-57/6 0 * * 2-6",     // 21:00 → 21:57 BR
+  "0 1 * * 2-6"           // 22:00 BR exato
 ];
