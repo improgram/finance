@@ -46,17 +46,29 @@ document.addEventListener("click", (e) => {
     }
 });
 
+// fechar submenu ao clicar no item interno
+if (submenu) {
+    submenu.addEventListener('click', () => {
+    submenu.style.display = 'none';
+});
+}
+
 
 // applyFilters chama state
 const etfMap = new Map();
 const acoesMap = new Map();
 let containerEtf;
 let containerAcoes;
+
+// 🔥 trava de concorrência
+let isFetching = false;
+
 const state = {
   lastSignature: null,
   filterTerm: '',
   etfs: [],
-  acoes: []
+  acoes: [],
+  lastPrices: new Map()
 }
 
 
@@ -111,7 +123,15 @@ window.addEventListener('DOMContentLoaded', () => {
     // Configura a atualização automática (6.5 minutos = 366000ms)
     // Executa logo após o intervalo de folga planejado para o backend (6 min)
     const REFRESH_INTERVAL = 6.5 * 60 * 1000;
-    setInterval(fetchQuotes, REFRESH_INTERVAL);
+
+    const scheduleNextFetch = () => {
+        setTimeout(async () => {
+            await fetchQuotes();
+            scheduleNextFetch();
+        }, REFRESH_INTERVAL);
+    };
+
+    scheduleNextFetch();
 });
 
 
@@ -206,10 +226,26 @@ const getVariacao30d = (obj) =>
         ? obj.variation30d
         : null;
 
-const getDayRange = (obj) =>
-    obj.regularMarketDayLow != null && obj.regularMarketDayHigh != null
-        ? `${formatNumber(obj.regularMarketDayLow)} - ${formatNumber(obj.regularMarketDayHigh)}`
-        : '-';
+const getDayRange = (obj) => {
+    // Inserir Range Visual => gráfico dentro da célula
+    if (
+        typeof obj.regularMarketDayLow !== 'number' ||
+        typeof obj.regularMarketDayHigh !== 'number' ||
+        typeof obj.regularMarketPrice !== 'number'
+    ) return '-';
+    const min = obj.regularMarketDayLow;
+    const max = obj.regularMarketDayHigh;
+    const price = obj.regularMarketPrice;
+    const range = max - min;
+    if (range <= 0) return '-';
+    const rawPercent = ((price - min) / range) * 100;
+    const percent = Math.min(100, Math.max(0, rawPercent));
+    return `
+        <div class="range-bar">
+            <div class="range-fill" style="width:${percent}%"></div>
+        </div>
+    `;
+}
 
 const formatVolume = (value) => {
     if (typeof value !== 'number') return '---';
@@ -228,7 +264,9 @@ const formatVolume = (value) => {
 
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
+    if (valor > 3) return "strong-positive";
     if (valor > 0) return "positive";
+    if (valor < -3) return "strong-negative";
     if (valor < 0) return "negative";
     return "neutral";
 }
@@ -286,18 +324,34 @@ const updateTimestamp = (meta) => {
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
 // flash + otimização real
-const updatePriceCell = (priceEl, newPriceRaw) => {
+const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
     if (!priceEl) return;
-    const oldPriceRaw = priceEl.dataset.value;
-    const oldPrice = Number(oldPriceRaw);
-    const newPrice = Number(newPriceRaw);
-    if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
-        priceEl.classList.add('flash');                             // Adiciona a classe CSS que faz piscar
-        setTimeout(() => priceEl.classList.remove('flash'), 100000); // Remove após 100000ms
+    const oldPrice = typeof prevPrice === 'number' ? prevPrice : NaN;
+    const newPrice = typeof newPriceRaw === 'number' ? newPriceRaw : NaN;
+
+    priceEl.classList.remove('flash', 'flash-up', 'flash-down');
+
+    if (!isNaN(oldPrice) ) {
+        if (newPrice > oldPrice) {
+            priceEl.classList.add('flash-up');
+        } else if (newPrice < oldPrice) {
+            priceEl.classList.add('flash-down');
+        } else {
+            priceEl.classList.add('flash');
+        }
     }
-    priceEl.dataset.value = newPriceRaw;
-    priceEl.textContent = formatNumber(newPriceRaw);
+
+    clearTimeout(priceEl._flashTimeout);
+
+    priceEl._flashTimeout = setTimeout(() => {
+        priceEl.classList.remove('flash', 'flash-up', 'flash-down');
+        priceEl._flashTimeout = null;
+    }, 500);
+
+    priceEl.dataset.value = newPrice;
+    priceEl.textContent = !isNaN(newPrice) ? formatNumber(newPrice) : 'Sem histórico';
 };
+
 
 const updateCommonRow = (row, data) => {
     const elSymbol = row.querySelector('.symbol');
@@ -306,7 +360,7 @@ const updateCommonRow = (row, data) => {
     const variacao30d = getVariacao30d(data);
     const elPrice = row.querySelector('.price');
         if (elPrice) {
-            updatePriceCell(elPrice, data.regularMarketPrice);
+            updatePriceCell(elPrice, data.regularMarketPrice, data.prevPrice);
             const price = data.regularMarketPrice;
             const min7 = data.min7d;
             const min30 = data.min30d;
@@ -330,7 +384,7 @@ const updateCommonRow = (row, data) => {
             elVar.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
         }
     const elRange = row.querySelector('.range');
-        if (elRange) elRange.textContent = getDayRange(data);
+        if (elRange) elRange.innerHTML = getDayRange(data);
     const elMin7 = row.querySelector('.min7');
         if (elMin7) elMin7.textContent = formatNumber(data.min7d);
     const elMin30 = row.querySelector('.min30');
@@ -392,10 +446,14 @@ const patchTables = (etfs, acoes) => {
 // atualização de state + timestamp + erro
 
 const fetchQuotes = async () => {
+    // 🚫 evita chamadas simultâneas
+    if (isFetching) return;
+    isFetching = true;
+
     const handleError = (err) => {
         console.error("Erro ao carregar quotes", err);
-        showError?.();
-        updateTimestamp?.({ updatedLabel: "Erro na atualização" });
+        showError();
+        updateTimestamp({ updatedLabel: "Erro na atualização" });
         hideLoading();
     };
     try {
@@ -407,8 +465,24 @@ const fetchQuotes = async () => {
         const json = await getQuotes();
         const etfs = (json.data?.etfs || []).map(normalizeState);
         const acoes = (json.data?.acoes || []).map(normalizeState);
+        etfs.forEach(e => {
+            e.prevPrice = state.lastPrices.get(e.symbol);
+            state.lastPrices.set(e.symbol, e.regularMarketPrice);
+        });
+
+        acoes.forEach(a => {
+            a.prevPrice = state.lastPrices.get(a.symbol);
+            state.lastPrices.set(a.symbol, a.regularMarketPrice);
+        });
         state.etfs = etfs;
         state.acoes = acoes;
+        // Se backend mudar tickers vai acumulando para sempre => Correçao apos fetch:
+        const activeSymbols = new Set([...etfs.map(e => e.symbol), ...acoes.map(a => a.symbol) ]);
+
+        for (const key of state.lastPrices.keys()) {
+            if (!activeSymbols.has(key)) { state.lastPrices.delete(key); }
+        }
+
         const signature = buildSnapshotSignature(etfs, acoes);
         const isInitialRender = !state.lastSignature;
         const shouldRebuild = isInitialRender || signature !== state.lastSignature;
@@ -433,10 +507,11 @@ const fetchQuotes = async () => {
         //FiM do try e inicio do catch: prevenir erro de API ou rede ou erro de parsing
     } catch (err) {
         handleError(err);
+    } finally {
+        isFetching = false;     // libera a trava
     }
 };
 // Fim do fetchQuotes
-
 
 const renderOrUpdateEtfs = (data, container, map) => {
     const fragment = document.createDocumentFragment();
@@ -474,11 +549,11 @@ const renderOrUpdateAcoes = (data, container, map) => {
 };
 
 
-// Estado final da arquitetura
+// Estado final da arquitetura => separação por camadas
 
 // CAMADA 1 — API  → busca
 // CAMADA 2 — STRUCTURE (createRow)
-// CAMADA 3 — STATE (state + normalize)
+// CAMADA 3 — STATE centralizado (state + normalize)
     // normalize → padroniza
     // state → armazena
     // Se só guarda dados entao → STATE
@@ -490,7 +565,7 @@ const renderOrUpdateAcoes = (data, container, map) => {
     // (renderização DOM) = (manipulação visual)
 
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
-    // VIEW (render + update + filterRows)
+    // VIEW (render incremental + update + filterRows)
     // view → desenha
     // Se só mexe no DOM entao → VIEW
     // filter (view state) → reaplicado sempre

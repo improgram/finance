@@ -359,6 +359,19 @@ table tbody tr:hover td {
     border-radius: 4px;
 }
 
+.strong-positive {
+    color: #00ff88;
+    background-color: rgba(0,255,136,0.18);
+    font-weight: 700;
+    border-radius: 4px;
+}
+
+.strong-negative {
+    color: #ff5252;
+    background-color: rgba(255,82,82,0.18);
+    font-weight: 700;
+    border-radius: 4px;
+}
 
 .price.flash {
     background-color: #f1c40f !important;
@@ -406,6 +419,20 @@ table tbody tr:hover td {
         transform: scale(1);
         /* O CSS se encarrega de limpar o resto quando a classe sumir */
     }
+}
+
+.range-bar {
+    width: 100%;
+    height: 6px;
+    background: #2c3e50;
+    border-radius: 4px;
+    position: relative;
+}
+
+.range-fill {
+    height: 100%;
+    background: #3498db;
+    border-radius: 4px;
 }
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
