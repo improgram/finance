@@ -19,6 +19,7 @@ import { MAX_ITEMS } from "../../helpers/constants.js";
 import {
   sleep,
   getFormattedDateTime,
+  shouldRunNow,
   getMin,
   getMax,
   getVariation30d,
@@ -114,6 +115,7 @@ const releaseLock = async (store) => {
 
 // ---------------- FILA (SEM LOCK) ----------------
 // eliminar escrita concorrente do ticker-index e sem race condition real
+// ticker-index com lock global, execução única, sem paralelismo
 // BUG LÓGICO (divisão por zero) corrigido
 const getNextTicker = async (store, list) => {
   if (!Array.isArray(list) || list.length === 0) {
@@ -746,14 +748,22 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       // -------------✅ Retorno no painel Netlify ✅---------
       console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
       return { ok: true, symbol, source, data: payload };
-}
+};
 //  FiM da const processTickerUpdate
 
 
-// ---------------- MAIN ----------------
+// ---------------- MAIN => antigo handler ----------------
+// considerar o Node 18+ e ambiente for ESM padrão de módulos ES (export default / Netlify Functions V2)
 export default async () => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
+
+  if (!shouldRunNow()) {
+    return createResponse({
+    skipped: "outside_schedule"
+    });
+  }
+
   const store = getStore({ name: STORE_NAME });
   const tickers = await getTickers(store);
   const lock = await acquireLock(store);
@@ -781,10 +791,9 @@ export default async () => {
 // --------- FiM do MAIN export default async
 
 // --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
-// --------- a cada 6 min e (1-5) Seg a Sex
+// --------- a cada 7 min e (1-5) Seg a Sex
+// https://www.netlifystatus.com/
 
-export const config = [
-  "15-59/6 13-23 * * 1-5", // 10:15 → 20:57 BR => 15,21,27,33,39,45,51,57
-  "0-57/6 0 * * 2-6",     // 21:00 → 21:57 BR
-  "0 1 * * 2-6"           // 22:00 BR exato
-];
+export const config = {
+  schedule: "* * * * *"
+};
