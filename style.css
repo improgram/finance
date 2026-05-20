@@ -374,9 +374,38 @@ table tbody tr:hover td {
     animation: flash-pulse 0.5s ease-out;
 }
 
+/* Estilo Bloomberg: Verde para Alta */
+.price.flash-up {
+    background-color: #2ecc71 !important;
+    color: #fff !important;
+    font-weight: bold;
+    box-shadow: 0 0 10px #2ecc71, inset 0 0 5px #fff;
+    animation: flash-pulse 0.5s ease-out;
+}
+
+/* Estilo Bloomberg: Vermelho para Baixa */
+.price.flash-down {
+    background-color: #e74c3c !important;
+    color: #fff !important;
+    font-weight: bold;
+    box-shadow: 0 0 10px #e74c3c, inset 0 0 5px #fff;
+    animation: flash-pulse 0.5s ease-out;
+}
+
 .danger-price {
     color: #ff1744;
     font-weight: 600;
+}
+
+/* A mágica da animação: ela começa intensa e volta ao normal */
+@keyframes flash-pulse {
+    0% {
+        transform: scale(1.05); /* Dá um leve "susto" no tamanho */
+    }
+    100% {
+        transform: scale(1);
+        /* O CSS se encarrega de limpar o resto quando a classe sumir */
+    }
 }
 
 /* -------- MOBILE COM TABELA NORMAL -------- */

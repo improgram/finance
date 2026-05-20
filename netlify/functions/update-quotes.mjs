@@ -27,6 +27,9 @@ import {
   getDayRangeFromHist,
   get52WeekRangeFromHist,
   safeValue,
+  fallbackMin,
+  safeWithFallback,
+  safeNumber,
   filterByDays,
   getValidHist,
   getCloses,
@@ -47,6 +50,11 @@ console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
+const TICKER_REGEX = /^[A-Z0-9]{4,12}$/;
+const validateTicker = (symbol) => {
+  return TICKER_REGEX.test(symbol);
+};
 
 const getCacheTTL = () => {
   const hour = Number(
@@ -451,10 +459,21 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         PACB11: { description: "Inflação (NTN-B) Longo 2050 / 2060" },
       "5PRE11": { description: "Pré-fixado NTN 2035 e LTN 2032" }
     };
+
     const symbol = await getNextTicker(store, tickers);
     if (!symbol) {
       return { ok: false, reason: "fila vazia" };
     }
+
+    if (!validateTicker(symbol)) {
+      console.warn("⚠️ ticker inválido:", symbol);
+
+      return {
+        ok: false,
+        reason: "invalid-symbol"
+      };
+    }
+
       // ----------- CACHE FIRST ------- =>⚡ cache válido (saída imediata)
       const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
@@ -604,7 +623,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       };
 
       // ------------ Fallback final absoluto-----------------
-      const normalizedPrice = Number(merged.regularMarketPrice);
+      const normalizedPrice = safeNumber(merged.regularMarketPrice);
 
       if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
         return { ok: false, reason: "Sem Dados" };
@@ -642,15 +661,15 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const latestCandle = baseHist.length ? baseHist[baseHist.length - 1] : null;
 
     // valida sessão real de negociação
-    const hasValidTradingSession = latestCandle && Number(latestCandle.volume) > 0 &&
-          Number(latestCandle.low) > 0 && Number(latestCandle.high) > 0;
+    const hasValidTradingSession = latestCandle && safeNumber(latestCandle.volume) > 0 &&
+          safeNumber(latestCandle.low) > 0 && safeNumber(latestCandle.high) > 0;
 
     const previousCloseCalc = baseHist.length >= 2 ? baseHist[baseHist.length - 2]?.close ?? null : null;
     const avgVolumeCalc = baseHist.length ? Math.round(
           baseHist.reduce((acc, d) => acc + (d.volume || 0), 0) / baseHist.length ) : null;
     const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
     const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
-    const price = Number(merged.regularMarketPrice);
+    const price = safeNumber(merged.regularMarketPrice);
           if (!Number.isFinite(price) || price <= 0) {
             return { ok: false, reason: "invalid-price" };
           }
@@ -658,9 +677,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const calcDaily = getDailyVariation(baseHist, price);
 
     const rawChange = merged?.changePercent;
-    const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : Number(rawChange);
+    const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : safeNumber(rawChange);
 
-    const normalizedPreviousClose = Number(merged.previousClose);
+    const normalizedPreviousClose = safeNumber(merged.previousClose);
     const previousCloseSafe = Number.isFinite(normalizedPreviousClose) && normalizedPreviousClose > 0 ? normalizedPreviousClose
           : previousCloseCalc > 0 ? previousCloseCalc : null;
     const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
@@ -675,9 +694,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
     const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
     const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
-    const changePercent = Number.isFinite(finalChange) ? Number(finalChange.toFixed(2)) : null;
+    const changePercent = Number.isFinite(finalChange) ? safeNumber(finalChange.toFixed(2)) : null;
 
-    const normalizePrice = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+    const normalizePrice = (v) => { const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null; };
     const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(baseHist) :
         {
           low: cached?.regularMarketDayLow ?? null,
@@ -752,11 +771,27 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 //  FiM da const processTickerUpdate
 
 
+// --- proteger endpoint => Bearer Token simples + API Key interna + Netlify Identity + Basic Auth
+const isAdmin = (request) => {
+  const auth = request.headers.get("authorization");
+
+  return auth === `Bearer ${INTERNAL_TOKEN}`;
+};
+
+
 // ---------------- MAIN => antigo handler ----------------
 // considerar o Node 18+ e ambiente for ESM padrão de módulos ES (export default / Netlify Functions V2)
-export default async () => {
+
+export default async (request) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
+
+  if (!isAdmin(request)) {
+    return createResponse(
+      { error: "unauthorized" },
+      401
+    );
+  }
 
   if (!shouldRunNow()) {
     return createResponse({
@@ -793,7 +828,9 @@ export default async () => {
 // --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
 // --------- a cada 7 min e (1-5) Seg a Sex
 // https://www.netlifystatus.com/
+// Cron = disparador bruto
+// shouldRunNow = regra de negócio real
 
 export const config = {
-  schedule: "* * * * *"
+  schedule: "7 * * * *"
 };

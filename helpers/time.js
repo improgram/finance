@@ -13,7 +13,10 @@ export const getFormattedDateTime = () =>
 
 // Para o CRON evitar: múltiplas funções, múltiplos deploys
 // limitação do Netlify, problemas de UTC
-// A função executa: Seg → Sex Das 10:15 até 22:00 BR A cada 7 minutos
+// A função executa:
+// Seg → Sex Das 10:15 até 21:00 BR A cada 7 minutos
+// Cron = disparador bruto
+// shouldRunNow = regra de negócio real
 
 export const shouldRunNow = () => {
     const nowBR = new Date(
@@ -29,25 +32,13 @@ export const shouldRunNow = () => {
     // segunda → sexta
     const isWeekDay = day >= 1 && day <= 5;
 
-    // 10:15 → 22:00
+    // 10:15
     const afterStart =
       hour > 10 || (hour === 10 && minute >= 15);
 
+    // 20:00
     const beforeEnd =
-      hour < 22 || (hour === 22 && minute === 0);
+      hour < 20 || (hour === 21 && minute === 0);
 
-    // Para uso do schedule
-    // sem depender das limitações do CRON do Netlify
-    // minutos válidos
-    const validMinute = [
-      0, 4, 11, 18, 25, 32, 39, 46, 53,
-      15, 22, 29, 36, 43, 50, 57
-    ].includes(minute);
-
-    return (
-      isWeekDay &&
-      afterStart &&
-      beforeEnd &&
-      validMinute
-    );
+    return isWeekDay && afterStart && beforeEnd;
 };
