@@ -786,12 +786,14 @@ export default async (request) => {
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
+  /*
   if (!isAdmin(request)) {
     return createResponse(
       { error: "unauthorized" },
       401
     );
   }
+*/
 
   if (!shouldRunNow()) {
     return createResponse({
