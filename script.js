@@ -347,8 +347,9 @@ const FLASH_DURATION = 5 * 60 * 1000;
 
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
-    console.log('FLASH:', el, direction, el.className);
+    
     if (!el) return;
+    console.log('FLASH:', el, direction, el.className);
     const finalClass = direction === 'up' ? 'flash-up' : 'flash-down';
 
     // limpa classes anteriores
