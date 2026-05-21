@@ -382,7 +382,7 @@ const applyFlashEffect = (el, direction) => {
             );
         }, FLASH_DURATION);
 
-    }, 1500); // duração do gold
+    }, 5500); // duração do gold
 
 };
 
