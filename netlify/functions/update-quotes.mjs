@@ -45,8 +45,6 @@ import {
 
 const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
 const RATE_LIMIT_KEY = "global-429";
-
-console.log("🚀 Iniciando update-quotes");
 const STORE_NAME = "quotes-blobs";
 const LOCK_KEY = "update-lock";
 const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
@@ -168,7 +166,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
       } else {
       console.error("⚠️ erro fetch:", error);
       }
-      throw new Error(`timeout: ${error.message}`);
+      throw new Error(error.name === "AbortError" ? `timeout: ${error.message}` : error.message );
   }
   finally {
     clearTimeout(id);
@@ -774,8 +772,14 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 // --- proteger endpoint => Bearer Token simples + API Key interna + Netlify Identity + Basic Auth
 const isAdmin = (request) => {
   const auth = request.headers.get("authorization");
-
-  return auth === `Bearer ${INTERNAL_TOKEN}`;
+  console.log("x-netlify-event:", request.headers.get("x-netlify-event") );
+  const netlifyEvent = request.headers.get("x-netlify-event");
+  // header automático do Netlify Cron
+  const isCron = netlifyEvent === "schedule" || netlifyEvent === "scheduled";
+  const isInternal = auth === `Bearer ${INTERNAL_TOKEN}`;
+  if (isCron) { console.log("⏰ Execução via CRON"); }
+  if (isInternal) { console.log("🔐 Execução manual autenticada"); }
+  return isCron || isInternal;
 };
 
 
@@ -783,18 +787,20 @@ const isAdmin = (request) => {
 // considerar o Node 18+ e ambiente for ESM padrão de módulos ES (export default / Netlify Functions V2)
 
 export default async (request) => {
+  console.log("🚀 Iniciando update-quotes");
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
-  /*
+  // CRON do Netlify NÃO envia o header
   if (!isAdmin(request)) {
     return createResponse(
       { error: "unauthorized" },
       401
     );
   }
-*/
 
+  console.log("🕒 shouldRunNow:", shouldRunNow());
+  console.log("🕒 UTC:", new Date().toISOString());
   if (!shouldRunNow()) {
     return createResponse({
     skipped: "outside_schedule"
@@ -803,6 +809,7 @@ export default async (request) => {
 
   const store = getStore({ name: STORE_NAME });
   const tickers = await getTickers(store);
+  console.log("📦 tickers:", tickers?.length);
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
   const MAX_EXECUTION_TIME = 10000;   // 10 s = // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s) + Real Time
@@ -813,6 +820,7 @@ export default async (request) => {
       }, ms)
   );
     try {
+      console.log("🚀 Iniciando processTickerUpdate");
       const result = await Promise.race([
         processTickerUpdate ({
           store,

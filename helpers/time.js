@@ -13,7 +13,7 @@ export const getFormattedDateTime = () =>
 
 // Para o CRON evitar: múltiplas funções, múltiplos deploys
 // limitação do Netlify, problemas de UTC
-// A função executa:
+// A função deve executar 1 ticker a cada 7 minutos:
 // Seg → Sex Das 10:15 até 21:00 BR A cada 7 minutos
 // Cron = disparador bruto
 // shouldRunNow = regra de negócio real
