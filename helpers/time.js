@@ -19,32 +19,15 @@ export const getFormattedDateTime = () =>
 // shouldRunNow = regra de negócio real
 
 export const shouldRunNow = () => {
-  const formatter = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
 
-  const parts = formatter.formatToParts(new Date());
+  const now = new Date();
+  const saoPaulo = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
+  );
 
-  const get = (type) => parts.find(p => p.type === type)?.value;
-
-  const hour = Number(get("hour"));
-  const minute = Number(get("minute"));
-
-  const weekdayMap = {
-    dom: 0,
-    seg: 1,
-    ter: 2,
-    qua: 3,
-    qui: 4,
-    sex: 5,
-    sáb: 6
-  };
-
-  const day = weekdayMap[get("weekday")?.toLowerCase()] ?? -1;
+  const day = saoPaulo.getDay(); // 0-6 confiável
+  const hour = saoPaulo.getHours();
+  const minute = saoPaulo.getMinutes();
 
     // segunda → sexta
     const isWeekDay = day >= 1 && day <= 5;

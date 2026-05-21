@@ -43,16 +43,6 @@ import {
 } from "../../helpers/helpers.js";
 
 
-
-
-
-
-
-
-
-
-
-
 // ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
 
 const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
@@ -797,7 +787,7 @@ const isAdmin = (request) => {
   // header automático do Netlify Cron
   const isCron = ["schedule", "scheduled"].includes(netlifyEvent);
   const isInternal = auth === `Bearer ${INTERNAL_TOKEN}`;
-  if (isCron) { console.log("⏰ Execução via CRON"); }
+  if (isCron) { console.log("⏰ Execução via CRON => Netlify Scheduled Function"); }
   if (isInternal) { console.log("🔐 Execução manual autenticada"); }
   return isCron || isInternal;
 };
@@ -836,7 +826,7 @@ export default async (request) => {
 
   if (!shouldRunNow()) {
     return createResponse({
-    skipped: "outside_schedule"
+    skipped: "função decidiu NÃO rodar o pipeline"
     });
   }
 
