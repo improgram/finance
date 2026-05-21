@@ -335,7 +335,9 @@ const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
         } else if (newPrice < oldPrice) {
             priceEl.classList.add('flash-down');
         } else {
-            priceEl.classList.add('flash-gold');
+            if (isMarketOpen()) {
+                priceEl.classList.add('flash-gold');
+            }
         }
     }
 }

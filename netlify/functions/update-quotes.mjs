@@ -26,6 +26,7 @@ import {
   getDailyVariation,
   getDayRangeFromHist,
   get52WeekRangeFromHist,
+  isMarketOpen,
   safeValue,
   fallbackMin,
   safeWithFallback,
@@ -706,7 +707,7 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       const SNAP_KEY = "last-valid-snapshot";
       const prev = await safeGet(store, SNAP_KEY);
       const prevArray = normalizeStorage(prev).data;
-      
+
     // snapshot anterior do ticker
     const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
     const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);

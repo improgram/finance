@@ -383,8 +383,8 @@ table tbody tr:hover td {
     outline: 2px solid #fff;
 
     /* Transição rápida */
-    transition: all 0.15s ease-out;
-    animation: flash-pulse 0.5s ease-out;
+    transition: all 1.15s ease-out;
+    animation: flash-pulse 1.5s ease-out;
 }
 
 /* Estilo Bloomberg: Verde para Alta */
@@ -393,7 +393,7 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #2ecc71, inset 0 0 5px #fff;
-    animation: flash-pulse 0.5s ease-out;
+    animation: flash-pulse 1.5s ease-out;
 }
 
 /* Estilo Bloomberg: Vermelho para Baixa */
@@ -402,11 +402,11 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #e74c3c, inset 0 0 5px #fff;
-    animation: flash-pulse 0.5s ease-out;
+    animation: flash-pulse 1.5s ease-out;
 }
 
 .price.flash-gold {
-    animation: flashGold 0.8s ease;
+    animation: flashGold 8.8s ease;
 }
 
 @keyframes flashGold {
