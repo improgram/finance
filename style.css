@@ -263,11 +263,13 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
     background: #BFF;
 }
 
+/*
 .tableAcoes {
-    /* table-layout: fixed;     navegador respeitar melhor as larguras definidas */
-    table-layout: auto; /* Altera de fixed para auto para respeitar o tamanho do texto */
+    /* table-layout: fixed;     navegador respeitar melhor as larguras definidas
+    table-layout: auto;  Altera de fixed para auto para respeitar o tamanho do texto
     width: 100%;
 }
+*/
 
 .tableAcoes td {
     white-space: nowrap;    /* Impede que o texto quebre para a linha de baixo */
