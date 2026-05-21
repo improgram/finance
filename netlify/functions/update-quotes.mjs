@@ -865,7 +865,7 @@ export default async (request) => {
 // shouldRunNow = regra de negócio real
 // O Netlify usa padrão cron de 5 campos
 // Formato: minuto, hora, dia do mes, mes, dia da semana
-// 13:15 = 10:15
+// 13:15 = 10:15 (-3)
 export const config = {
-  schedule: "*/7 13-23 * * 1-5"
+  schedule: "*/2 13-23 * * 1-5"
 };

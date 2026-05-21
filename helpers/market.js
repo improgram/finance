@@ -49,25 +49,14 @@ export const getVariation30d = (hist, currentPrice) => {
 // cálculo próprio de variação diária (FALLBACK REAL)
 export const getDailyVariation = (hist, currentPrice) => {
   const valid = getValidHist(hist).filter(d => d.close > 0);
-
   if (!valid.length || currentPrice == null) return null;
-
   const sorted = [...valid].sort((a, b) => a.date - b.date);
-
-  // const last = sorted.at(-1)?.close;
-
   const prev = sorted.at(-1)?.close;
   if (!prev || prev === 0) return null;
   return ((currentPrice - prev) / prev) * 100;
-
 };
 
-
-// Buscar preços historicos: Yahoo = preço rápido
-// BRAPI = enriquecimento de dados
-
 export const getMax = (arr) => arr.length ? Math.max(...arr) : null;
-
 
 export const getDayRangeFromHist = (hist = []) => {
   if (!Array.isArray(hist) || hist.length === 0) {

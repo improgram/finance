@@ -98,12 +98,10 @@ const applyFilters = () => {
 const statusAtualizacaoEl = document.getElementById('status-atualizacao');
 const statusLoadingEl = document.getElementById('status');          // Loading geral
 
-
 // Ultima Chamada no DOM = function quando a página terminar de carregar
 // Incluido Ferramenta de Busca e Remove o render dentro do search
 window.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('etf-search');
-
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             state.filterTerm = e.target.value.toLowerCase();
@@ -120,9 +118,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     fetchQuotes();          // 1ª execução assim que a página carrega
 
-    // Configura a atualização automática (7.5 minutos = 366000ms)
-    // Executa logo após o intervalo de folga planejado para o backend (6 min)
-    const REFRESH_INTERVAL = 7.5 * 60 * 1000;
+    // Configura a atualização automática (2.5 minutos = 366000ms)
+    // Executa logo após o intervalo de folga planejado para o backend (xx min)
+    const REFRESH_INTERVAL = 2.5 * 60 * 1000;
 
     const scheduleNextFetch = () => {
         setTimeout(async () => {

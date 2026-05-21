@@ -1,6 +1,7 @@
 import { safeGet, safeSet } from "./storage.js";
 import { MAX_ITEMS } from "./constants.js";
 
+
 // -- LIMPEZA NO BOOT
 export const sanitizeTickers = (list) => {
   if (!Array.isArray(list)) return [];
@@ -78,6 +79,7 @@ export const formatLongName = (name) => {
     .replace(/\bS\.A\.?\b/gi, "")
     .replace(/\bSA\b/gi, "")
     .replace(/\bS\/A\b/gi, "")        // =>  S/A
+    .replace(/\bLtd\b/gi, "")
     .replace(/\bHOLDING\b/gi, "")
     .replace(/\bINVESTMENTS?\b/gi, "")
     .replace(/\bInvestimentos?\b/gi, "")

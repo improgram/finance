@@ -440,7 +440,7 @@ table tbody tr:hover td {
 
 .range-bar {
     flex: 1;
-    height: 6px;
+    height: 8px;
     background: #222;
     border-radius: 4px;
     position: relative;
@@ -455,9 +455,10 @@ table tbody tr:hover td {
 .range-min,
 .range-max {
     font-size: 11px;
-    opacity: 0.7;
+    opacity: 0.5;
     white-space: nowrap;
 }
+
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
