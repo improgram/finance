@@ -552,8 +552,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         source = " ✅✅✅ ALPHA VANTAGE API ✅✅✅ OK ";
       }
 
-
-      /*                    ************ TEST REAL TIME Temporario ***************
+      //------------ TEST REAL TIME Temporario-------
+      /*
       if (FORCE_REALTIME) {
         data = null;
         brapiData = null;

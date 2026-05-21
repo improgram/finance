@@ -35,8 +35,8 @@ export const shouldRunNow = () => {
     // 10:15
     const afterStart = hour > 10 || (hour === 10 && minute >= 15);
 
-    // minutos antes de 21:00
-    const beforeEnd = hour < 21;
+    // minutos antes de 20:00
+    const beforeEnd = hour < 20;
 
     return isWeekDay && afterStart && beforeEnd;
 };
