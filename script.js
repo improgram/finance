@@ -267,7 +267,7 @@ const formatVolume = (value) => {
 };
 
 // Horario da Bolsa
-export const isMarketOpen = () => {
+const isMarketOpen = () => {
     const now = new Date();
 
     // horário Brasil (B3 usa São Paulo)
