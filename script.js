@@ -430,6 +430,10 @@ const updateCommonRow = (row, data) => {
     const variacao30d = getVariacao30d(data);
     const elPrice = row.querySelector('.price');
     const elVar = row.querySelector('.var');
+        if (elVar) {
+            elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
+            elVar.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
+        }
 
         if (elPrice) {
             updatePriceCell(
@@ -455,11 +459,6 @@ const updateCommonRow = (row, data) => {
             }
         }
 
-    const elVar = row.querySelector('.var');
-        if (elVar) {
-            elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
-            elVar.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
-        }
     const elRange = row.querySelector('.range');
         if (elRange) elRange.innerHTML = getDayRange(data);
     const elMin7 = row.querySelector('.min7');
