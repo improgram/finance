@@ -431,6 +431,73 @@ table tbody tr:hover td {
     }
 }
 
+/* =========================================
+   FLASH LONGO - ESTILO TERMINAL/BLOOMBERG
+========================================= */
+
+.price.flash-up,
+.var.flash-up {
+    background-color: rgba(46, 204, 113, 0.22);
+    color: #00e676 !important;
+    font-weight: 700;
+
+    animation: pulseGreen 1.2s infinite;
+}
+
+.price.flash-down,
+.var.flash-down {
+    background-color: rgba(231, 76, 60, 0.22);
+    color: #ff5252 !important;
+    font-weight: 700;
+
+    animation: pulseRed 1.2s infinite;
+}
+
+.price,
+.var {
+    transition:
+        background-color 0.35s ease,
+        color 0.35s ease,
+        box-shadow 0.35s ease,
+        filter 0.35s ease;
+}
+
+/* brilho verde */
+@keyframes pulseGreen {
+    0% {
+        box-shadow: 0 0 0px rgba(46,204,113,0.0);
+        filter: brightness(1);
+    }
+
+    50% {
+        box-shadow:
+            0 0 10px rgba(46,204,113,0.9),
+            0 0 18px rgba(46,204,113,0.5);
+
+        filter: brightness(1.25);
+    }
+
+    100% {
+        box-shadow: 0 0 0px rgba(46,204,113,0.0);
+        filter: brightness(1);
+    }
+}
+
+/* brilho vermelho */
+@keyframes pulseRed {
+    0% { box-shadow: 0 0 0px rgba(231,76,60,0.0);
+        filter: brightness(1);
+    }
+    50% { box-shadow:
+            0 0 10px rgba(231,76,60,0.9),
+            0 0 18px rgba(231,76,60,0.5);
+        filter: brightness(1.25);
+    }
+    100% { box-shadow: 0 0 0px rgba(231,76,60,0.0);
+        filter: brightness(1);
+    }
+}
+
 .range-wrapper {
     display: flex;
     align-items: center;

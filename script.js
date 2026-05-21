@@ -342,6 +342,45 @@ const updateTimestamp = (meta) => {
 
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
+// duração do flash = 5 minutos
+const FLASH_DURATION = 5 * 60 * 1000;
+
+// aplica/remover efeito visual prolongado
+const applyFlashEffect = (el, direction) => {
+    if (!el) return;
+
+    const addClass =
+        direction === 'up'
+            ? 'flash-up'
+            : 'flash-down';
+
+    const removeClass =
+        direction === 'up'
+            ? 'flash-down'
+            : 'flash-up';
+
+    // limpa efeito oposto
+    el.classList.remove(removeClass);
+
+    // reaplica animação
+    el.classList.remove(addClass);
+
+    // força reflow
+    void el.offsetWidth;
+
+    el.classList.add(addClass);
+
+    // evita múltiplos timers acumulados
+    if (el.flashTimeout) {
+        clearTimeout(el.flashTimeout);
+    }
+
+    // remove após 5 minutos
+    el.flashTimeout = setTimeout(() => {
+        el.classList.remove('flash-up', 'flash-down');
+    }, FLASH_DURATION);
+};
+
 // flash + otimização real
 const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
     if (!priceEl) return;
@@ -349,15 +388,21 @@ const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
     const newPrice = typeof newPriceRaw === 'number' ? newPriceRaw : NaN;
     priceEl.dataset.value = newPrice;
     priceEl.textContent = !isNaN(newPrice) ? formatNumber(newPrice) : 'Sem histórico';
-
     const changed = !isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice;
-    if (changed) {
-        if (newPrice > oldPrice) priceEl.classList.add('flash-up');
-        else priceEl.classList.add('flash-down');
+    if (!changed) return;
+    // alta
+    if (newPrice > oldPrice) {
+        applyFlashEffect(priceEl, 'up');
+        if (varEl) {
+            applyFlashEffect(varEl, 'up');
+        }
     }
-
-    if (isMarketOpen() && !changed) {
-        priceEl.classList.add('flash-gold');
+    // baixa
+    else {
+        applyFlashEffect(priceEl, 'down');
+        if (varEl) {
+            applyFlashEffect(varEl, 'down');
+        }
     }
 }
 
@@ -367,8 +412,15 @@ const updateCommonRow = (row, data) => {
     const variacao = getVariacao(data);
     const variacao30d = getVariacao30d(data);
     const elPrice = row.querySelector('.price');
+    const elVar = row.querySelector('.var');
+
         if (elPrice) {
-            updatePriceCell(elPrice, data.regularMarketPrice, data.prevPrice);
+            updatePriceCell(
+                elPrice,
+                elVar,
+                data.regularMarketPrice,
+                data.prevPrice
+            );
             const price = data.regularMarketPrice;
             const min7 = data.min7d;
             const min30 = data.min30d;
