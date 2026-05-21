@@ -421,7 +421,9 @@ const updateCommonRow = (row, data) => {
     const elVar = row.querySelector('.var');
         if (elVar) {
             elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
-            elVar.className = `var ${variacao !== null ? aplicarCor(variacao) : ''}`;
+            elVar.classList.remove('positive','negative','strong-positive','strong-negative');
+            const cor = aplicarCor(variacao);
+            if (cor) elVar.classList.add(cor);
         }
 
         if (elPrice) {
