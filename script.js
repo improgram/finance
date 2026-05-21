@@ -348,37 +348,54 @@ const FLASH_DURATION = 5 * 60 * 1000;
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
     if (!el) return;
-
-    const addClass =
+    const finalClass =
         direction === 'up'
             ? 'flash-up'
             : 'flash-down';
 
-    const removeClass =
+    const oppositeClass =
         direction === 'up'
             ? 'flash-down'
             : 'flash-up';
 
-    // limpa efeito oposto
-    el.classList.remove(removeClass);
-
-    // reaplica animação
-    el.classList.remove(addClass);
+    // limpa classes anteriores
+    el.classList.remove(
+        'flash-gold',
+        'flash-up',
+        'flash-down'
+    );
 
     // força reflow
     void el.offsetWidth;
 
-    el.classList.add(addClass);
+    // PASSO 1 → flash dourado curto
+    el.classList.add('flash-gold');
 
-    // evita múltiplos timers acumulados
+    // limpa timeout antigo
     if (el.flashTimeout) {
         clearTimeout(el.flashTimeout);
     }
 
-    // remove após 5 minutos
+    // PASSO 2 → troca para verde/vermelho
     el.flashTimeout = setTimeout(() => {
-        el.classList.remove('flash-up', 'flash-down');
-    }, FLASH_DURATION);
+
+        el.classList.remove('flash-gold');
+
+        // força repaint
+        void el.offsetWidth;
+
+        el.classList.add(finalClass);
+
+        // PASSO 3 → remove após 5 min
+        el.flashRemoveTimeout = setTimeout(() => {
+            el.classList.remove(
+                'flash-up',
+                'flash-down'
+            );
+        }, FLASH_DURATION);
+
+    }, 450); // duração do gold
+
 };
 
 // flash + otimização real
