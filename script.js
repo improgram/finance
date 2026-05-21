@@ -1,12 +1,17 @@
 // CAMADA 1 — API (data-access)
 // Responsavel por buscar dados e tratar Erros
 // só busca dados
+
+import {
+  isMarketOpen
+} from "../../helpers/helpers.js";
+
+
 const getQuotes = async () => {
     const res = await fetch('/.netlify/functions/get-quotes');
     if (!res.ok) throw new Error('Erro HTTP');
     return res.json();
 };
-
 
 // -- CAMADA 2 - CRIAÇÃO (STRUCTURE) → cria DOM
 
@@ -120,9 +125,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     fetchQuotes();          // 1ª execução assim que a página carrega
 
-    // Configura a atualização automática (6.5 minutos = 366000ms)
+    // Configura a atualização automática (7.5 minutos = 366000ms)
     // Executa logo após o intervalo de folga planejado para o backend (6 min)
-    const REFRESH_INTERVAL = 6.5 * 60 * 1000;
+    const REFRESH_INTERVAL = 7.5 * 60 * 1000;
 
     const scheduleNextFetch = () => {
         setTimeout(async () => {
@@ -238,11 +243,16 @@ const getDayRange = (obj) => {
     const price = obj.regularMarketPrice;
     const range = max - min;
     if (range <= 0) return '-';
+
     const rawPercent = ((price - min) / range) * 100;
     const percent = Math.min(100, Math.max(0, rawPercent));
     return `
-        <div class="range-bar">
-            <div class="range-fill" style="width:${percent}%"></div>
+        <div class="range-wrapper">
+            <span class="range-min">${formatNumber(min)}</span>
+            <div class="range-bar">
+                <div class="range-fill" style="width:${percent}%"></div>
+            </div>
+            <span class="range-max">${formatNumber(max)}</span>
         </div>
     `;
 }
@@ -328,17 +338,17 @@ const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
     if (!priceEl) return;
     const oldPrice = typeof prevPrice === 'number' ? prevPrice : NaN;
     const newPrice = typeof newPriceRaw === 'number' ? newPriceRaw : NaN;
-    priceEl.classList.remove('flash', 'flash-up', 'flash-down', 'flash-gold');
-    if (!isNaN(oldPrice) && !isNaN(newPrice)) {
-        if (newPrice > oldPrice) {
-            priceEl.classList.add('flash-up');
-        } else if (newPrice < oldPrice) {
-            priceEl.classList.add('flash-down');
-        } else {
-            if (isMarketOpen()) {
-                priceEl.classList.add('flash-gold');
-            }
-        }
+    priceEl.dataset.value = newPrice;
+    priceEl.textContent = !isNaN(newPrice) ? formatNumber(newPrice) : 'Sem histórico';
+
+    const changed = !isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice;
+    if (changed) {
+        if (newPrice > oldPrice) priceEl.classList.add('flash-up');
+        else priceEl.classList.add('flash-down');
+    }
+
+    if (isMarketOpen() && !changed) {
+        priceEl.classList.add('flash-gold');
     }
 }
 
