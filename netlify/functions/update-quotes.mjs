@@ -14,6 +14,8 @@ if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
 
+// functions/ → sobe 1 nível (../)
+// depois sobe mais 1 (../../) até raiz
 import { MAX_ITEMS } from "../../helpers/constants.js";
 
 import {

@@ -2,39 +2,6 @@
 // Responsavel por buscar dados e tratar Erros
 // só busca dados
 
-import { isMarketOpen } from "./helpers/helpers.js";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const getQuotes = async () => {
     const res = await fetch('/.netlify/functions/get-quotes');
     if (!res.ok) throw new Error('Erro HTTP');
@@ -297,6 +264,22 @@ const formatVolume = (value) => {
         return `${(value / 1_000).toFixed(1)}K`;
     }
     return formatNumber(value);
+};
+
+// Horario da Bolsa
+export const isMarketOpen = () => {
+    const now = new Date();
+
+    // horário Brasil (B3 usa São Paulo)
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const time = hours * 60 + minutes;
+
+    // B3: 10:00 - 17:55 (aproximação prática)
+    const open = 10 * 60;
+    const close = 17 * 60 + 55;
+    const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+    return isWeekday && time >= open && time <= close;
 };
 
 

@@ -112,19 +112,3 @@ export const get52WeekRangeFromHist = (hist) => {
     high: getMax(closes)
   };
 };
-
-
-export const isMarketOpen = () => {
-    const now = new Date();
-
-    // horário Brasil (B3 usa São Paulo)
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const time = hours * 60 + minutes;
-
-    // B3: 10:00 - 17:55 (aproximação prática)
-    const open = 10 * 60;
-    const close = 17 * 60 + 55;
-    const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
-    return isWeekday && time >= open && time <= close;
-};
