@@ -405,6 +405,16 @@ table tbody tr:hover td {
     animation: flash-pulse 0.5s ease-out;
 }
 
+.price.flash-gold {
+    animation: flashGold 0.8s ease;
+}
+
+@keyframes flashGold {
+    0% { background-color: transparent; }
+    50% { background-color: gold; }
+    100% { background-color: transparent; }
+}
+
 .danger-price {
     color: #ff1744;
     font-weight: 600;

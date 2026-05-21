@@ -19,22 +19,38 @@ export const getFormattedDateTime = () =>
 // shouldRunNow = regra de negócio real
 
 export const shouldRunNow = () => {
-    const nowBR = new Date(
-      new Date().toLocaleString("en-US", {
-        timeZone: "America/Sao_Paulo"
-      })
-    );
+  const formatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
 
-    const hour = nowBR.getHours();
-    const minute = nowBR.getMinutes();
-    const day = nowBR.getDay(); // 0 domingo
+  const parts = formatter.formatToParts(new Date());
+
+  const get = (type) => parts.find(p => p.type === type)?.value;
+
+  const hour = Number(get("hour"));
+  const minute = Number(get("minute"));
+
+  const weekdayMap = {
+    dom: 0,
+    seg: 1,
+    ter: 2,
+    qua: 3,
+    qui: 4,
+    sex: 5,
+    sáb: 6
+  };
+
+  const day = weekdayMap[get("weekday")?.toLowerCase()] ?? -1;
 
     // segunda → sexta
     const isWeekDay = day >= 1 && day <= 5;
 
     // 10:15
-    const afterStart =
-      hour > 10 || (hour === 10 && minute >= 15);
+    const afterStart = hour > 10 || (hour === 10 && minute >= 15);
 
     // minutos antes de 21:00
     const beforeEnd = hour < 21;

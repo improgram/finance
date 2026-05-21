@@ -575,7 +575,6 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         brapiData = null;
         alphaData = null;
       }
-
       */
 
       // ---------------------- Real-time-finance-data (QUINTO FALLBACK) ----------------
@@ -673,10 +672,8 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           }
     const variation30d = getVariation30d(baseHist, price);
     const calcDaily = getDailyVariation(baseHist, price);
-
     const rawChange = merged?.changePercent;
     const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : safeNumber(rawChange);
-
     const normalizedPreviousClose = safeNumber(merged.previousClose);
     const previousCloseSafe = Number.isFinite(normalizedPreviousClose) && normalizedPreviousClose > 0 ? normalizedPreviousClose
           : previousCloseCalc > 0 ? previousCloseCalc : null;
@@ -689,11 +686,9 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const diff = calculatedChange != null && yahooChange != null ? Math.abs(yahooChange - calculatedChange) : 0;
     const yahooBroken = yahooChange == null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
           ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > HARD_DIFF_TOLERANCE );
-
     const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
     const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
     const changePercent = Number.isFinite(finalChange) ? safeNumber(finalChange.toFixed(2)) : null;
-
     const normalizePrice = (v) => { const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null; };
     const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(baseHist) :
         {
@@ -704,9 +699,22 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const week52Calc = get52WeekRangeFromHist(baseHist);
     const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? normalizePrice(cached?.regularMarketDayLow) ?? null;
     const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? normalizePrice(cached?.regularMarketDayHigh) ?? null;
-
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
     const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
+
+    // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
+      const SNAP_KEY = "last-valid-snapshot";
+      const prev = await safeGet(store, SNAP_KEY);
+      const prevArray = normalizeStorage(prev).data;
+      
+    // snapshot anterior do ticker
+    const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
+    const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);
+    const currentPrice = safeNumber(merged.regularMarketPrice );
+
+    // true = preço não mudou
+    const unchangedPrice = Number.isFinite(previousPrice) && Number.isFinite(currentPrice) &&
+          previousPrice === currentPrice;
 
     // -------------------- Payload--------------
       const payload = {
@@ -727,19 +735,18 @@ const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         min7d,
         min30d,
         variation30d,
+        unchangedPrice,
         updatedAt: Date.now(),                    // Timestamp para lógica de front-end
         updatedLabel: getFormattedDateTime(),     // String formatada DD/MM/AAAA HH:MM:SS
         description: ETF_INFO[symbol]?.description || "Ativo Financeiro",
         logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`,
         historicalDataPrice: mergedHist.slice(-90)
       };
+
       // ----- salva cache principal
       await safeSet(store, `snapshot-${symbol}`, payload);
-      // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
-      const SNAP_KEY = "last-valid-snapshot";
+
       try {
-        const prev = await safeGet(store, SNAP_KEY);
-        const prevArray = normalizeStorage(prev).data;
         let newSnapshot = [];
         if (prevArray.length) {
           const map = new Map(
@@ -774,8 +781,9 @@ const isAdmin = (request) => {
   const auth = request.headers.get("authorization");
   console.log("x-netlify-event:", request.headers.get("x-netlify-event") );
   const netlifyEvent = request.headers.get("x-netlify-event");
+
   // header automático do Netlify Cron
-  const isCron = netlifyEvent === "schedule" || netlifyEvent === "scheduled";
+  const isCron = ["schedule", "scheduled"].includes(netlifyEvent);
   const isInternal = auth === `Bearer ${INTERNAL_TOKEN}`;
   if (isCron) { console.log("⏰ Execução via CRON"); }
   if (isInternal) { console.log("🔐 Execução manual autenticada"); }
@@ -799,8 +807,21 @@ export default async (request) => {
     );
   }
 
-  console.log("🕒 shouldRunNow:", shouldRunNow());
-  console.log("🕒 UTC:", new Date().toISOString());
+  // log diagnóstico
+  const now = new Date();
+  console.log("🕒 Diagnóstico de horário:", {
+    utc: now.toISOString(),
+    saoPaulo:
+      new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        dateStyle: "short",
+        timeStyle: "medium"
+      }).format(now),
+    shouldRunNow: shouldRunNow(),
+    netlifyEvent: request.headers.get("x-netlify-event"),
+    authorization: request.headers.get("authorization") ? "present" : "missing"
+  });
+
   if (!shouldRunNow()) {
     return createResponse({
     skipped: "outside_schedule"
@@ -842,7 +863,7 @@ export default async (request) => {
 // shouldRunNow = regra de negócio real
 // O Netlify usa padrão cron de 5 campos
 // Formato: minuto, hora, dia do mes, mes, dia da semana
-
+// 13:15 = 10:15
 export const config = {
-  schedule: "*/7 * * * 1-5"
+  schedule: "*/7 13-23 * * 1-5"
 };

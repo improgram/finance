@@ -328,30 +328,17 @@ const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
     if (!priceEl) return;
     const oldPrice = typeof prevPrice === 'number' ? prevPrice : NaN;
     const newPrice = typeof newPriceRaw === 'number' ? newPriceRaw : NaN;
-
-    priceEl.classList.remove('flash', 'flash-up', 'flash-down');
-
-    if (!isNaN(oldPrice) ) {
+    priceEl.classList.remove('flash', 'flash-up', 'flash-down', 'flash-gold');
+    if (!isNaN(oldPrice) && !isNaN(newPrice)) {
         if (newPrice > oldPrice) {
             priceEl.classList.add('flash-up');
         } else if (newPrice < oldPrice) {
             priceEl.classList.add('flash-down');
         } else {
-            priceEl.classList.add('flash');
+            priceEl.classList.add('flash-gold');
         }
     }
-
-    clearTimeout(priceEl._flashTimeout);
-
-    priceEl._flashTimeout = setTimeout(() => {
-        priceEl.classList.remove('flash', 'flash-up', 'flash-down');
-        priceEl._flashTimeout = null;
-    }, 500);
-
-    priceEl.dataset.value = newPrice;
-    priceEl.textContent = !isNaN(newPrice) ? formatNumber(newPrice) : 'Sem histórico';
-};
-
+}
 
 const updateCommonRow = (row, data) => {
     const elSymbol = row.querySelector('.symbol');
