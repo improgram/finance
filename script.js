@@ -348,22 +348,12 @@ const FLASH_DURATION = 5 * 60 * 1000;
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
     if (!el) return;
-    const finalClass =
-        direction === 'up'
-            ? 'flash-up'
-            : 'flash-down';
+    const finalClass = direction === 'up' ? 'flash-up' : 'flash-down';
 
-    const oppositeClass =
-        direction === 'up'
-            ? 'flash-down'
-            : 'flash-up';
+    const oppositeClass = direction === 'up' ? 'flash-down' : 'flash-up';
 
     // limpa classes anteriores
-    el.classList.remove(
-        'flash-gold',
-        'flash-up',
-        'flash-down'
-    );
+    el.classList.remove('flash-gold', 'flash-up', 'flash-down' );
 
     // força reflow
     void el.offsetWidth;
@@ -372,9 +362,7 @@ const applyFlashEffect = (el, direction) => {
     el.classList.add('flash-gold');
 
     // limpa timeout antigo
-    if (el.flashTimeout) {
-        clearTimeout(el.flashTimeout);
-    }
+    if (el.flashTimeout) { clearTimeout(el.flashTimeout); }
 
     // PASSO 2 → troca para verde/vermelho
     el.flashTimeout = setTimeout(() => {
@@ -394,7 +382,7 @@ const applyFlashEffect = (el, direction) => {
             );
         }, FLASH_DURATION);
 
-    }, 450); // duração do gold
+    }, 1500); // duração do gold
 
 };
 
