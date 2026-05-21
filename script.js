@@ -402,9 +402,10 @@ const updatePriceCell = (priceEl, varEl, newPriceRaw, prevPrice) => {
     }
     // baixa
     else if (newPrice < oldPrice) {
-    applyFlashEffect(priceEl, 'down');
-    if (varEl) {
-        applyFlashEffect(varEl, 'down');
+        applyFlashEffect(priceEl, 'down');
+        if (varEl) {
+            applyFlashEffect(varEl, 'down');
+        }
     }
 }
 
@@ -590,7 +591,6 @@ const renderOrUpdateEtfs = (data, container, map) => {
         container.appendChild(fragment);
     }
 };
-
 
 const renderOrUpdateAcoes = (data, container, map) => {
     const fragment = document.createDocumentFragment();
