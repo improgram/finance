@@ -529,7 +529,7 @@ table tbody tr:hover td {
 
 .range-bar {
     flex: 1;
-    height: 14px;
+    height: 16px;
     background: #1b1b1b;
     border-radius: 8px;
     position: relative;
@@ -543,9 +543,10 @@ table tbody tr:hover td {
     height: 100%;
     background: linear-gradient(
         90deg,
-        #00c853 0%,
-        #00e676 35%,
-        #ffd700 100%
+        #74070E 25%,
+        #ffd700 50%,
+        #00e676 75%,
+        #00c853 100%
     );
     border-radius: 8px;
     transition: width 0.6s ease;
@@ -554,8 +555,7 @@ table tbody tr:hover td {
 
 .range-min,
 .range-max {
-    font-size: 11px;
-    opacity: 0.5;
+    font-size: 12px;
     white-space: nowrap;
 }
 
