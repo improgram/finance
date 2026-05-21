@@ -350,8 +350,6 @@ const applyFlashEffect = (el, direction) => {
     if (!el) return;
     const finalClass = direction === 'up' ? 'flash-up' : 'flash-down';
 
-    const oppositeClass = direction === 'up' ? 'flash-down' : 'flash-up';
-
     // limpa classes anteriores
     el.classList.remove('flash-gold', 'flash-up', 'flash-down' );
 
@@ -403,11 +401,10 @@ const updatePriceCell = (priceEl, varEl, newPriceRaw, prevPrice) => {
         }
     }
     // baixa
-    else {
-        applyFlashEffect(priceEl, 'down');
-        if (varEl) {
-            applyFlashEffect(varEl, 'down');
-        }
+    else if (newPrice < oldPrice) {
+    applyFlashEffect(priceEl, 'down');
+    if (varEl) {
+        applyFlashEffect(varEl, 'down');
     }
 }
 

@@ -14,14 +14,13 @@ body {
     font-family: sans-serif;
     min-height: 100vh;
     min-height: 100dvh;
-    background-attachment: fixed;
     background-repeat: no-repeat;
     background-size: cover;
     display: flex;
     flex-direction: column;
     align-items: stretch;                     /* horizontal */
     justify-content: flex-start;               /* vertical */
-    width: 99.9%;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
     gap: 0;         /* Removido o gap para não separar a navbar do topo */
@@ -238,15 +237,16 @@ h4 {
 /* Container com responsividade */
 .table-container {
     width: 100%;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
     position: relative;
     margin: 0 auto;
+    border-radius: 8px;
 }
 
 table {
     width: 100%;
     background: white;
-    overflow: hidden;
     color: MidnightBlue;
     font-size: clamp(0.75rem, 0.8vw, 1.0rem);
     margin-top: 10px;
@@ -316,7 +316,7 @@ table tbody tr:hover td {
     font-weight: 600;
     background-color: #e9eef5;
     filter: brightness(0.98);
-    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
 /* Remove o preenchimento vertical apenas da primeira coluna (onde fica o logo) */
@@ -379,8 +379,9 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #2ecc71, inset 0 0 5px #fff;
-    animation: flash-pulse 1.5s ease-out;
+    animation: pulseGreen 1.8s ease 6;
 }
+
 
 /* Estilo Bloomberg: Vermelho para Baixa */
 .price.flash-down {
@@ -388,15 +389,13 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #e74c3c, inset 0 0 5px #fff;
-    animation: flash-pulse 1.5s ease-out;
+    animation: pulseRed 1.8s ease 6;
 }
 
 .price.flash-gold,
 .var.flash-gold {
     background-color: rgba(255,215,0,0.22);
     color: #ffd700 !important;
-
-    animation: flashGoldPulse 0.45s ease;
 }
 
 @keyframes flashGoldPulse {
@@ -406,7 +405,6 @@ table tbody tr:hover td {
     }
     50% {
         transform: scale(1.08);
-
         box-shadow:
             0 0 12px rgba(255,215,0,0.95),
             0 0 22px rgba(255,215,0,0.65);
@@ -443,20 +441,16 @@ table tbody tr:hover td {
    FLASH LONGO - ESTILO TERMINAL/BLOOMBERG
 ========================================= */
 
-.price.flash-up,
 .var.flash-up {
-    background-color: rgba(46, 204, 113, 0.22);
-    color: #ffffff !important;
-    font-weight: 700;
-    animation: pulseGreen 1.8s infinite;
+    background-color: rgba(46, 204, 113, 0.14);
+    animation: pulseGreen 1.8s ease 6;
+    border-radius: 4px;
 }
 
-.price.flash-down,
 .var.flash-down {
-    background-color: rgba(231, 76, 60, 0.22);
-    color: #ffffff !important;
-    font-weight: 700;
-    animation: pulseRed 1.8s infinite;
+    background-color: rgba(231, 76, 60, 0.14);
+    animation: pulseRed 1.8s ease 6;
+    border-radius: 4px;
 }
 
 .price,
@@ -474,7 +468,6 @@ table tbody tr:hover td {
         box-shadow: 0 0 0px rgba(46,204,113,0.0);
         filter: brightness(1);
     }
-
     50% {
         box-shadow:
             0 0 10px rgba(46,204,113,0.9),
@@ -482,7 +475,6 @@ table tbody tr:hover td {
 
         filter: brightness(1.08);
     }
-
     100% {
         box-shadow: 0 0 0px rgba(46,204,113,0.0);
         filter: brightness(1);
@@ -546,6 +538,10 @@ table tbody tr:hover td {
 
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
+    body {
+        background-attachment: scroll;
+    }
+
     .hamburger {
         display: block;
     }
@@ -690,6 +686,6 @@ table tbody tr:hover td {
 }
 
 .copyright {
-    color: color: #e2e8f0;;
+    color: #e2e8f0;
     padding: 5px 0 1px 5px;
 }
