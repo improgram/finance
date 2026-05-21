@@ -42,6 +42,16 @@ import {
 } from "../../helpers/helpers.js";
 
 
+
+
+
+
+
+
+
+
+
+
 // ---------------- GLOBAL RATE LIMIT PROTECTION (429 SAFETY) ----------------
 
 const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429

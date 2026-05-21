@@ -2,9 +2,37 @@
 // Responsavel por buscar dados e tratar Erros
 // só busca dados
 
-import {
-  isMarketOpen
-} from "../../helpers/helpers.js";
+import { isMarketOpen } from "./helpers/helpers.js";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 const getQuotes = async () => {
