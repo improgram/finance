@@ -28,7 +28,6 @@ import {
   getDailyVariation,
   getDayRangeFromHist,
   get52WeekRangeFromHist,
-  isMarketOpen,
   safeValue,
   fallbackMin,
   safeWithFallback,
