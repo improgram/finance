@@ -399,7 +399,7 @@ const applyFlashEffect = (el, direction) => {
 };
 
 // flash + otimização real
-const updatePriceCell = (priceEl, newPriceRaw, prevPrice) => {
+const updatePriceCell = (priceEl, varEl, newPriceRaw, prevPrice) => {
     if (!priceEl) return;
     const oldPrice = typeof prevPrice === 'number' ? prevPrice : NaN;
     const newPrice = typeof newPriceRaw === 'number' ? newPriceRaw : NaN;
