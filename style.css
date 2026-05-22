@@ -505,7 +505,7 @@ table tbody tr:hover td {
 
 .range-bar {
     flex: 1;        /*ocupar todo o espaço horizontal disponível dentro do .range-wrapper. */
-    height: 1px;
+    height: 100%;
     background: rgba(208, 219, 222, 0.08);
     border-radius: 6px;
     position: relative;
