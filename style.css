@@ -537,7 +537,7 @@ table tbody tr:hover td {
 .range-max {
     font-size: 10px;
     white-space: nowrap;
-    color: rgba(0, 255, 136, 0.7); /* Preto com 20% de transparência */
+    color: rgba(0, 255, 136, 0.2); /* Preto com 30% de transparência */
 }
 
 
