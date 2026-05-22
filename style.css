@@ -499,13 +499,13 @@ table tbody tr:hover td {
 .range-wrapper {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 2px;       /* espaço lateral */
     width: 100%;
 }
 
 .range-bar {
     flex: 1;        /*ocupar todo o espaço horizontal disponível dentro do .range-wrapper. */
-    height: 22px;
+    height: 16px;
     background: rgba(208, 219, 222, 0.08);
     border-radius: 6px;
     position: relative;
@@ -532,12 +532,12 @@ table tbody tr:hover td {
 .range-min {
     font-size: 10px;
     white-space: nowrap;
-    color: rgba(255, 0, 0, 0.2); /* Vermelho com 20% de transparência */
+    color: rgba(255, 0, 0, 0.7); /* Vermelho com 20% de transparência */
 }
 .range-max {
     font-size: 10px;
     white-space: nowrap;
-    color: rgba(0, 255, 136, 0.45); /* Preto com 20% de transparência */
+    color: rgba(0, 255, 136, 0.7); /* Preto com 20% de transparência */
 }
 
 

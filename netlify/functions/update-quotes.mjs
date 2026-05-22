@@ -803,12 +803,15 @@ export default async (request) => {
       }).format(now),
     shouldRunNow: shouldRunNow(),
     netlifyEvent: request.headers.get("x-netlify-event"),
+    // Verifica se quem chamou esse código enviou uma chave de autorização no cabeçalho.
+    // Usa um operador ternário: se a chave existir, o log exibe "present" (presente);
+    // se não, exibe "missing" (ausente).
     authorization: request.headers.get("authorization") ? "present" : "missing"
   });
 
   if (!shouldRunNow()) {
     return createResponse({
-    skipped: "função decidiu NÃO rodar o pipeline"
+    skipped: "Função decidiu NÃO rodar o pipeline"
     });
   }
 
@@ -847,7 +850,7 @@ export default async (request) => {
 // shouldRunNow = regra de negócio real
 // O Netlify usa padrão cron de 5 campos
 // Formato: minuto, hora, dia do mes, mes, dia da semana
-// 13:15 = 10:15 (-3)
+// 13:15 = 10:15 (-3) e 22hs = 18hs
 export const config = {
-  schedule: "*/2 13-23 * * 1-5"
+  schedule: "*/2 13-22 * * 1-5"
 };
