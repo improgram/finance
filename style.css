@@ -505,7 +505,7 @@ table tbody tr:hover td {
 
 .range-bar {
     flex: 1;        /*ocupar todo o espaço horizontal disponível dentro do .range-wrapper. */
-    height: 16px;
+    height: 1px;
     background: rgba(208, 219, 222, 0.08);
     border-radius: 6px;
     position: relative;
@@ -537,7 +537,7 @@ table tbody tr:hover td {
 .range-max {
     font-size: 10px;
     white-space: nowrap;
-    color: rgba(0, 255, 136, 0.2); /* Preto com 30% de transparência */
+    color: rgba(0, 255, 136, 0.9); /* Preto com 30% de transparência */
 }
 
 
