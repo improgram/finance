@@ -350,7 +350,6 @@ const applyFlashEffect = (el, direction) => {
 
     if (!el) return;
     console.log('FLASH:', el, direction, el.className);
-    debugger;
     const finalClass = direction === 'up' ? 'flash-up' : 'flash-down';
 
     // limpa classes anteriores
