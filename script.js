@@ -342,8 +342,8 @@ const updateTimestamp = (meta) => {
 
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
-// duração do flash = 5 minutos
-const FLASH_DURATION = 5 * 60 * 1000;
+// duração do flash = 20 minutos
+const FLASH_DURATION = 20 * 60 * 1000;
 
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
@@ -374,7 +374,7 @@ const applyFlashEffect = (el, direction) => {
 
         el.classList.add(finalClass);
 
-        // PASSO 3 → remove após 5 min
+        // PASSO 3 → remove após xx min
         el.flashRemoveTimeout = setTimeout(() => {
             el.classList.remove(
                 'flash-up',
@@ -382,7 +382,7 @@ const applyFlashEffect = (el, direction) => {
             );
         }, FLASH_DURATION);
 
-    }, 5500); // duração do gold
+    }, 10500); // duração do gold
 
 };
 

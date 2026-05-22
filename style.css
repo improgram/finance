@@ -369,8 +369,8 @@ table tbody tr:hover td {
     outline: 2px solid #fff;
 
     /* Transição rápida */
-    transition: all 1.15s ease-out;
-    animation: flash-pulse 1.5s ease-out;
+    transition: all 2.15s ease-out;
+    animation: flash-pulse 2.5s ease-out;
 }
 
 /* Estilo Bloomberg: Verde para Alta */
@@ -379,7 +379,7 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #2ecc71, inset 0 0 5px #fff;
-    animation: pulseGreen 1.8s ease 6;
+    animation: pulseGreen 2.5s ease 6;
 }
 
 
@@ -389,7 +389,7 @@ table tbody tr:hover td {
     color: #fff !important;
     font-weight: bold;
     box-shadow: 0 0 10px #e74c3c, inset 0 0 5px #fff;
-    animation: pulseRed 1.8s ease 6;
+    animation: pulseRed 2.5s ease 6;
 }
 
 .price.flash-gold,
@@ -429,7 +429,7 @@ table tbody tr:hover td {
 /* A mágica da animação: ela começa intensa e volta ao normal */
 @keyframes flash-pulse {
     0% {
-        transform: scale(1.05); /* Dá um leve "susto" no tamanho */
+        transform: scale(1.25); /* Dá um leve "susto" no tamanho */
     }
     100% {
         transform: scale(1);
@@ -443,13 +443,13 @@ table tbody tr:hover td {
 
 .var.flash-up {
     background-color: rgba(46, 204, 113, 0.14);
-    animation: pulseGreen 1.8s ease 6;
+    animation: pulseGreen 2.8s ease 6;
     border-radius: 4px;
 }
 
 .var.flash-down {
     background-color: rgba(231, 76, 60, 0.14);
-    animation: pulseRed 1.8s ease 6;
+    animation: pulseRed 2.8s ease 6;
     border-radius: 4px;
 }
 
@@ -505,9 +505,9 @@ table tbody tr:hover td {
 
 .range-bar {
     flex: 1;        /*ocupar todo o espaço horizontal disponível dentro do .range-wrapper. */
-    height: 20px;
+    height: 22px;
     background: rgba(208, 219, 222, 0.08);
-    border-radius: 8px;
+    border-radius: 6px;
     position: relative;
     overflow: hidden;
     box-shadow:
@@ -524,15 +524,20 @@ table tbody tr:hover td {
         #00e676 75%,
         #00c853 100%
     );
-    border-radius: 8px;
+    border-radius: 6px;
     transition: width 1.2s ease;
-    box-shadow: 0 0 6px rgba(0,255,136,0.45);
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.45);
 }
 
-.range-min,
-.range-max {
-    font-size: 12px;
+.range-min {
+    font-size: 10px;
     white-space: nowrap;
+    color: rgba(255, 0, 0, 0.2); /* Vermelho com 20% de transparência */
+}
+.range-max {
+    font-size: 10px;
+    white-space: nowrap;
+    color: rgba(0, 255, 136, 0.45); /* Preto com 20% de transparência */
 }
 
 
