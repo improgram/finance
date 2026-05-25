@@ -364,9 +364,18 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           newSnapshot = [payload];
         }
 
-    console.log("STORE WRITE (GLOBAL SNAPSHOT):", { symbol, updatedAt: Date.now() });
+    console.log("🧠 SNAPSHOT ANTES WRITE:", {
+      symbol,
+      prevSize: prevArray?.length,
+      newSize: newSnapshot?.length
+    });
     await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
-    
+    console.log("💾 SNAPSHOT WRITE OK:", {
+      symbol,
+      updatedAt: Date.now(),
+      finalSize: newSnapshot?.length
+    });
+
         console.log("🧠 snapshot atualizado:", symbol);
       } catch (err) {
         console.warn("⚠️ erro ao atualizar snapshot:", err.message);
@@ -375,4 +384,5 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
       return { ok: true, symbol, source, data: payload };
 };
+
 //  FiM da const processTickerUpdate

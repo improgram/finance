@@ -72,11 +72,13 @@ export default async () => {
   try {
     const rawSnapshot = await store.get("last-valid-snapshot");
     // 🔴 (LOG 1 - bruto vindo do Blob)
-    console.log("RAW SNAPSHOT:", rawSnapshot);
+    console.log("📦 SNAPSHOT RAW TYPE:", typeof rawSnapshot);
+    console.log("📦 SNAPSHOT SIZE RAW:", rawSnapshot?.length || 0);
 
     const snapshot = safeParse(rawSnapshot);
     // 🔴 (LOG 2 - depois do parse)
-    console.log("PARSED SNAPSHOT:", snapshot);
+    console.log("📊 SNAPSHOT UPDATED AT:", snapshot?.updatedAt);
+    console.log("📊 SNAPSHOT ITEMS:", snapshot?.data?.length);
 
     const safeData = Array.isArray(snapshot?.data)
       ? snapshot.data.filter(i => typeof i?.symbol === "string")
