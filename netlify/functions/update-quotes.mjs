@@ -171,6 +171,33 @@ export default async (request, context) => {
         }),
         timeout(" processTickerUpdate ")
       ]);
+
+      
+      if (result?.ok && result?.data) {
+      const SNAP_KEY = "last-valid-snapshot";
+      const prev = await safeGet(store, SNAP_KEY);
+      const prevArray = normalizeStorage(prev).data;
+      const map = new Map(
+        prevArray
+          .filter(i => i?.symbol)
+          .map(i => [i.symbol, i])
+      );
+      map.set(result.symbol, result.data);
+      const newSnapshot = Array.from(map.values())
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, MAX_ITEMS);
+      await store.set(
+        SNAP_KEY,
+        JSON.stringify({
+          data: newSnapshot,
+          updatedAt: Date.now()
+        })
+      );
+
+      console.log("✅ SNAPSHOT GLOBAL ATUALIZADO:", result.symbol);
+    }
+
+
       return createResponse(result ?? { ok: false, error: "empty_result" });
     } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }

@@ -76,6 +76,9 @@ export default async () => {
   console.log("STORE NAME SNAPSHOT:", await store.list());
 
   try {
+    console.log("STORE NAME:", STORE_NAME);
+    console.log("LOOKING KEY: last-valid-snapshot");
+
     const rawSnapshot = await store.get("last-valid-snapshot");
     // 🔴 (LOG 1 - bruto vindo do Blob)
     console.log("📦 SNAPSHOT RAW TYPE:", typeof rawSnapshot);

@@ -382,7 +382,10 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       }
       // -------------✅ Retorno no painel Netlify ✅---------
       console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
+      console.log("💾 SALVANDO SNAPSHOT AGORA");
+      console.log("TOTAL FINAL:", result?.data?.length);
       return { ok: true, symbol, source, data: payload };
+
 };
 
 //  FiM da const processTickerUpdate
