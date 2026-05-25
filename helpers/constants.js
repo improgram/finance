@@ -2,14 +2,10 @@
 export const MAX_ITEMS = 50;
 export const COOLDOWN_429 = 30 * 1000; // 30s de pausa global após 429
 export const RATE_LIMIT_KEY = "global-429";
-export const STORE_NAME = "quotes-blobs";
 export const LOCK_KEY = "update-lock";
 export const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
 export const TICKER_REGEX = /^[A-Z0-9]{4,12}$/;
-
-
-// STORE_NAME único
-export const STORE_NAME = "quotes-blobs";
+export const STORE_NAME = "quotes-blobs";           // STORE_NAME único
 
 // => ETF_INFO export para processTickerUpdate
 export const ETF_INFO = {

@@ -145,6 +145,7 @@ export default async (request, context) => {
   }
 
   const store = getStore({ name: STORE_NAME });
+  
   const tickers = await getTickers(store);
   console.log("📦 tickers:", tickers?.length);
   const lock = await acquireLock(store);
