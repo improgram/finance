@@ -12,7 +12,8 @@ import { STORE_NAME } from "../../helpers/constants.js";
 const HEADERS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
-  "Cache-Control": "public, max-age=60, stale-while-revalidate=30"
+  "Cache-Control": "no-store"
+  //"Cache-Control": "public, max-age=60, stale-while-revalidate=30"
 };
 
 const formatFullTime = (ts) => {

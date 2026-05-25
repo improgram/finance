@@ -91,16 +91,13 @@ const releaseLock = async (store) => {
 
 // --- proteger endpoint => Bearer Token simples + API Key interna + Netlify Identity + Basic Auth
 const isAdmin = (request) => {
-  const auth = request.headers.get("authorization");
-  console.log("x-netlify-event:", request.headers.get("x-netlify-event") );
-  const netlifyEvent = request.headers.get("x-netlify-event");
-
-  // header automático do Netlify Cron
-  const isCron = ["schedule", "scheduled"].includes(netlifyEvent);
+  const auth = request?.headers?.get?.("authorization") ?? null;
+  const netlifyEvent = request?.headers?.get?.("x-netlify-event") ?? null;
+  const isCron = netlifyEvent === "schedule" || netlifyEvent === "scheduled";
   const isInternal = auth === `Bearer ${INTERNAL_TOKEN}`;
-  if (isCron) { console.log("⏰ Execução via CRON => Netlify Scheduled Function"); }
-  if (isInternal) { console.log("🔐 Execução manual autenticada"); }
-  return isCron || isInternal;
+  if (isCron) console.log("⏰ CRON detectado");
+  if (isInternal) console.log("🔐 AUTH manual válida");
+  return Boolean(isCron || isInternal);
 };
 
 
@@ -110,9 +107,11 @@ const isAdmin = (request) => {
 export default async (request, context) => {
   console.log("🚀 Iniciando update-quotes");
   console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
-  console.log("CONTEXT:", process.env.CONTEXT);
-  console.log("x-netlify-event:", event?.type || "unknown");
-
+  console.log("ENV CONTEXT:", process.env.CONTEXT);
+  console.log("CONTEXT:", context);
+  console.log("x-netlify-event:", request?.headers?.get("x-netlify-event"));
+  const runNow = shouldRunNow();
+  console.log("shouldRunNow RESULT:", runNow);
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
@@ -134,15 +133,16 @@ export default async (request, context) => {
         dateStyle: "short",
         timeStyle: "medium"
       }).format(now),
-    shouldRunNow: shouldRunNow(),
-    netlifyEvent: request.headers.get("x-netlify-event"),
+    shouldRunNow: runNow,
+
     // Verifica se quem chamou esse código enviou uma chave de autorização no cabeçalho.
     // Usa um operador ternário: se a chave existir, o log exibe "present" (presente);
     // se não, exibe "missing" (ausente).
-    authorization: request.headers.get("authorization") ? "present" : "missing"
+    netlifyEvent: request?.headers?.get?.("x-netlify-event") ?? null,
+    authorization: request?.headers?.get?.("authorization") ? "present" : "missing"
   });
 
-  if (!shouldRunNow()) {
+  if (!runNow) {
     return createResponse({
     skipped: "Função decidiu NÃO rodar o pipeline"
     });
