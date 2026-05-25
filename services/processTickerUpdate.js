@@ -344,7 +344,8 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         historicalDataPrice: mergedHist.slice(-90)
       };
 
-      // ----- salva cache principal
+      // ----- salva cache principal => safeSet do snapshot individual
+      console.log("STORE WRITE (snapshot ticker):", symbol);
       await safeSet(store, `snapshot-${symbol}`, payload);
 
       try {
@@ -362,10 +363,10 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         } else {
           newSnapshot = [payload];
         }
-        await safeSet(store, SNAP_KEY, {
-          data: newSnapshot,
-          updatedAt: Date.now()
-        });
+
+    console.log("STORE WRITE (GLOBAL SNAPSHOT):", { symbol, updatedAt: Date.now() });
+    await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
+    
         console.log("🧠 snapshot atualizado:", symbol);
       } catch (err) {
         console.warn("⚠️ erro ao atualizar snapshot:", err.message);

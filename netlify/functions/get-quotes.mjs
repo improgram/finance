@@ -6,6 +6,7 @@
 //  Acionado apenas quando o Frontend faz o pedido
 
 import { getStore } from "@netlify/blobs";
+import { STORE_NAME } from "../../helpers/constants.js";
 
 // ---------
 const HEADERS = {
@@ -61,10 +62,22 @@ const safeParse = (raw) => {
 
 export default async () => {
   console.log("📥 get-quotes chamado");
-  const store = getStore({ name: "quotes-blobs" });
+  const store = getStore({ name: STORE_NAME });
+
+  // await store.list => não mostra conteúdo do snapshot
+  // só mostra: arquivos e keys existentes
+  // 👉 útil para confirmar se o Blob existe mesmo
+  console.log("STORE NAME SNAPSHOT:", await store.list());
+
   try {
     const rawSnapshot = await store.get("last-valid-snapshot");
+    // 🔴 (LOG 1 - bruto vindo do Blob)
+    console.log("RAW SNAPSHOT:", rawSnapshot);
+
     const snapshot = safeParse(rawSnapshot);
+    // 🔴 (LOG 2 - depois do parse)
+    console.log("PARSED SNAPSHOT:", snapshot);
+
     const safeData = Array.isArray(snapshot?.data)
       ? snapshot.data.filter(i => typeof i?.symbol === "string")
       : [];

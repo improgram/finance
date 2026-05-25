@@ -8,6 +8,8 @@ export const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloq
 export const TICKER_REGEX = /^[A-Z0-9]{4,12}$/;
 
 
+// STORE_NAME único
+export const STORE_NAME = "quotes-blobs";
 
 // => ETF_INFO export para processTickerUpdate
 export const ETF_INFO = {
