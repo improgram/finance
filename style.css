@@ -5,9 +5,10 @@
 }
 
 html, body {
-    height: auto;
     width: 100%;            /* Garante que a base ocupe tudo */
-    overflow-x: hidden;     /* Evita barra de rolagem horizontal indesejada */
+    max-width: 100%;
+    overflow-x: clip;
+    overflow-x: hidden;
 }
 
 body {
@@ -238,10 +239,8 @@ h4 {
 .table-container {
     width: 100%;
     overflow-x: auto;
-    overflow-y: auto;
-    position: relative;
-    margin: 0 auto;
-    border-radius: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
 
 table {
@@ -283,10 +282,13 @@ table thead th {        /* cabeçalho (th) de todas as tabelas */
 }
 
 
-table td {                  /* :nth-child(2) Limitar largura máxima da segunda coluna da tabela */
-    max-width: 180px;       /* apenas na segunda célula (td) de cada linha de uma tabela */
-    white-space: normal;    /* se chegar ao limite da largura, ele pula para a linha de baixo*/
-    word-wrap: break-word;  /* navegador força a quebra da palavra */
+table td {
+    white-space: nowrap;
+}
+
+.description,
+.name {
+    white-space: normal;
 }
 
 th {                            /* cabeçalho tabela */
@@ -313,7 +315,6 @@ table tbody tr td {
 }
 
 table tbody tr:hover td {
-    font-weight: 600;
     background-color: #e9eef5;
     filter: brightness(0.98);
     box-shadow: 0 2px 6px rgba(0,0,0,0.08);
@@ -460,6 +461,7 @@ table tbody tr:hover td {
         color 0.35s ease,
         box-shadow 0.35s ease,
         filter 0.35s ease;
+        will-change: background-color, box-shadow, filter;
 }
 
 /* brilho verde */
@@ -544,6 +546,7 @@ table tbody tr:hover td {
 /* -------- MOBILE COM TABELA NORMAL -------- */
 @media (max-width: 768px) {
     body {
+        font-size: 14px;
         background-attachment: scroll;
     }
 
@@ -563,14 +566,15 @@ table tbody tr:hover td {
         background: #0f1115;
         position: absolute;
         top: 100%;
-        width: 100vw;
-        height: 100vh;      /* ocupa tela inteira */
+        width: 100%;
         left: 0;
         padding: 30px 0;
         gap: 20px;
         border-top: 1px solid #1f2937;
         z-index: 999;
         border-bottom: 2px solid #00ff88;
+        height: auto;
+        min-height: 100dvh;
     }
 
      .nav-center a {
@@ -592,11 +596,16 @@ table tbody tr:hover td {
     }
 
     .submenu {
+        display: none;
         position: static;
         width: 100%;
         text-align: center;
         background: #1a1d23;
         padding: 10px 0;
+    }
+
+    .submenu.open {
+        display: block;
     }
 
     .submenu a {
@@ -609,7 +618,20 @@ table tbody tr:hover td {
     }
 
     .nav-search {
-        max-width: 150px; /* Diminui a busca para caber ao lado do hambúrguer se necessário */
+        width: 42vw;
+        min-width: 120px;
+        max-width: 180px;
+        /* Diminui a busca para caber ao lado do hambúrguer se necessário */
+    }
+
+     h2 {
+        font-size: 20px;
+        padding: 0 10px;
+    }
+
+    h4 {
+        font-size: 13px;
+        padding: 0 12px;
     }
 
     .table-container {
@@ -617,26 +639,75 @@ table tbody tr:hover td {
         overflow-x: auto;
     }
 
+    .table-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.25);
+        border-radius: 999px;
+    }
+
     table {
-        min-width: 900px;  /* força scroll ao invés de quebrar layout */
+        min-width: 680px;  /* força scroll ao invés de quebrar layout */
+        font-size: 12px;
     }
 
     th, td {
-        padding: 8px 4px;
+        padding: 6px 4px;
         font-size: 0.85rem;
         white-space: nowrap; /* evita quebra */
+    }
+
+    .price.flash-up,
+    .price.flash-down,
+    .var.flash-up,
+    .var.flash-down {
+        animation-iteration-count: 2;
+    }
+
+    .range-wrapper {
+        min-width: 120px;
+    }
+
+     .range-bar {
+        height: 12px;
+    }
+
+    .range-min,
+    .range-max {
+        font-size: 9px;
+    }
+
+    .logo {
+        width: 24px;
+    }
+
+    /* reduz drasticamente o scroll lateral. */
+     /* ETFs */
+    table th:nth-child(6),
+    table td:nth-child(6),
+    table th:nth-child(7),
+    table td:nth-child(7),
+    table th:nth-child(8),
+    table td:nth-child(8) {
+        display: none;
+    }
+
+    /* Ações */
+    .tableAcoes th:nth-child(6),
+    .tableAcoes td:nth-child(6),
+    .tableAcoes th:nth-child(7),
+    .tableAcoes td:nth-child(7),
+    .tableAcoes th:nth-child(8),
+    .tableAcoes td:nth-child(8) {
+        display: none;
     }
 }
 
 
-
 /*--------MOBILE RESPONSIVO-------------------*/
 @media (max-width: 600px) {
-    .navbar {
-        position: sticky;
-        top: 0;
-    }
-
     .nav-center {
         gap: 12px;
         justify-content: center;
@@ -656,6 +727,22 @@ table tbody tr:hover td {
     }
 }
 
+/* Mobile não usa hover direito. */
+@media (hover: none) {
+    table tbody tr:hover td {
+        background-color: inherit;
+        box-shadow: none;
+        filter: none;
+    }
+    .nav-center a:hover {
+        transform: none;
+        text-shadow: none;
+    }
+
+    .nav-center a:hover::after {
+        width: 0%;
+    }
+}
 
 #rodape {
     background: linear-gradient(

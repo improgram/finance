@@ -25,8 +25,7 @@ const submenu = document.querySelector(".submenu");
 if (projetos && submenu) {
     projetos.addEventListener("click", (e) => {
         e.preventDefault();
-        submenu.style.display =
-            submenu.style.display === "block" ? "none" : "block";
+        submenu.classList.toggle('open');
     });
 }
 
