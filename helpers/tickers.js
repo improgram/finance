@@ -1,3 +1,4 @@
+
 import { safeGet, safeSet } from "./storage.js";
 import { MAX_ITEMS } from "./constants.js";
 
@@ -90,4 +91,34 @@ export const formatLongName = (name) => {
     .replace(/\s+e$/i, "")
     .replace(/\b[eE]\b/g, "")
     .trim();
+};
+
+export const validateTicker = (symbol) => {
+  return TICKER_REGEX.test(symbol);
+};
+
+
+export const getNextTicker = async (store, list) => {
+  if (!Array.isArray(list) || list.length === 0) {
+    console.warn("⚠️ getNextTicker recebeu lista vazia");
+    return null;
+  }
+  const key = "ticker-index";
+  const stored = await safeGet(store, key);
+  // cobre erros de: objeto { value }, número puro, lixo → fallback 0 e Se stored = {} → vira NaN
+  let index = Number( stored && typeof stored === "object" ? stored.value : stored );
+  if (!Number.isInteger(index)) index = 0;
+  // evitar crescimento inútil do índice
+  const currentIndex = index % list.length;
+  const nextIndex = (index + 1) % list.length;
+  console.log("📍 index atual:", index, "| current:", currentIndex, "| next:", nextIndex);
+  // Sequencia correta: índice está sendo persistido no Blobs e sem race condition
+  // index atual: 0 | current: 0 | next: 1
+  // index atual: 1 | current: 1 | next: 0
+  // index atual: 0 | current: 0 | next: 1
+  await safeSet(store, key, {
+    value: nextIndex,
+    updatedAt: Date.now()
+  });
+  return list[currentIndex];
 };

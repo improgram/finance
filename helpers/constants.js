@@ -7,6 +7,9 @@ export const LOCK_KEY = "update-lock";
 export const LOCK_TTL = 30 * 1000;     // 30s = evitar concorrência e não bloqueia pipeline por minutos
 export const TICKER_REGEX = /^[A-Z0-9]{4,12}$/;
 
+
+
+// => ETF_INFO export para processTickerUpdate
 export const ETF_INFO = {
     AUPO11: { description: "Inflação 2060 (NTN-B) + LFTs 2027/28/30/31 (Selic)" },
     BOVA11: { description: "80 maiores empresas do Ibovespa" },

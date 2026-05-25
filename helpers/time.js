@@ -1,7 +1,7 @@
 
+
 export const sleep = (ms) =>
    new Promise(r => setTimeout(r, ms));
-
 
 export const getFormattedDateTime = () =>
   new Intl.DateTimeFormat("pt-BR", {
@@ -10,6 +10,20 @@ export const getFormattedDateTime = () =>
     timeStyle: "medium"
   }).format(new Date());
 
+
+export const getCacheTTL = () => {
+  const hour = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      hour12: false
+    }).format(new Date())
+  );
+
+  return hour >= 10 && hour <= 18
+    ? 5 * 60 * 1000
+    : 30 * 60 * 1000;
+};
 
 // Para o CRON evitar: múltiplas funções, múltiplos deploys
 // limitação do Netlify, problemas de UTC

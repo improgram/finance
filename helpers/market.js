@@ -6,11 +6,9 @@ export const hasEnoughHist = (hist) => hist.length >= 10;
 export const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
 export const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
 export const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;
-export const safeNumber = (value) => {
-  const n = Number(value);
-  return Number.isFinite(n)
-    ? n
-    : null;
+export const safeNumber = (v, fallback = null) => {
+  const n = Number(v);      // safeNumber -> sanitização
+  return Number.isFinite(n) ? n : fallback;
 };
 
 export const filterByDays = (hist, days) => {
