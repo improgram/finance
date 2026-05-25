@@ -112,7 +112,7 @@ export default async (request, context) => {
   console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
   console.log("CONTEXT:", process.env.CONTEXT);
   console.log("x-netlify-event:", event?.type || "unknown");
-  
+
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
@@ -187,5 +187,5 @@ export default async (request, context) => {
 // Formato: minuto, hora, dia do mes, mes, dia da semana
 // 13:15 = 10:15 (-3) e 22hs = 18hs
 export const config = {
-  schedule: "*/2 13-22 * * 1-5"
+  schedule: "*/2 13-23 * * 1-5"
 };
