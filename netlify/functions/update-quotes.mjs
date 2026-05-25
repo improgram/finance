@@ -109,6 +109,10 @@ const isAdmin = (request) => {
 
 export default async (request, context) => {
   console.log("🚀 Iniciando update-quotes");
+  console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
+  console.log("CONTEXT:", process.env.CONTEXT);
+  console.log("x-netlify-event:", event?.type || "unknown");
+  
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
@@ -145,7 +149,7 @@ export default async (request, context) => {
   }
 
   const store = getStore({ name: STORE_NAME });
-  
+
   const tickers = await getTickers(store);
   console.log("📦 tickers:", tickers?.length);
   const lock = await acquireLock(store);

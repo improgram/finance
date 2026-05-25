@@ -63,6 +63,11 @@ const safeParse = (raw) => {
 export default async () => {
   console.log("📥 get-quotes chamado");
   const store = getStore({ name: STORE_NAME });
+  console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
+  console.log("CONTEXT:", process.env.CONTEXT);
+
+  const list = await store.list();
+  console.log("BLOBS LIST:", list);
 
   // await store.list => não mostra conteúdo do snapshot
   // só mostra: arquivos e keys existentes
