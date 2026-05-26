@@ -64,38 +64,20 @@ const safeParse = (raw) => {
 export default async () => {
   console.log("📥 get-quotes chamado");
   const store = getStore({ name: STORE_NAME });
-  console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
-  console.log("CONTEXT:", process.env.CONTEXT);
-
-  const list = await store.list();
-  console.log("BLOBS LIST:", list);
-
-  // await store.list => não mostra conteúdo do snapshot
-  // só mostra: arquivos e keys existentes
-  // 👉 útil para confirmar se o Blob existe mesmo
-  console.log("STORE NAME SNAPSHOT:", await store.list());
 
   try {
-    console.log("STORE NAME:", STORE_NAME);
-    console.log("LOOKING KEY: last-valid-snapshot");
-
     const rawSnapshot = await store.get("last-valid-snapshot");
-    // 🔴 (LOG 1 - bruto vindo do Blob)
-    console.log("📦 SNAPSHOT RAW TYPE:", typeof rawSnapshot);
-    console.log("📦 SNAPSHOT SIZE RAW:", rawSnapshot?.length || 0);
-
     const snapshot = safeParse(rawSnapshot);
-    // 🔴 (LOG 2 - depois do parse)
-    console.log("📊 SNAPSHOT UPDATED AT:", snapshot?.updatedAt);
-    console.log("📊 SNAPSHOT ITEMS:", snapshot?.data?.length);
 
-    const safeData = Array.isArray(snapshot?.data)
-      ? snapshot.data.filter(i => typeof i?.symbol === "string")
-      : [];
+    console.log("📊 snapshot:", {
+      updatedAt: snapshot?.updatedAt,
+      items: snapshot?.data?.length
+    });
+
+    const safeData = (snapshot?.data ?? []).filter(i => typeof i?.symbol === "string");
 
     if (safeData.length === 0) {
       console.warn("⚠️ Snapshot vazio ou inexistente");
-
       return jsonResponse({
         data: { etfs: [], acoes: [] },
         meta: { empty: true }
@@ -110,7 +92,6 @@ export default async () => {
 
     etfs.sort(safeSort);
     acoes.sort(safeSort);
-    const updatedAt = snapshot?.updatedAt || 0;
 
     return jsonResponse({
       data: { etfs, acoes },
