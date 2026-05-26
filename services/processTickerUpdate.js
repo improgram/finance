@@ -72,20 +72,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
 
-      // Troubleshooting 26/mai após a divisao dos helpers
-      console.log("🧠 CACHE DEBUG:", {
-        symbol,
-        hasCache: !!cached,
-        cachedUpdatedAt: cached?.updatedAt,
-        now: Date.now(),
-        ttl: getCacheTTL(),
-        age:
-          cached?.updatedAt
-            ? Date.now() - cached.updatedAt
-            : null
-      });
-
-
       if ( cached && typeof cached.updatedAt === "number" &&
         Date.now() - cached.updatedAt < getCacheTTL()
       ) {
@@ -110,7 +96,8 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
         }
       }
       // Só dormir se não tiver cache
-      if (!cached) await sleep(300);        // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+      // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
+      if (!cached) await sleep(300);
 
     // ----------- Yahoo segundo -------------------------
       let data = null;
@@ -248,46 +235,45 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const brapiHist = getValidHist(brapiData?.historicalDataPrice || []);
     // Se Yahoo vier com histórico curto, nao deve ignorar BRAPI que pode ter mais
     // Nao perder dados bons do outro provider e deduplicar por timestamp
-    const map = new Map();
+    const candleMap = new Map();
 
     // Snapshot incremental por ticker
     // Isso evita: race condition, overwrite, perda global
-
     // Yahoo tem prioridade nos candles
     for (const d of brapiHist) {
       if (d?.date && d?.close != null) {
-        map.set(d.date, d);
+        candleMap.set(d.date, d);
       }
     }
-
     // Yahoo sobrescreve BRAPI se existir mesmo timestamp
     for (const d of yahooHist) {
       if (d?.date && d?.close != null) {
-        map.set(d.date, d);
+        candleMap.set(d.date, d);
       }
     }
-
     // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
-    const mergedHist = [...map.values()].sort((a,b) => a.date - b.date);
-    const baseHist = mergedHist;
+    const mergedHist = [...candleMap.values()].sort((a,b) => a.date - b.date);
+
     // último candle disponível
-    const latestCandle = baseHist.length ? baseHist[baseHist.length - 1] : null;
+    const latestCandle = mergedHist.length ? mergedHist[mergedHist.length - 1] : null;
 
     // valida sessão real de negociação
     const hasValidTradingSession = latestCandle && safeNumber(latestCandle.volume) > 0 &&
           safeNumber(latestCandle.low) > 0 && safeNumber(latestCandle.high) > 0;
 
-    const previousCloseCalc = baseHist.length >= 2 ? baseHist[baseHist.length - 2]?.close ?? null : null;
-    const avgVolumeCalc = baseHist.length ? Math.round(
-          baseHist.reduce((acc, d) => acc + (d.volume || 0), 0) / baseHist.length ) : null;
-    const min7d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 7))) : null;
-    const min30d = baseHist.length ? getMin(getCloses(filterByDays(baseHist, 30))) : null;
+    const previousCloseCalc = mergedHist.length >= 2 ? mergedHist[mergedHist.length - 2]?.close ?? null : null;
+    const avgVolumeCalc = mergedHist.length ? Math.round(
+          mergedHist.reduce((acc, d) => acc + (d.volume || 0), 0) / mergedHist.length ) : null;
+    const min7d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 7))) : null;
+    const min30d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 30))) : null;
+
     const price = safeNumber(merged.regularMarketPrice);
           if (!Number.isFinite(price) || price <= 0) {
             return { ok: false, reason: "invalid-price" };
           }
-    const variation30d = getVariation30d(baseHist, price);
-    const calcDaily = getDailyVariation(baseHist, price);
+
+    const variation30d = getVariation30d(mergedHist, price);
+    const calcDaily = getDailyVariation(mergedHist, price);
     const rawChange = merged?.changePercent;
     const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : safeNumber(rawChange);
     const normalizedPreviousClose = safeNumber(merged.previousClose);
@@ -306,13 +292,13 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
     const changePercent = Number.isFinite(finalChange) ? safeNumber(finalChange.toFixed(2)) : null;
     const normalizePrice = (v) => { const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null; };
-    const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(baseHist) :
+    const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(mergedHist) :
         {
           low: cached?.regularMarketDayLow ?? null,
           high: cached?.regularMarketDayHigh ?? null
         };
 
-    const week52Calc = get52WeekRangeFromHist(baseHist);
+    const week52Calc = get52WeekRangeFromHist(mergedHist);
     const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? normalizePrice(cached?.regularMarketDayLow) ?? null;
     const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? normalizePrice(cached?.regularMarketDayHigh) ?? null;
     const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
@@ -385,27 +371,8 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       newSize: newSnapshot?.length
     });
 
-    // Troubleshooting 26/mai apos divisao dos Helpers
-    const snapshotPayload = {
-      data: newSnapshot,
-      updatedAt: Date.now()
-    };
-
-    console.log("🧠 WRITING SNAPSHOT:", {
-      key: SNAP_KEY,
-      updatedAt: snapshotPayload.updatedAt,
-      items: snapshotPayload.data.length
-    });
-
-    await safeSet(store, SNAP_KEY, snapshotPayload);
-    // Antigo antes de 26/mai
-    //await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
+    await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
     const verifySnapshot = await safeGet(store, SNAP_KEY);
-
-    console.log("🔎 VERIFY SNAPSHOT:", {
-      updatedAt: verifySnapshot?.updatedAt,
-      items: verifySnapshot?.data?.length
-    });
 
     console.log("💾 SNAPSHOT WRITE OK:", {
       symbol,
@@ -413,16 +380,17 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       finalSize: newSnapshot?.length
     });
 
-        console.log("🧠 snapshot atualizado:", symbol);
-      } catch (err) {
-        console.warn("⚠️ erro ao atualizar snapshot:", err.message);
-      }
-      // -------------✅ Retorno no painel Netlify ✅---------
-      console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
-      console.log("💾 SALVANDO SNAPSHOT AGORA");
+    } catch (err) {
+      console.warn("⚠️ erro ao atualizar snapshot:", err.message);
+    }
 
-      return { ok: true, symbol, source, data: payload };
+    // -------------✅ Retorno no painel Netlify ✅---------
 
+    console.log(`💾 SALVANDO ${symbol} → source: ${source} 💾`);
+
+    return { ok: true, symbol, source, data: payload };
 };
 
-//  FiM da const processTickerUpdate
+
+// Dentro do processTickerUpdate deve ficar:
+// fetch + fallback + seleção de fonte + histórico bruto
