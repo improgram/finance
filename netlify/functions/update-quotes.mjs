@@ -6,7 +6,12 @@
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
 
+// functions/ → sobe 1 nível (../)
+// depois sobe mais 1 (../../) até raiz
+
+// update-quotes.js => o orquestrador
 // ---------------- CONFIG ----------------
+
 import * as netlifyBlobs from "@netlify/blobs";
 const getStore = netlifyBlobs?.getStore;
 
@@ -14,12 +19,11 @@ if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
 
-// functions/ → sobe 1 nível (../)
-// depois sobe mais 1 (../../) até raiz
 import {
   STORE_NAME,
   LOCK_KEY,
   LOCK_TTL,
+  MAX_ITEMS
 } from "../../helpers/constants.js";
 
 import {
@@ -42,13 +46,10 @@ import {
   formatLongName
 } from "../../helpers/helpers.js";
 
-
 import { processTickerUpdate } from "../../services/processTickerUpdate.js";
-
 
 // ------------
 const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
-
 
 // ------ createResponse padrao para os Return Json
 const createResponse = (body, status = 200) => {
@@ -171,39 +172,19 @@ export default async (request, context) => {
         }),
         timeout(" processTickerUpdate ")
       ]);
-
-      
-      if (result?.ok && result?.data) {
-      const SNAP_KEY = "last-valid-snapshot";
-      const prev = await safeGet(store, SNAP_KEY);
-      const prevArray = normalizeStorage(prev).data;
-      const map = new Map(
-        prevArray
-          .filter(i => i?.symbol)
-          .map(i => [i.symbol, i])
-      );
-      map.set(result.symbol, result.data);
-      const newSnapshot = Array.from(map.values())
-        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-        .slice(0, MAX_ITEMS);
-      await store.set(
-        SNAP_KEY,
-        JSON.stringify({
-          data: newSnapshot,
-          updatedAt: Date.now()
-        })
-      );
-
-      console.log("✅ SNAPSHOT GLOBAL ATUALIZADO:", result.symbol);
-    }
-
+      console.log("➡️ Resposta do processTickerUpdate:", result);
 
       return createResponse(result ?? { ok: false, error: "empty_result" });
-    } catch (err) { return createResponse( { ok: false, error: err.message }, 500 );
+    } catch (err) {
+      console.error("❌ ERRO FATAL no update-quotes:", err);
+      return createResponse( { ok: false, error: err.message }, 500 );
     } finally { await releaseLock(store); }
 };
 // --------- FiM do MAIN export default async
 
+export const config = {
+  schedule: "*/2 13-23 * * 1-5"
+};
 
 // --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
 // --------- a cada 2 min e (1-5) Seg a Sex
@@ -213,6 +194,3 @@ export default async (request, context) => {
 // O Netlify usa padrão cron de 5 campos
 // Formato: minuto, hora, dia do mes, mes, dia da semana
 // 13:15 = 10:15 (-3) e 22hs = 18hs
-export const config = {
-  schedule: "*/2 13-23 * * 1-5"
-};

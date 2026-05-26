@@ -71,6 +71,21 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       // ----------- CACHE FIRST ------- =>⚡ cache válido (saída imediata)
       const cacheKey = `snapshot-${symbol}`;
       const cached = await safeGet(store, cacheKey);
+
+      // Troubleshooting 26/mai após a divisao dos helpers
+      console.log("🧠 CACHE DEBUG:", {
+        symbol,
+        hasCache: !!cached,
+        cachedUpdatedAt: cached?.updatedAt,
+        now: Date.now(),
+        ttl: getCacheTTL(),
+        age:
+          cached?.updatedAt
+            ? Date.now() - cached.updatedAt
+            : null
+      });
+
+
       if ( cached && typeof cached.updatedAt === "number" &&
         Date.now() - cached.updatedAt < getCacheTTL()
       ) {
@@ -369,7 +384,29 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       prevSize: prevArray?.length,
       newSize: newSnapshot?.length
     });
-    await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
+
+    // Troubleshooting 26/mai apos divisao dos Helpers
+    const snapshotPayload = {
+      data: newSnapshot,
+      updatedAt: Date.now()
+    };
+
+    console.log("🧠 WRITING SNAPSHOT:", {
+      key: SNAP_KEY,
+      updatedAt: snapshotPayload.updatedAt,
+      items: snapshotPayload.data.length
+    });
+
+    await safeSet(store, SNAP_KEY, snapshotPayload);
+    // Antigo antes de 26/mai
+    //await safeSet(store, SNAP_KEY, { data: newSnapshot, updatedAt: Date.now() });
+    const verifySnapshot = await safeGet(store, SNAP_KEY);
+
+    console.log("🔎 VERIFY SNAPSHOT:", {
+      updatedAt: verifySnapshot?.updatedAt,
+      items: verifySnapshot?.data?.length
+    });
+
     console.log("💾 SNAPSHOT WRITE OK:", {
       symbol,
       updatedAt: Date.now(),
@@ -383,7 +420,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       // -------------✅ Retorno no painel Netlify ✅---------
       console.log(`💾 salvo ${symbol} → source: ${source} 💾`);
       console.log("💾 SALVANDO SNAPSHOT AGORA");
-      console.log("TOTAL FINAL:", result?.data?.length);
+
       return { ok: true, symbol, source, data: payload };
 
 };
