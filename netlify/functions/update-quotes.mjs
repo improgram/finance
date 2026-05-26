@@ -6,8 +6,7 @@
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
 
-// functions/ → sobe 1 nível (../)
-// depois sobe mais 1 (../../) até raiz
+
 
 // update-quotes.js => o orquestrador
 // ---------------- CONFIG ----------------
@@ -25,6 +24,8 @@ import {
   LOCK_TTL,
   MAX_ITEMS
 } from "../../helpers/constants.js";
+// functions/ → sobe 1 nível (../)
+// depois sobe mais 1 (../../) até raiz
 
 import {
   sleep,
@@ -89,7 +90,6 @@ const releaseLock = async (store) => {
 // ticker-index com lock global, execução única, sem paralelismo
 // BUG LÓGICO (divisão por zero) corrigido
 
-
 // --- proteger endpoint => Bearer Token simples + API Key interna + Netlify Identity + Basic Auth
 const isAdmin = (request) => {
   const auth = request?.headers?.get?.("authorization") ?? null;
@@ -107,12 +107,6 @@ const isAdmin = (request) => {
 
 export default async (request, context) => {
   console.log("🚀 Iniciando update-quotes");
-  console.log("SITE ID:", process.env.NETLIFY_SITE_ID);
-  console.log("ENV CONTEXT:", process.env.CONTEXT);
-  console.log("CONTEXT:", context);
-  console.log("x-netlify-event:", request?.headers?.get("x-netlify-event"));
-  const runNow = shouldRunNow();
-  console.log("shouldRunNow RESULT:", runNow);
   const API_TOKEN = process.env.BRAPI_TOKEN;
   if (!API_TOKEN) { return createResponse({ error: "Token ausente" }, 500); }
 
@@ -125,22 +119,11 @@ export default async (request, context) => {
   }
 
   // log diagnóstico
+  const runNow = shouldRunNow();
   const now = new Date();
-  console.log("🕒 Diagnóstico de horário:", {
+  console.log("🕒 cron check:", {
     utc: now.toISOString(),
-    saoPaulo:
-      new Intl.DateTimeFormat("pt-BR", {
-        timeZone: "America/Sao_Paulo",
-        dateStyle: "short",
-        timeStyle: "medium"
-      }).format(now),
-    shouldRunNow: runNow,
-
-    // Verifica se quem chamou esse código enviou uma chave de autorização no cabeçalho.
-    // Usa um operador ternário: se a chave existir, o log exibe "present" (presente);
-    // se não, exibe "missing" (ausente).
-    netlifyEvent: request?.headers?.get?.("x-netlify-event") ?? null,
-    authorization: request?.headers?.get?.("authorization") ? "present" : "missing"
+    runNow
   });
 
   if (!runNow) {
@@ -150,12 +133,13 @@ export default async (request, context) => {
   }
 
   const store = getStore({ name: STORE_NAME });
-
   const tickers = await getTickers(store);
-  console.log("📦 tickers:", tickers?.length);
+
   const lock = await acquireLock(store);
   if (!lock) { return createResponse({ skipped: "lock" }); }
-  const MAX_EXECUTION_TIME = 10000;   // 10 s = // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s) + Real Time
+
+  const MAX_EXECUTION_TIME = 10000;
+  // 10 s = // Yahoo (3s timeout) + Brapi (3s) + Alpha (4s) + Real Time
   const timeout = (label = "exec", ms = MAX_EXECUTION_TIME) =>
     new Promise((_, reject) =>
       setTimeout(() => {
@@ -163,7 +147,7 @@ export default async (request, context) => {
       }, ms)
   );
     try {
-      console.log("🚀 Iniciando processTickerUpdate");
+      console.log("🚀 Iniciando processTickerUpdate 📦 tickers:", tickers?.length);
       const result = await Promise.race([
         processTickerUpdate ({
           store,
@@ -172,7 +156,6 @@ export default async (request, context) => {
         }),
         timeout(" processTickerUpdate ")
       ]);
-      console.log("➡️ Resposta do processTickerUpdate:", result);
 
       return createResponse(result ?? { ok: false, error: "empty_result" });
     } catch (err) {
@@ -185,6 +168,7 @@ export default async (request, context) => {
 export const config = {
   schedule: "*/2 13-23 * * 1-5"
 };
+
 
 // --------- CRON Netlify cron sempre usa UTC: 13:00 vira 10:00
 // --------- a cada 2 min e (1-5) Seg a Sex
