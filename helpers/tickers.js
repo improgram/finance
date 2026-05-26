@@ -1,6 +1,10 @@
 
 import { safeGet, safeSet } from "./storage.js";
-import { MAX_ITEMS } from "./constants.js";
+import {
+  MAX_ITEMS,
+  TICKER_REGEX
+} from "./constants.js";
+
 
 
 // -- LIMPEZA NO BOOT
