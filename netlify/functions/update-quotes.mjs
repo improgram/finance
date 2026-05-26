@@ -29,22 +29,10 @@ import {
 
 import {
   sleep,
-  getFormattedDateTime,
   shouldRunNow,
-  getVariation30d,
-  getDailyVariation,
-  getDayRangeFromHist,
-  get52WeekRangeFromHist,
-  safeValue,
-  safeNumber,
-  filterByDays,
-  getValidHist,
-  getCloses,
   getTickers,
   safeSet,
-  safeGet,
-  normalizeStorage,
-  formatLongName
+  safeGet
 } from "../../helpers/helpers.js";
 
 import { processTickerUpdate } from "../../services/processTickerUpdate.js";

@@ -68,6 +68,7 @@ export default async () => {
   try {
     const rawSnapshot = await store.get("last-valid-snapshot");
     const snapshot = safeParse(rawSnapshot);
+    const updatedAt = snapshot?.updatedAt || 0;
 
     console.log("📊 snapshot:", {
       updatedAt: snapshot?.updatedAt,
