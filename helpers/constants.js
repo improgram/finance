@@ -25,3 +25,4 @@ export const ETF_INFO = {
     PACB11: { description: "Inflação (NTN-B) Longo 2050 / 2060" },
     "5PRE11": { description: "Pré-fixado NTN 2035 e LTN 2032" }
 };
+

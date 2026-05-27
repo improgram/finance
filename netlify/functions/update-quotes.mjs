@@ -84,7 +84,7 @@ const isAdmin = (request) => {
   const netlifyEvent = request?.headers?.get?.("x-netlify-event") ?? null;
   const isCron = netlifyEvent === "schedule" || netlifyEvent === "scheduled";
   const isInternal = auth === `Bearer ${INTERNAL_TOKEN}`;
-  if (isCron) console.log("⏰ CRON detectado");
+  if (isCron) console.log("⏰ CRON detectado function isAdmin");
   if (isInternal) console.log("🔐 AUTH manual válida");
   return Boolean(isCron || isInternal);
 };

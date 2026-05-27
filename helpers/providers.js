@@ -1,12 +1,25 @@
-// Script para os providers
-// providers -> dados crus
-
 // Ordem: 1.CACHE (Blobs) - 2.YAHOO - 3.BRAPI - 4.AlphaVantage - 5.RapidAPI: real-time - 6. previousData
 // YAHOO = endpoint v8/finance/chart é focado em preço + histórico
 // Ele não fornece dados fundamentais ou extremos (low/high)
 // O YQL do Yahoo permite consultar dados do Yahoo! Finance.
 // Os limites de uso: Sem autenticação: até 1.000 chamadas por dia ??
 // Requisições GET por hora: 360 e por dia:	8000 ??
+
+// Script para os providers
+// providers -> dados crus
+// chamar APIs
+// retry / timeout
+// parse de resposta
+// normalização leve do payload
+// tratamento de erro da API
+// setGlobal429 / leitura de rate-limit (ok aqui também)
+
+// NÃO deve:
+// calcular indicadores
+// calcular variação
+// merge final complexo
+// snapshot
+// cache consolidado
 
 import {
   fetchWithRetryYahoo,
@@ -31,10 +44,121 @@ import {
 } from "./market.js";
 
 
+// fallback chain centralizado aqui
+export const fetchMarketData = async (symbol, store, apiToken) => {
+
+  // ---- Yahoo segundo após cache ---------------------
+
+  let yahooData = null;
+  let finalData = null;
+  let source = null;
+  try {
+    yahooData = await fetchYahoo(symbol, store);
+    if (yahooData) {
+      finalData = yahooData;
+      source = " ✅ YAHOO ✅ OK";
+    }
+  } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
+
+
+  // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
+
+  let brapiData = null;
+
+  // 🔥 avaliação de qualidade do Yahoo: não substitui o merge e ele só decide quando chamar Brapi
+  const isYahooWeak =
+    !yahooData ||
+    yahooData.regularMarketPrice == null ||
+    !Array.isArray(yahooData.historicalDataPrice) ||
+    yahooData.historicalDataPrice.length < 5;
+
+  // NÃO precisa da BRAPI às 18h.
+  if (isYahooWeak) {
+    try {
+      brapiData = await fetchBrapi(symbol, apiToken, store);
+    }
+    catch (err) { console.warn("⚠️ BRAPI erro:", err.message); }
+  }
+
+  // normalização dos campos da BRAPI
+  if (brapiData) {
+    brapiData = {
+      ...brapiData,
+      regularMarketPrice: brapiData?.regularMarketPrice ?? brapiData?.close ?? null,
+      previousClose: brapiData?.regularMarketPreviousClose ?? brapiData?.previousClose ?? null,
+      changePercent: brapiData?.changePercent ?? brapiData?.regularMarketChangePercent ?? null
+    };
+  }
+  if (!finalData && brapiData) {
+    finalData = brapiData;
+    source = " ✅✅ BRAPI OK ";
+  }
+
+  /*   ***********   TEST Alpha Vantage Temporario *********
+  const FORCE_ALPHA = false;
+  const FORCE_REALTIME = true;
+  if (FORCE_ALPHA) {
+    data = null;
+    brapiData = null;
+  }
+  Alterar abaixo o if (!data && !brapiData) abaixo para:
+  if (!FORCE_REALTIME && !data && !brapiData) { ...
+  */
+
+  // ---------- ALPHA VANTAGE (QUARTO FALLBACK) ------------
+  let alphaData = null;
+  const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
+
+  if (!yahooData && !brapiData && alphaKey) {
+    alphaData = await fetchAlphaVantage(symbol, alphaKey, store);
+    if (alphaData) {
+      finalData = alphaData;
+      source = "✅✅✅ ALPHA VANTAGE ✅✅✅ OK "
+    }
+  }
+
+  //------------ TEST REAL TIME Temporario-------
+  /*
+    if (FORCE_REALTIME) {
+      data = null;
+      brapiData = null;
+      alphaData = null;
+    }
+  */
+
+  // Real-time-finance-data (QUINTO FALLBACK: sera chamada se as 3 anteriores falharem)
+
+  let realTime = null;
+  // o process.env é um objeto que contém todas as variáveis de ambiente configuradas no painel do Netlify
+  const realTimeKey = process.env.REAL_TIME_KEY;
+
+  if (!finalData && realTimeKey) {
+    realTime = await fetchRealTimeAPI(symbol, store);
+    if (realTime) {
+      finalData = realTime;
+      source = " ✅✅✅✅ Real Time API ✅✅✅✅  OK ";
+    }
+  }
+
+  // ----- Return Final
+
+  return {
+    data: finalData,          // provider principal escolhido
+    source,
+    sources: {
+      yahoo: yahooData,
+      brapi: brapiData,
+      alpha: alphaData,
+      realtime: realTime
+    }
+  };
+};
+
+
 export const fetchYahoo = async (symbol, store) => {
   try {
     const urlYahoo = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.SA?range=3mo&interval=1d`;
-    const resYahoo = await fetchWithRetryYahoo (urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
+    const resYahoo = await fetchWithRetryYahoo(urlYahoo, store, symbol);  // retry leve p/ evitar timeout(1)
     if (!resYahoo || !resYahoo.ok) {
       console.warn("⚠️ Yahoo status: ", resYahoo?.status ?? "no-response");
       return null;
@@ -76,14 +200,15 @@ export const fetchYahoo = async (symbol, store) => {
         .filter(d => d.date && d.close != null),
     };
     // fim do Return
+
   } catch (err) {
   console.warn("⚠️ fetchYahoo:", err.message);
   return null;
   } // Fim do Try
 };
 
-// ----------------3. BRAPI FALLBACK ----------------
-// 15.000 req por mes /
+// ----------------3. BRAPI FALLBACK => 15.000 req por mes ----------------
+
 export const fetchBrapi = async (symbol, token, store ) => {
   try {
     const urlBrapi = `https://brapi.dev/api/quote/${symbol}?range=1mo&interval=1d&token=${token}`;
@@ -174,8 +299,8 @@ export const fetchAlphaVantage = async (symbol, apiKey, store) => {
   }
 };
 
-// ----- 5. RapidAPI: real-time-finance-data com 200 solicitações mensais gratuitas
-//------ Baseado no Google Finance
+// --- 5. RapidAPI: real-time-finance-data com 200 solicitações mensais gratuitas
+//---- Baseado no Google Finance
 export const fetchRealTimeAPI = async (symbol, store) => {
   try {
     // 🔒 Respeita cooldown global
