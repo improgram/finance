@@ -6,12 +6,14 @@ export * from "./tickers.js";
 export * from "./time.js";
 
 
+/*
+Nao precisa desse import:
+import { ETF_INFO } from "./constants.js";
+//       ./  => significa "partir da pasta atual"
+*/
 
 // Regra mudar cor da palavra
-import { ETF_INFO } from "./helpers/constants.js";
-//----------   ./  => significa "partir da pasta atual"
-
-// 1. Criamos uma função para varrer e atualizar todo o objeto ETF_INFO
+// função para varrer e atualizar todo o objeto ETF_INFO
 
 export function destacarPalavraEmTodoOObjeto(objetoDados, palavraChave) {
 
@@ -32,7 +34,7 @@ export function destacarPalavraEmTodoOObjeto(objetoDados, palavraChave) {
       );
     }
   }
-  
+
 // O '$&' é um truque do JS que mantém a palavra original exatamente
 // como ela estava escrita (com 'I' ou 'i')
   return copia;
