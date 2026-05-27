@@ -40,7 +40,8 @@ import { getNextTicker, validateTicker} from "../helpers/tickers.js";
 import { getCacheTTL } from "../helpers/time.js";
 
 import {
-  merged, mergeHistoricalData
+  merged,
+  mergeHistoricalData
 } from "../helpers/marketMerge.js";
 
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {

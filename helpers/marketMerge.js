@@ -49,45 +49,42 @@ export const mergeHistoricalData = (result) => {
     const yahooHist = getValidHist(result?.sources?.yahoo?.historicalDataPrice || []);
     const brapiHist = getValidHist(result?.sources?.brapi?.historicalDataPrice || []);
 
-    const map = new Map();
+    const candleMap = new Map();
 
     // 1. BRAPI (base)
+    // BRAPI deve entrar primeiro (base estrutural)
+    // garantir que sempre tenha um “esqueleto” do candle.
     for (const d of brapiHist) {
-        if (!d?.date || d?.close == null) continue;
-        // BRAPI entra primeiro (base estrutural)
-        // garante que você sempre tenha um “esqueleto” do candle.
-        map.set(d.date, {
-            ...d,
-            providers: ["brapi"],
-            source: "brapi",
-            confidence: "medium"
-        });
+        if (d?.date && d?.close != null) {
+            candleMap.set(d.date, {
+                ...d,
+                source: "brapi"
+            });
+        }
     }
 
     // 2. YAHOO (override + enrich)
+    // YAHOO entra depois (override + enrichment)
+    // Yahoo é prioridade e sobrescreve preço (close)
+    // corrige dados principais e melhora qualidade
+
+    // YAHOO sobrescreve (prioridade)
     for (const d of yahooHist) {
-        if (!d?.date || d?.close == null) continue;
-
-        const existing = map.get(d.date);
-        // YAHOO entra depois (override + enrichment)
-        // Yahoo é prioridade e sobrescreve preço (close)
-        // corrige dados principais e melhora qualidade
-        map.set(d.date, {
-            date: d.date,
-            close: d.close,
-            high: d.high ?? existing?.high,
-            low: d.low ?? existing?.low,
-            volume: d.volume ?? existing?.volume,
-
-            providers: existing?.providers
-                ? [...new Set([...existing.providers, "yahoo"])]
-                : ["yahoo"],
-
-            source: existing ? "merged" : "yahoo",
-            confidence: existing ? "high" : "high"
-        });
+        if (d?.date && d?.close != null) {
+            candleMap.set(d.date, {
+                ...candleMap.get(d.date),
+                ...d,
+                source: "yahoo"
+            });
+        }
     }
 
-    return [...map.values()]
-        .sort((a, b) => a.date - b.date);
-};
+    return {
+        mergedHist: [...candleMap.values()].sort((a, b) => a.date - b.date),
+        meta: {
+            yahoo: yahooHist.length,
+            brapi: brapiHist.length,
+            merged: candleMap.size
+        }
+    };
+}
