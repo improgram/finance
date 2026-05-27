@@ -99,7 +99,8 @@ export default async () => {
       meta: {
         total: safeData.length,
         updatedAt,
-        updatedLabel: formatFullTime(updatedAt) || "N/A"
+        updatedLabel: formatFullTime(updatedAt) || "N/A",
+        etfInfo: null
       }
     });
 

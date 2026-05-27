@@ -210,6 +210,9 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     historicalDataPrice: mergedHist.slice(-90)
   };
 
+  // mudar cor da palavra
+  const etfInfoFormatado = destacarPalavraEmTodoOObjeto(ETF_INFO, "inflação");
+
   // ----- salva cache principal => safeSet do snapshot individual
   await safeSet(store, `snapshot-${symbol}`, payload);
 
@@ -250,7 +253,16 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
   // -------------✅ Retorno no painel Netlify ✅---------
   console.log(`💾 SALVANDO ${symbol} → source: ${source} 💾`);
-  return { ok: true, symbol, source, data: payload };
+  return { ok: true,
+    symbol,
+    source,
+    data: payload,
+    meta: {
+      updatedAt: Date.now(),
+      updatedLabel: getFormattedDateTime(),
+      etfInfo: etfInfoFormatado
+    }
+  };
 };
 
 // Fim do processTickerUpdate
