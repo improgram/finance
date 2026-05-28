@@ -21,7 +21,7 @@ import { fetchMarketData } from "../helpers/providers.js";
 import { getGlobal429 } from "../helpers/cache.js";
 import { getNextTicker, validateTicker} from "../helpers/tickers.js";
 import { getCacheTTL } from "../helpers/time.js";
-import { calculateMetrics } from "../helpers/calculateMetrics.js";
+import { calculateMetrics } from "../helpers/calculaMetrics.js";
 
 import {
   sleep,
