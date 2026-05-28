@@ -198,6 +198,11 @@ const {
     historicalDataPrice: mergedHist.slice(-90)
   };
 
+  console.log("FINAL PAYLOAD DAY CHECK", {
+    dayLow: payload.dayLow,
+    dayHigh: payload.dayHigh,
+    keys: Object.keys(payload)
+  });
 
   // ----- salva cache principal => safeSet do snapshot individual
   await safeSet(store, `snapshot-${symbol}`, payload);
