@@ -323,6 +323,7 @@ export const fetchRealTimeAPI = async (symbol, store) => {
         return null;
     }
     const json = await res.json();
+
     const stock = json?.data;
     if (!stock) return null;
     return {

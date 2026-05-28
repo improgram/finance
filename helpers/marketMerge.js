@@ -14,7 +14,8 @@ import {
 } from "./helpers.js";
 
 
-export const merged = ({ symbol, data }) => {
+// Função que normaliza e padroniza dados de um ativo
+export const normalizeMarketData = ({ symbol, data }) => {
     return {
         symbol,
         shortName: data?.shortName ?? symbol,

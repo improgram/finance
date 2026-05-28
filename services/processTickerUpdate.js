@@ -32,6 +32,7 @@ import {
   safeSet,
   safeGet,
   normalizeStorage,
+  destacarPalavraEmTodoOObjeto
 } from "../helpers/helpers.js";
 
 import { fetchMarketData } from "../helpers/providers.js";
@@ -40,9 +41,12 @@ import { getNextTicker, validateTicker} from "../helpers/tickers.js";
 import { getCacheTTL } from "../helpers/time.js";
 
 import {
-  merged,
+  normalizeMarketData,
   mergeHistoricalData
 } from "../helpers/marketMerge.js";
+
+// ✅ cache estático (executa 1 vez no load do module)
+const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, "inflação" );
 
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
@@ -107,19 +111,19 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   // ----- cached vem do snapshot e não da API
   if (!data && cached) {
       source = "Cache Antigo";
-      data = cached;
+      data = cached.data ?? cached;
   }
 
   // ------------ Fallback final absoluto-----------------
-  const normalizedPrice = safeNumber(merged.regularMarketPrice);
+  const mergedData = normalizeMarketData({ symbol, data });
+  const normalizedPrice = safeNumber(mergedData.regularMarketPrice);
 
   if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
       return { ok: false, reason: "Sem Dados" };
   }
 
-
   // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
-  const mergedHist = [...candleMap.values()].sort((a,b) => a.date - b.date);
+  const mergedHist = mergeHistoricalData(result)?.mergedHist ?? [];
 
   // último candle disponível
   const latestCandle = mergedHist.length ? mergedHist[mergedHist.length - 1] : null;
@@ -128,23 +132,22 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   const hasValidTradingSession = latestCandle && safeNumber(latestCandle.volume) > 0 &&
     safeNumber(latestCandle.low) > 0 && safeNumber(latestCandle.high) > 0;
 
-
   const previousCloseCalc = mergedHist.length >= 2 ? mergedHist[mergedHist.length - 2]?.close ?? null : null;
   const avgVolumeCalc = mergedHist.length ? Math.round(
         mergedHist.reduce((acc, d) => acc + (d.volume || 0), 0) / mergedHist.length ) : null;
   const min7d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 7))) : null;
   const min30d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 30))) : null;
 
-  const price = safeNumber(merged.regularMarketPrice);
+  const price = safeNumber(mergedData.regularMarketPrice);
         if (!Number.isFinite(price) || price <= 0) {
           return { ok: false, reason: "invalid-price" };
         }
 
   const variation30d = getVariation30d(mergedHist, price);
   const calcDaily = getDailyVariation(mergedHist, price);
-  const rawChange = merged?.changePercent;
+  const rawChange = mergedData?.changePercent;
   const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : safeNumber(rawChange);
-  const normalizedPreviousClose = safeNumber(merged.previousClose);
+  const normalizedPreviousClose = safeNumber(mergedData.previousClose); // usando objeto mergedData
   const previousCloseSafe = Number.isFinite(normalizedPreviousClose) && normalizedPreviousClose > 0 ? normalizedPreviousClose
           : previousCloseCalc > 0 ? previousCloseCalc : null;
   const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
@@ -159,7 +162,9 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
   const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
   const changePercent = Number.isFinite(finalChange) ? safeNumber(finalChange.toFixed(2)) : null;
-  const normalizePrice = (v) => { const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const normalizePrice = (v) => {
+    const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null;
+  };
   const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(mergedHist) :
     {low: cached?.regularMarketDayLow ?? null, high: cached?.regularMarketDayHigh ?? null};
 
@@ -177,7 +182,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   // snapshot anterior do ticker
   const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
   const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);
-  const currentPrice = safeNumber(merged.regularMarketPrice );
+  const currentPrice = safeNumber(mergedData.regularMarketPrice );
 
   // true = preço não mudou
   const unchangedPrice = Number.isFinite(previousPrice) && Number.isFinite(currentPrice) &&
@@ -187,9 +192,9 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   const payload = {
     source,
     symbol,
-    shortName: merged.shortName,
-    longName: merged.longName,
-    regularMarketPrice: safeValue(merged.regularMarketPrice),
+    shortName: mergedData.shortName,
+    longName: mergedData.longName,
+    regularMarketPrice: safeValue(mergedData.regularMarketPrice),
     changePercent: changePercent,
     changeSource: usingCalculated ? "CALCULATED" : "YAHOO",
     regularMarketDayLow: dayLow,
@@ -197,8 +202,8 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     previousClose: previousCloseSafe,
     fiftyTwoWeekLow,
     fiftyTwoWeekHigh,
-    volume: safeValue(merged.volume),
-    averageVolume: safeValue(merged.averageVolume) ?? safeValue(avgVolumeCalc),
+    volume: safeValue(mergedData.volume),
+    averageVolume: safeValue(mergedData.averageVolume) ?? safeValue(avgVolumeCalc),
     min7d,
     min30d,
     variation30d,
@@ -209,9 +214,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`,
     historicalDataPrice: mergedHist.slice(-90)
   };
-
-  // mudar cor da palavra
-  const etfInfoFormatado = destacarPalavraEmTodoOObjeto(ETF_INFO, "inflação");
 
   // ----- salva cache principal => safeSet do snapshot individual
   await safeSet(store, `snapshot-${symbol}`, payload);
@@ -253,6 +255,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
   // -------------✅ Retorno no painel Netlify ✅---------
   console.log(`💾 SALVANDO ${symbol} → source: ${source} 💾`);
+
   return { ok: true,
     symbol,
     source,

@@ -612,9 +612,6 @@ const renderOrUpdateAcoes = (data, container, map) => {
     }
 };
 
-// Mudar cor da palavra
-const INFO_FORMATADO = json.meta.etfInfo;
-
 
 // Estado final da arquitetura => separação por camadas
 
