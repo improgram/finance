@@ -21,7 +21,7 @@ export function destacarPalavraEmTodoOObjeto(objetoDados, palavraChave) {
   for (const ativo in copia) {
     let descricao = copia[ativo].description;
     if (!descricao) continue;
-    Object.entries(palavrasConfig).forEach(
+    Object.entries(palavraChave).forEach(
       ([palavra, cor]) => {
         const regex = new RegExp(palavra, 'gi');
         descricao = descricao.replace(
