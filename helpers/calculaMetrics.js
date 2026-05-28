@@ -62,16 +62,18 @@ export function calculateMetrics({
     const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null;
   };
   const dayRangeCalc = getDayRangeFromHist(mergedHist) || {};
-
-
-  const dayLow = normalizePrice(dayRangeCalc.low)
+  const regularMarketDayLow =
+    normalizePrice(dayRangeCalc.low)
     ?? normalizePrice(mergedData?.regularMarketDayLow)
+    ?? normalizePrice(cached?.regularMarketDayLow)
     ?? normalizePrice(cached?.dayLow)
     ?? null;
 
-  const dayHigh = normalizePrice(dayRangeCalc.high)
+  const regularMarketDayHigh =
+    normalizePrice(dayRangeCalc.high)
     ?? normalizePrice(mergedData?.regularMarketDayHigh)
-    ?? normalizePrice(cached?.dayHigh)
+    ?? normalizePrice(cached?.regularMarketDayHigh)
+    ?? normalizePrice(cached?.dayHIgh)
     ?? null;
 
   const week52Calc = get52WeekRangeFromHist(mergedHist);
@@ -100,8 +102,8 @@ export function calculateMetrics({
       variation30d,
       previousCloseSafe,
       changePercent,
-      dayLow,
-      dayHigh,
+      regularMarketDayLow,
+      regularMarketDayHigh,
       fiftyTwoWeekLow,
       fiftyTwoWeekHigh,
       usingCalculated,

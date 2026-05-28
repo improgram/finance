@@ -162,8 +162,8 @@ const {
   variation30d,
   previousCloseSafe,
   changePercent,
-  dayLow,
-  dayHigh,
+  regularMarketDayLow,
+  regularMarketDayHigh,
   fiftyTwoWeekLow,
   fiftyTwoWeekHigh,
   usingCalculated,
@@ -184,8 +184,8 @@ const {
     min7d,
     min30d,
     variation30d,
-    dayLow,
-    dayHigh,
+    regularMarketDayLow,
+    regularMarketDayHigh,
     fiftyTwoWeekLow,
     fiftyTwoWeekHigh,
     previousClose: previousCloseSafe,
@@ -199,8 +199,8 @@ const {
   };
 
   console.log("FINAL PAYLOAD DAY CHECK", {
-    dayLow: payload.dayLow,
-    dayHigh: payload.dayHigh,
+    regularMarketDayLow: payload.regularMarketDayLow,
+    regularMarketDayHigh: payload.regularMarketDayHigh,
     keys: Object.keys(payload)
   });
 
