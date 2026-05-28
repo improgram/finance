@@ -3,6 +3,8 @@
 export const getCloses = (hist = []) => hist.map(d => d.close);
 export const getMin = (arr) => arr.length ? Math.min(...arr) : null;
 export const hasEnoughHist = (hist) => hist.length >= 10;
+export const DIFF_TOLERANCE = 0.5;
+export const HARD_DIFF_TOLERANCE = 1.2;
 export const safeValue = (value) => (value == null || Number.isNaN(value)) ? null : value;
 export const fallbackMin = (fallback) => fallback != null ? fallback : "N/E";
 export const safeWithFallback = (newPreco, oldPreco) => newPreco == null ? (oldPreco ?? null) : newPreco;

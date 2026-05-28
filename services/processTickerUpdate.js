@@ -13,13 +13,19 @@ import {
 } from "../helpers/constants.js";
 
 import {
+  normalizeMarketData,
+  mergeHistoricalData
+} from "../helpers/marketMerge.js";
+
+import { fetchMarketData } from "../helpers/providers.js";
+import { getGlobal429 } from "../helpers/cache.js";
+import { getNextTicker, validateTicker} from "../helpers/tickers.js";
+import { getCacheTTL } from "../helpers/time.js";
+import { calculateMetrics } from "../helpers/calculateMetrics.js";
+
+import {
   sleep,
   getFormattedDateTime,
-  getMin,
-  getVariation30d,
-  getDailyVariation,
-  getDayRangeFromHist,
-  get52WeekRangeFromHist,
   safeValue,
   safeNumber,
   filterByDays,
@@ -30,17 +36,8 @@ import {
   destacarPalavraEmTodoOObjeto
 } from "../helpers/helpers.js";
 
-import { fetchMarketData } from "../helpers/providers.js";
-import { getGlobal429 } from "../helpers/cache.js";
-import { getNextTicker, validateTicker} from "../helpers/tickers.js";
-import { getCacheTTL } from "../helpers/time.js";
 
-import {
-  normalizeMarketData,
-  mergeHistoricalData
-} from "../helpers/marketMerge.js";
-
-// ✅ cache estático (executa 1 vez no load do module)
+//-----  ✅ cache estático (executa 1 vez no load do module)
 const palavras = {
   inflação: "#ff5722",
   Pré: "#76b900",
@@ -52,6 +49,7 @@ const palavras = {
   Bitcoin: "#f7931a"
 };
 
+const SNAP_KEY = "last-valid-snapshot";
 const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, palavras );
 
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
@@ -84,7 +82,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     return { ok: true, symbol, source: "✅ cache-fresh", data: cached };
     }
 
-  // --------- proteção global contra flood após 429 e timestamp inválido
+  // Proteção global contra flood após 429 e timestamp inválido
   // cooldown compartilhado entre Alpha e RapidAPI
   // Mas são APIs diferentes.
   // Então um 429 da Alpha bloqueia RapidAPI também
@@ -106,7 +104,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   // ⛔ anti-burst obrigatório (BRAPI free / Yahoo)
   if (!cached) await sleep(300);
 
-
   // ------------- Bloco do Fetch ------------------------------
   const result = await fetchMarketData(symbol, store, apiToken);
 
@@ -120,7 +117,16 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       data = cached.data ?? cached;
   }
 
-  // ------------ Fallback final absoluto-----------------
+  //---------- 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
+  const prev = await safeGet(store, SNAP_KEY);
+  const prevArray = normalizeStorage(prev).data;
+
+  // snapshot anterior do ticker
+  const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
+  const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);
+
+
+  // ---------------------
   const mergedData = normalizeMarketData({ symbol, data });
   const normalizedPrice = safeNumber(mergedData.regularMarketPrice);
 
@@ -130,96 +136,68 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
   // depois do merge = prioridade: 1. API (Yahoo ou BRAPI) e 2. cálculo via histórico
   const mergedHist = mergeHistoricalData(result)?.mergedHist ?? [];
-
-  // último candle disponível
-  const latestCandle = mergedHist.length ? mergedHist[mergedHist.length - 1] : null;
-
-  // valida sessão real de negociação
-  const hasValidTradingSession = latestCandle && safeNumber(latestCandle.volume) > 0 &&
-    safeNumber(latestCandle.low) > 0 && safeNumber(latestCandle.high) > 0;
-
-  const previousCloseCalc = mergedHist.length >= 2 ? mergedHist[mergedHist.length - 2]?.close ?? null : null;
-  const avgVolumeCalc = mergedHist.length ? Math.round(
-        mergedHist.reduce((acc, d) => acc + (d.volume || 0), 0) / mergedHist.length ) : null;
-  const min7d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 7))) : null;
-  const min30d = mergedHist.length ? getMin(getCloses(filterByDays(mergedHist, 30))) : null;
-
-  const price = safeNumber(mergedData.regularMarketPrice);
-        if (!Number.isFinite(price) || price <= 0) {
-          return { ok: false, reason: "invalid-price" };
-        }
-
-  const variation30d = getVariation30d(mergedHist, price);
-  const calcDaily = getDailyVariation(mergedHist, price);
-  const rawChange = mergedData?.changePercent;
-  const yahooChange = rawChange === null || rawChange === undefined || rawChange === "" ? null : safeNumber(rawChange);
-  const normalizedPreviousClose = safeNumber(mergedData.previousClose); // usando objeto mergedData
-  const previousCloseSafe = Number.isFinite(normalizedPreviousClose) && normalizedPreviousClose > 0 ? normalizedPreviousClose
-          : previousCloseCalc > 0 ? previousCloseCalc : null;
-  const realCalculatedChange = previousCloseSafe && previousCloseSafe > 0
-          ? ((price - previousCloseSafe) / previousCloseSafe) * 100 : null;
-
-  const DIFF_TOLERANCE = 0.5;
-  const HARD_DIFF_TOLERANCE = 1.2;
-  const calculatedChange = realCalculatedChange ?? calcDaily ?? null;
-  const diff = calculatedChange != null && yahooChange != null ? Math.abs(yahooChange - calculatedChange) : 0;
-  const yahooBroken = yahooChange == null || !Number.isFinite(yahooChange) || Math.abs(yahooChange) > 40 ||
-    ( realCalculatedChange != null && Math.abs(yahooChange - realCalculatedChange) > HARD_DIFF_TOLERANCE );
-  const usingCalculated = yahooBroken || diff > DIFF_TOLERANCE;
-  const finalChange = usingCalculated && Number.isFinite(calculatedChange) ? calculatedChange : yahooChange;
-  const changePercent = Number.isFinite(finalChange) ? safeNumber(finalChange.toFixed(2)) : null;
-  const normalizePrice = (v) => {
-    const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(mergedHist) :
-    {low: cached?.regularMarketDayLow ?? null, high: cached?.regularMarketDayHigh ?? null};
-
-  const week52Calc = get52WeekRangeFromHist(mergedHist);
-  const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? normalizePrice(cached?.regularMarketDayLow) ?? null;
-  const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? normalizePrice(cached?.regularMarketDayHigh) ?? null;
-  const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
-  const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
-
-  // 🧠 ATUALIZA SNAPSHOT CONSOLIDADO
-  const SNAP_KEY = "last-valid-snapshot";
-  const prev = await safeGet(store, SNAP_KEY);
-  const prevArray = normalizeStorage(prev).data;
-
-  // snapshot anterior do ticker
-  const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
-  const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);
   const currentPrice = safeNumber(mergedData.regularMarketPrice );
 
   // true = preço não mudou
-  const unchangedPrice = Number.isFinite(previousPrice) && Number.isFinite(currentPrice) &&
-        previousPrice === currentPrice;
+  const unchangedPrice = Number.isFinite(previousPrice) && Number.isFinite(currentPrice)
+      && Math.abs(previousPrice - currentPrice) < 0.0001;
 
-  // -------------------- Payload--------------
+  // ------ Utiliza o return do calculaMetrics
+  const calcResult = calculateMetrics({
+    mergedData,
+    mergedHist,
+    cached,
+    data
+  });
+
+  if (!calcResult.ok) {
+    return calcResult;
+  }
+
+const {
+  price,
+  avgVolumeCalc,
+  min7d,
+  min30d,
+  variation30d,
+  previousCloseSafe,
+  changePercent,
+  dayLow,
+  dayHigh,
+  fiftyTwoWeekLow,
+  fiftyTwoWeekHigh,
+  usingCalculated,
+  changeSource
+} = calcResult.metrics;
+
+
+  // ------ Payload --------------
   const payload = {
     source,
     symbol,
     shortName: mergedData.shortName,
     longName: mergedData.longName,
-    regularMarketPrice: safeValue(mergedData.regularMarketPrice),
-    changePercent: changePercent,
-    changeSource: usingCalculated ? "CALCULATED" : "YAHOO",
-    regularMarketDayLow: dayLow,
-    regularMarketDayHigh: dayHigh,
-    previousClose: previousCloseSafe,
-    fiftyTwoWeekLow,
-    fiftyTwoWeekHigh,
+    regularMarketPrice: price,
+    changePercent,
     volume: safeValue(mergedData.volume),
-    averageVolume: safeValue(mergedData.averageVolume) ?? safeValue(avgVolumeCalc),
+    averageVolume: avgVolumeCalc,
     min7d,
     min30d,
     variation30d,
+    dayLow,
+    dayHigh,
+    fiftyTwoWeekLow,
+    fiftyTwoWeekHigh,
+    previousClose: previousCloseSafe,
     unchangedPrice,
-    updatedAt: Date.now(),                    // Timestamp para lógica de front-end
-    updatedLabel: getFormattedDateTime(),     // String formatada DD/MM/AAAA HH:MM:SS
+    changeSource,
+    updatedAt: Date.now(),
+    updatedLabel: getFormattedDateTime(),
     description: etfInfoFormatado[symbol]?.description || "Ativo Financeiro",
     logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`,
     historicalDataPrice: mergedHist.slice(-90)
   };
+
 
   // ----- salva cache principal => safeSet do snapshot individual
   await safeSet(store, `snapshot-${symbol}`, payload);
@@ -239,8 +217,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       } else {
         newSnapshot = [payload];
       }
-    await safeSet(
-      store, SNAP_KEY,
+    await safeSet(store, SNAP_KEY,
         {
           data: newSnapshot,
           updatedAt: Date.now()

@@ -19,10 +19,12 @@ export async function safeSet (store, key, value) {
 // -------Blindar leitura = evitar retorno do objeto invalido
 // Padronização global de storage (ANTI-CRASH STRUCTURE)
 export const normalizeStorage = (data) => {
-  if (!data) return null;
+  if (!data) return { data: [] };
+
   if (Array.isArray(data)) {
     return { data };
   }
+
   if (typeof data === "object") {
     if (Array.isArray(data.data)) {
       return data;
@@ -31,8 +33,10 @@ export const normalizeStorage = (data) => {
       return { data: data.value };
     }
   }
+
   return { data: [] };
 };
+
 
 export async function safeGet (store, key) {
   try {
