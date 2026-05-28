@@ -58,46 +58,33 @@ export const getDailyVariation = (hist, currentPrice) => {
 
 export const getMax = (arr) => arr.length ? Math.max(...arr) : null;
 
-export const getDayRangeFromHist = (hist = []) => {
-  if (!Array.isArray(hist) || hist.length === 0) {
-    return {
-      low: null,
-      high: null
-    };
-  }
-
-  // candles válidos
-  const valid = hist
-    .filter(d =>
-      d &&
-      Number(d.low) > 0 &&
-      Number(d.high) > 0 &&
-      Number(d.close) > 0
-    )
-    .sort((a, b) => b.date - a.date);
-
-  if (!valid.length) {
-    return {
-      low: null,
-      high: null
-    };
-  }
-
-  // último candle válido
-  const last = valid[0];
-
-  return {
-    low: last.low,
-    high: last.high
-  };
-};
-
-
 export const get52WeekRangeFromHist = (hist) => {
   if (!hist.length) return { low: null, high: null };
   const closes = hist.map(d => d.close).filter(v => v != null);
   return {
     low: getMin(closes),
     high: getMax(closes)
+  };
+};
+
+export const getDayRangeFromHist = (hist = []) => {
+  if (!Array.isArray(hist) || hist.length === 0) {
+    return { low: null, high: null };
+  }
+
+  const valid = hist.filter(d =>
+    d &&
+    Number(d.low) > 0 &&
+    Number(d.high) > 0 &&
+    Number(d.close) > 0
+  );
+
+  if (!valid.length) {
+    return { low: null, high: null };
+  }
+
+  return {
+    low: Math.min(...valid.map(d => d.low)),
+    high: Math.max(...valid.map(d => d.high))
   };
 };

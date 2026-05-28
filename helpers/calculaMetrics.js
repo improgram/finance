@@ -61,15 +61,34 @@ export function calculateMetrics({
   const normalizePrice = (v) => {
     const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null;
   };
-  const dayRangeCalc = hasValidTradingSession ? getDayRangeFromHist(mergedHist) :
-    {low: cached?.regularMarketDayLow ?? null, high: cached?.regularMarketDayHigh ?? null};
+  const dayRangeCalc = getDayRangeFromHist(mergedHist) || {};
+
+
+  const dayLow = normalizePrice(dayRangeCalc.low)
+    ?? normalizePrice(mergedData?.regularMarketDayLow)
+    ?? normalizePrice(cached?.dayLow)
+    ?? null;
+
+  const dayHigh = normalizePrice(dayRangeCalc.high)
+    ?? normalizePrice(mergedData?.regularMarketDayHigh)
+    ?? normalizePrice(cached?.dayHigh)
+    ?? null;
 
   const week52Calc = get52WeekRangeFromHist(mergedHist);
-  const dayLow = normalizePrice(dayRangeCalc.low) ?? normalizePrice(data?.regularMarketDayLow) ?? normalizePrice(cached?.regularMarketDayLow) ?? null;
-  const dayHigh = normalizePrice(dayRangeCalc.high) ?? normalizePrice(data?.regularMarketDayHigh) ?? normalizePrice(cached?.regularMarketDayHigh) ?? null;
   const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
   const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
   const changeSource = usingCalculated ? "CALCULATED" : "YAHOO";
+
+  console.log("DAY RANGE DEBUG", {
+    hasValidTradingSession,
+    mergedHistLength: mergedHist.length,
+    latestCandle,
+    dayRangeCalc,
+    cachedDayLow: cached?.dayLow,
+    cachedDayHigh: cached?.dayHigh,
+    dataDayLow: data?.regularMarketDayLow,
+    dataDayHigh: data?.regularMarketDayHigh
+  });
 
   return {
     ok: true,
