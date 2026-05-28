@@ -6,8 +6,6 @@
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
 
-
-
 // update-quotes.js => o orquestrador
 // ---------------- CONFIG ----------------
 
@@ -19,26 +17,18 @@ if (typeof getStore !== "function") {
 }
 
 import {
-  STORE_NAME,
-  LOCK_KEY,
-  LOCK_TTL,
-  MAX_ITEMS
+  STORE_NAME, LOCK_KEY, LOCK_TTL, MAX_ITEMS
 } from "../../helpers/constants.js";
 // functions/ → sobe 1 nível (../)
 // depois sobe mais 1 (../../) até raiz
 
-import {
-  sleep,
-  shouldRunNow,
-  getTickers,
-  safeSet,
-  safeGet
+import { sleep, shouldRunNow, getTickers, safeSet, safeGet
 } from "../../helpers/helpers.js";
 
 import { processTickerUpdate } from "../../services/processTickerUpdate.js";
 
-// ------------
 const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
+
 
 // ------ createResponse padrao para os Return Json
 const createResponse = (body, status = 200) => {

@@ -1,15 +1,10 @@
 
+// Está dentro da pasta services/ precisa subir um nível (..) no import
+// para sair de services e voltar para a raiz e só depois então entrar em helpers/
+
 // pipeline principal + orchestrator + coordinator + state machine
 // cache+providers+merge+fallback+cálculo+persistência+snapshot+validação
-
-// ERA EXEC: Leitura linear:  lock - exec - timeout - race
-// Era exec() deve retornar apenas dados = não usa createResponse
-// services -> regras de negócio
-
-// Como ele está dentro da pasta services/...
-// ele precisa subir um nível (..)
-// para sair de services e voltar para a raiz
-//  para só então entrar em helpers/
+// Dentro do processTickerUpdate fica: fetch + fallback + seleção de fonte + histórico bruto
 
 import {
   MAX_ITEMS,
@@ -46,7 +41,17 @@ import {
 } from "../helpers/marketMerge.js";
 
 // ✅ cache estático (executa 1 vez no load do module)
-const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, "inflação" );
+const palavras = {
+  inflação: "#ff5722",
+  Pré-fixado: "#76b900",
+  Selic: "#00c853",
+  Curto: "#fe7c8c",
+  Medio: "#a66bff",
+  Longo: "#a43679",
+  Bitcoin: "#f7931a"
+};
+
+const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, palavras );
 
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
@@ -210,7 +215,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
     unchangedPrice,
     updatedAt: Date.now(),                    // Timestamp para lógica de front-end
     updatedLabel: getFormattedDateTime(),     // String formatada DD/MM/AAAA HH:MM:SS
-    description: ETF_INFO[symbol]?.description || "Ativo Financeiro",
+    description: etfInfoFormatado[symbol]?.description || "Ativo Financeiro",
     logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`,
     historicalDataPrice: mergedHist.slice(-90)
   };
@@ -233,7 +238,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
       } else {
         newSnapshot = [payload];
       }
-
     await safeSet(
       store, SNAP_KEY,
         {
@@ -241,17 +245,14 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
           updatedAt: Date.now()
         }
     );
-
     console.log("💾 SNAPSHOT WRITE OK:", {
       symbol,
       updatedAt: Date.now(),
       finalSize: newSnapshot?.length
     });
-
   } catch (err) {
     console.warn("⚠️ erro ao atualizar snapshot:", err.message);
   }
-
 
   // -------------✅ Retorno no painel Netlify ✅---------
   console.log(`💾 SALVANDO ${symbol} → source: ${source} 💾`);
@@ -269,7 +270,3 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 };
 
 // Fim do processTickerUpdate
-
-
-// Dentro do processTickerUpdate deve ficar:
-// fetch + fallback + seleção de fonte + histórico bruto

@@ -539,7 +539,7 @@ table tbody tr:hover td {
 .range-max {
     font-size: 10px;
     white-space: nowrap;
-    color:  rgba(46, 200, 100, 0.9); /* Verde com transparência */
+    color:  rgba(46, 200, 100, 9); /* Verde com transparência */
 }
 
 

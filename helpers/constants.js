@@ -17,12 +17,14 @@ export const ETF_INFO = {
     GOAT11: { description: "IMAB11 (80%) e S&P (19%)" },
     HASH11: { description: "Bitcoin (64,87%) e Ethereum (31,77%)"},
     IMAB11: { description: "Inflação (NTN-B) Medio / Longo" },
-    IRFM11: { description: "Pré-fixado (LTN 2026/29/31) e NTN-B" },
+    IRFM11: { description: "Pré-fixado LTN 2026/29/31 e NTN-B" },
     IVVB11: { description: "S&P 500 maiores empresas dos EUA" },
-    LFTB11: { description: "Tesouro Selic (LFT 2027/28/29/30/2060)"},
+    LFTB11: { description: "Tesouro Selic LFT 2027/28/29/30/2060"},
     NASD11: { description: "Apple, Amazon, Google, Meta, Microsoft, Nvidia, Testa, Netflix "},
     NBIT11: { description: "Bitcoin contratos Futuros" },
     PACB11: { description: "Inflação (NTN-B) Longo 2050 / 2060" },
-    "5PRE11": { description: "Pré-fixado NTN 2035 e LTN 2032" }
+    SMAL11: { description:
+"TOTS3,ALOS3,LREN3,ASAI3,CSAN3,CSMG3,MULT3,SMFT3,TAEE11,BRAV3,NATU3,GOAU4,SAPR11,HYPE3,FLRY3,CYRE3,BRAP4"},
+    "5PRE11": { description: "Pré-fixado NTN-F 33/35 e LTN 29/30/32" }
 };
 

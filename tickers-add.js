@@ -6,15 +6,14 @@
 // ✔ manutenção manual
 // ✔ testes locais
 
-
 // Se você rodar esse script:
 // ele NÃO passa pelo cron
 // ele NÃO usa safeGet do seu app
 // ele escreve direto no Blobs
 
-    // 👉 então use só para manutenção
-    // no bash comando manual :
-    // node tickers.js
+// 👉 então use só para manutenção => no bash comando manual :
+
+// node tickers-add.js
 
 
 import * as netlifyBlobs from "@netlify/blobs";
@@ -60,7 +59,7 @@ const run = async () => {
     "CAML3", "CHIP11", "CMIN3", "DXCO3", "GRND3", "GOAT11",
     "HAPV3", "IMAB11", "IRFM11", "IVVB11", "JALL3", "KLBN4",
     "LFTB11", "NASD11", "NBIT11", "PACB11", "RAIL3", "RAIZ4",
-    "ROXO34", "SIMH3", "SLCE3", "VIVT3", "5PRE11"
+    "ROXO34", "SIMH3", "SLCE3", "SMAL11", "VIVT3", "5PRE11"
   ]);
 };
 

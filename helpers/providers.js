@@ -22,14 +22,11 @@
 // cache consolidado
 
 import {
-  fetchWithRetryYahoo,
-  fetchWithRetryBrapi,
-  fetchWithTimeout
+  fetchWithRetryYahoo, fetchWithRetryBrapi, fetchWithTimeout
 } from "./retry.js";
 
 import {
-  setGlobal429,
-  getGlobal429
+  setGlobal429, getGlobal429
 } from "./cache.js";
 
 import {
@@ -48,7 +45,6 @@ import {
 export const fetchMarketData = async (symbol, store, apiToken) => {
 
   // ---- Yahoo segundo após cache ---------------------
-
   let yahooData = null;
   let finalData = null;
   let source = null;
@@ -60,8 +56,7 @@ export const fetchMarketData = async (symbol, store, apiToken) => {
     }
   } catch (err) { console.warn("⚠️ Yahoo erro:", err.message); }
 
-
-  // ------ Brapi terceiro: ❌ Só exigir BRAPI se faltar preço OU histórico
+  // ------ Brapi: ❌ Só exigir BRAPI se faltar preço OU histórico
 
   let brapiData = null;
 

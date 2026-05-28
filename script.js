@@ -473,7 +473,8 @@ const updateCommonRow = (row, data) => {
 const updateEtfRow = (row, etf) => {
     updateCommonRow(row, etf);
     const elDescription = row.querySelector('.description');
-        if (elDescription) elDescription.textContent = etf.description;
+        // Necessario innerHTML  e nao textContent para o texto aceitar mudança da cor via script
+        if (elDescription) elDescription.innerHTML = etf.description;
 };
 
 
