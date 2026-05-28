@@ -417,36 +417,43 @@ const updateCommonRow = (row, data) => {
     const variacao30d = getVariacao30d(data);
     const elPrice = row.querySelector('.price');
     const elVar = row.querySelector('.var');
-        if (elVar) {
-            elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
-            elVar.classList.remove('positive','negative','strong-positive','strong-negative');
-            const cor = aplicarCor(variacao);
-            if (cor) elVar.classList.add(cor);
-        }
+    if (elVar) {
+        elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
+        elVar.classList.remove('positive','negative','strong-positive','strong-negative');
+        const cor = aplicarCor(variacao);
+        if (cor) elVar.classList.add(cor);
+    }
 
-        if (elPrice) {
-            updatePriceCell(
-                elPrice,
-                elVar,
-                data.regularMarketPrice,
-                data.prevPrice
-            );
-            const price = data.regularMarketPrice;
-            const min7 = data.min7d;
-            const min30 = data.min30d;
-            // limpa classes anteriores (importante pra evitar sujeira visual)
-            elPrice.classList.remove('danger-price');
-            // condição: preço menor que min7d OU min30d
-            if (
-                typeof price === 'number' &&
-                (
-                    (typeof min7 === 'number' && price < min7) ||
-                    (typeof min30 === 'number' && price < min30)
-                )
-            ) {
-                elPrice.classList.add('danger-price');
-            }
+    if (elPrice) {
+    updatePriceCell(elPrice, elVar, data.regularMarketPrice, data.prevPrice );
+    const price = data.regularMarketPrice;
+    const min7 = data.min7d;
+    const min30 = data.min30d;
+
+    // limpa classes
+    elPrice.classList.remove('danger-price-soft', 'danger-price-hard');
+
+    const elMin7 = row.querySelector('.min7');
+    const elMin30 = row.querySelector('.min30');
+
+    if (elMin7) elMin7.classList.remove('danger-price-soft', 'danger-price-hard');
+    if (elMin30) elMin30.classList.remove('danger-price-soft', 'danger-price-hard');
+
+    if (typeof price === 'number') {
+        const belowMin30 = typeof min30 === 'number' && price < min30;
+        const belowMin7 = typeof min7 === 'number' && price < min7;
+        // 🔴 forte (min30)
+        if (belowMin30) {
+            elPrice.classList.add('danger-price-hard');
+            if (elMin30) elMin30.classList.add('danger-price-hard');
         }
+        // 🟠 leve (min7)
+        else if (belowMin7) {
+            elPrice.classList.add('danger-price-soft');
+            if (elMin7) elMin7.classList.add('danger-price-soft');
+        }
+    }
+}
 
     const elRange = row.querySelector('.range');
         if (elRange) elRange.innerHTML = getDayRange(data);

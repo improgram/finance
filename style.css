@@ -423,8 +423,23 @@ table tbody tr:hover td {
 }
 
 .danger-price {
-    color: #ff1744;
-    font-weight: 600;
+    background-color: #ff1744 !important;
+    color: #fff !important;
+    font-weight: 800;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(255, 23, 68, 0.6);
+    animation: pulseRed 1.5s ease-in-out infinite;
+}
+
+.danger-price-soft {
+    background-color: rgba(255, 23, 68, 0.08);
+    color: #ff5252;
+}
+
+.danger-price-hard {
+    background-color: rgba(255, 23, 68, 0.25);
+    color: #fff;
+    font-weight: 800;
 }
 
 /* A mágica da animação: ela começa intensa e volta ao normal */
