@@ -23,8 +23,7 @@ export const ETF_INFO = {
     NASD11: { description: "Apple, Amazon, Google, Meta, Microsoft, Nvidia, Testa, Netflix "},
     NBIT11: { description: "Bitcoin contratos Futuros" },
     PACB11: { description: "Inflação (NTN-B) Longo 2050 / 2060" },
-    SMAL11: { description:
-"TOTS3,ALOS3,LREN3,ASAI3,CSAN3,CSMG3,MULT3,SMFT3,TAEE11,BRAV3,NATU3,GOAU4,SAPR11,HYPE3,FLRY3,CYRE3,BRAP4"},
+    SMAL11: { description: "Empresas de menor capitalização e alto potencial de crescimento"},
     "5PRE11": { description: "Pré-fixado NTN-F 33/35 e LTN 29/30/32" }
 };
 

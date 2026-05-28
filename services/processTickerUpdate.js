@@ -258,8 +258,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   // -------------✅ Retorno no painel Netlify ✅---------
   console.log(`💾 SALVANDO ${symbol} → source: ${source} 💾`);
 
-  console.log( "TESTE DESCRIPTION:", etfInfoFormatado[symbol]?.description
-  );
   return { ok: true,
     symbol,
     source,
