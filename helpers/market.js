@@ -92,16 +92,6 @@ export const getDayRangeFromHist = (hist = []) => {
     ? todayCandles
     : [valid[valid.length - 1]];
 
-  console.log(
-    "DAY RANGE CANDLES",
-    valid.slice(-10).map(c => ({
-      ts: c.date,
-      iso: new Date(c.date * 1000).toISOString(),
-      low: c.low,
-      high: c.high
-    }))
-  );
-
   return {
     low: Math.min(...source.map(d => d.low)),
     high: Math.max(...source.map(d => d.high))
