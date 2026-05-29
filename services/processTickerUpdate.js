@@ -125,7 +125,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   const previousTickerSnapshot = prevArray.find( i => i?.symbol === symbol );
   const previousPrice = safeNumber(previousTickerSnapshot?.regularMarketPrice);
 
-
   // ---------------------
   const mergedData = normalizeMarketData({ symbol, data });
   const normalizedPrice = safeNumber(mergedData.regularMarketPrice);
@@ -197,12 +196,6 @@ const {
     logourl: data?.logourl || `https://icons.brapi.dev/icons/${symbol}.svg`,
     historicalDataPrice: mergedHist.slice(-90)
   };
-
-  console.log("FINAL PAYLOAD DAY CHECK", {
-    regularMarketDayLow: payload.regularMarketDayLow,
-    regularMarketDayHigh: payload.regularMarketDayHigh,
-    keys: Object.keys(payload)
-  });
 
   // ----- salva cache principal => safeSet do snapshot individual
   await safeSet(store, `snapshot-${symbol}`, payload);

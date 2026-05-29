@@ -83,17 +83,6 @@ export function calculateMetrics({
   const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
   const changeSource = usingCalculated ? "CALCULATED" : "YAHOO";
 
-  console.log("DAY RANGE DEBUG", {
-    hasValidTradingSession,
-    mergedHistLength: mergedHist.length,
-    latestCandle,
-    dayRangeCalc,
-    cachedDayLow: cached?.dayLow,
-    cachedDayHigh: cached?.dayHigh,
-    dataDayLow: data?.regularMarketDayLow,
-    dataDayHigh: data?.regularMarketDayHigh
-  });
-
   return {
     ok: true,
     metrics: {

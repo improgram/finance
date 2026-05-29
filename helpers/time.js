@@ -1,5 +1,4 @@
 
-
 export const sleep = (ms) =>
    new Promise(r => setTimeout(r, ms));
 
@@ -51,6 +50,5 @@ export const shouldRunNow = () => {
 
     // minutos antes de 21:00
     const beforeEnd = hour < 21;
-
     return isWeekDay && afterStart && beforeEnd;
 };
