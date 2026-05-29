@@ -68,23 +68,42 @@ export const get52WeekRangeFromHist = (hist) => {
 };
 
 export const getDayRangeFromHist = (hist = []) => {
-  if (!Array.isArray(hist) || hist.length === 0) {
+  if (!Array.isArray(hist) || !hist.length) {
     return { low: null, high: null };
   }
 
   const valid = hist.filter(d =>
     d &&
     Number(d.low) > 0 &&
-    Number(d.high) > 0 &&
-    Number(d.close) > 0
+    Number(d.high) > 0
   );
 
   if (!valid.length) {
     return { low: null, high: null };
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCandles = valid.filter(d => {
+    const candleDate = new Date(d.date * 1000).toISOString().slice(0, 10);
+    return candleDate === today;
+  });
+
+  const source = todayCandles.length
+    ? todayCandles
+    : [valid[valid.length - 1]];
+
+  console.log(
+    "DAY RANGE CANDLES",
+    valid.slice(-10).map(c => ({
+      ts: c.date,
+      iso: new Date(c.date * 1000).toISOString(),
+      low: c.low,
+      high: c.high
+    }))
+  );
+
   return {
-    low: Math.min(...valid.map(d => d.low)),
-    high: Math.max(...valid.map(d => d.high))
+    low: Math.min(...source.map(d => d.low)),
+    high: Math.max(...source.map(d => d.high))
   };
 };

@@ -37,7 +37,6 @@ export const safeParseTickers = (raw) => {
 // já faz parse e trata fallback
 export async function getTickers (store) {
   const data = await safeGet(store, "tickers-list");
-  console.log("📦 tickers raw:", data);
   const raw =
     Array.isArray(data)
       ? data

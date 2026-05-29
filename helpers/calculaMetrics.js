@@ -61,7 +61,9 @@ export function calculateMetrics({
   const normalizePrice = (v) => {
     const n = safeNumber(v); return Number.isFinite(n) && n > 0 ? n : null;
   };
+
   const dayRangeCalc = getDayRangeFromHist(mergedHist) || {};
+
   const regularMarketDayLow =
     normalizePrice(dayRangeCalc.low)
     ?? normalizePrice(mergedData?.regularMarketDayLow)
