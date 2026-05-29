@@ -433,11 +433,11 @@ table tbody tr:hover td {
 
 .danger-price-soft {
     background-color: rgba(255, 23, 68, 0.08);
-    color: #ff5252;
+    color: rgba(0, 0, 0, 1);
 }
 
 .danger-price-hard {
-    background-color: rgba(220, 20, 60, 0.25);
+    background-color: rgba(220, 38, 38, 0.45);
     color: #fff;
     font-weight: 800;
 }
