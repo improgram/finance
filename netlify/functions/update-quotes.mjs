@@ -144,7 +144,7 @@ export default async (request, context) => {
 // --------- FiM do MAIN export default async
 
 export const config = {
-  schedule: "*/2 13-23 * * 1-5"
+  schedule: "*/2 13-22 * * 1-5"
 };
 
 

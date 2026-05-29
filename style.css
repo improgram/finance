@@ -437,7 +437,7 @@ table tbody tr:hover td {
 }
 
 .danger-price-hard {
-    background-color: rgba(255, 23, 68, 0.25);
+    background-color: rgba(220, 20, 60, 0.25);
     color: #fff;
     font-weight: 800;
 }
@@ -554,7 +554,7 @@ table tbody tr:hover td {
 .range-max {
     font-size: 10px;
     white-space: nowrap;
-    color:  rgba(46, 200, 100, 9); /* Verde com transparência */
+    color: rgba(32, 140, 70, 1); /* Verde com transparência */
 }
 
 

@@ -365,14 +365,10 @@ const applyFlashEffect = (el, direction) => {
 
     // PASSO 2 → troca para verde/vermelho
     el.flashTimeout = setTimeout(() => {
-
         el.classList.remove('flash-gold');
-
         // força repaint
         void el.offsetWidth;
-
         el.classList.add(finalClass);
-
         // PASSO 3 → remove após xx min
         el.flashRemoveTimeout = setTimeout(() => {
             el.classList.remove(
@@ -380,9 +376,7 @@ const applyFlashEffect = (el, direction) => {
                 'flash-down'
             );
         }, FLASH_DURATION);
-
     }, 10500); // duração do gold
-
 };
 
 // flash + otimização real
