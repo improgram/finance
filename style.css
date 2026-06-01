@@ -677,6 +677,24 @@ table tbody tr:hover td {
         white-space: nowrap; /* evita quebra */
     }
 
+     /* Cabeçalho da primeira coluna */
+    table th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 30;
+        background: #BFF;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.15);
+    }
+
+    /* Células da primeira coluna */
+    table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 20;
+        background: white;
+        box-shadow: 2px 0 5px rgba(0,0,0,0.15);
+    }
+
     .price.flash-up,
     .price.flash-down,
     .var.flash-up,
@@ -740,6 +758,8 @@ table tbody tr:hover td {
         width: 0%;
     }
 }
+
+
 
 #rodape {
     background: linear-gradient(
