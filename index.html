@@ -42,7 +42,7 @@
         <h2>Lista de ETFs (Fundos de investimento)</h2>
         <h4>Tem como referência determinado indice conforme descrição</h4>
         <div class="table-container">
-            <table>
+            <table id="tableETF" class="tableETF">
                 <thead>
                     <tr>
                         <th>Ticker</th>
@@ -59,10 +59,9 @@
                 </thead>
                 <tbody id="etfs-container"></tbody>
             </table>
-        </div>
 
         <h2>Ações na Bolsa de Valores do Brasil</h2>
-            <div>
+            <div class="table-container">
                 <table id="tabelaTickers" class="tableAcoes">
                     <thead>
                          <tr class="linhaTabela">
@@ -81,6 +80,8 @@
                     <tbody id="acoes-container"></tbody>
                 </table>
             </div>
+        </div>
+
             <div class="rodape-tabela">
                 <small id="status-atualizacao">Buscando atualizações...</small>
             </div>

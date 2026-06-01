@@ -10,7 +10,7 @@ export const STORE_NAME = "quotes-blobs";           // STORE_NAME único
 
 // => ETF_INFO export para processTickerUpdate
 export const ETF_INFO = {
-    AUPO11: { description: "Inflação 2060 (NTN-B) + LFTs 2027/28/30/31 (Selic)" },
+    AUPO11: { description: "Inflação Longa 2060 (10%) (NTN-B) + LFTs 2027/28/30/31 (Selic)" },
     BOVA11: { description: "80 maiores empresas do Ibovespa" },
     B5P211: { description: "Inflação (NTN-B) Curto / Medio" },
     CHIP11: { description: "Chips Semicondutores e IA: NVIDIA, TSMC, Broadcom, ASML e Intel" },

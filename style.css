@@ -666,7 +666,8 @@ table tbody tr:hover td {
     }
 
     table {
-        min-width: 680px;  /* força scroll ao invés de quebrar layout */
+        min-width: 1000px;
+        /* força scroll ao invés de quebrar layout */
         font-size: 12px;
     }
 
@@ -698,27 +699,6 @@ table tbody tr:hover td {
 
     .logo {
         width: 24px;
-    }
-
-    /* reduz drasticamente o scroll lateral. */
-     /* ETFs */
-    table th:nth-child(6),
-    table td:nth-child(6),
-    table th:nth-child(7),
-    table td:nth-child(7),
-    table th:nth-child(8),
-    table td:nth-child(8) {
-        display: none;
-    }
-
-    /* Ações */
-    .tableAcoes th:nth-child(6),
-    .tableAcoes td:nth-child(6),
-    .tableAcoes th:nth-child(7),
-    .tableAcoes td:nth-child(7),
-    .tableAcoes th:nth-child(8),
-    .tableAcoes td:nth-child(8) {
-        display: none;
     }
 }
 
