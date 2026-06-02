@@ -255,11 +255,22 @@ table {
     border-spacing: 0;
 }
 
-table thead th {        /* cabeçalho (th) de todas as tabelas */
+table thead th {
+    /* cabeçalho (th) de todas as tabelas */
     position: sticky;
     top: 0;
     z-index: 10;
     background: #BFF;
+}
+
+/* Primeira coluna continua fixa à esquerda. */
+table td:first-child {
+    z-index: 20;
+}
+
+/* célula do canto superior esquerdo fica acima de tudo */
+table thead th:first-child {
+    z-index: 40;
 }
 
 .tableAcoes td {
@@ -592,6 +603,10 @@ table tbody tr:hover td {
         border-bottom: 2px solid #00ff88;
         height: auto;
         min-height: 100dvh;
+    }
+
+    .nav-center.active {
+        display: flex;
     }
 
      .nav-center a {

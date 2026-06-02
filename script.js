@@ -14,7 +14,8 @@ const getQuotes = async () => {
 const hamburger = document.getElementById("hamburger");
 const navMenu = document.getElementById("nav-menu");
 if (hamburger && navMenu) {
-    hamburger.addEventListener("click", () => {
+    hamburger.addEventListener("pointerdown", () => {
+        e.stopPropagation();
         navMenu.classList.toggle("active");
     });
 }
@@ -48,8 +49,8 @@ document.addEventListener("click", (e) => {
 // fechar submenu ao clicar no item interno
 if (submenu) {
     submenu.addEventListener('click', () => {
-    submenu.style.display = 'none';
-});
+    submenu.classList.remove('open');
+    });
 }
 
 
