@@ -52,6 +52,7 @@ const palavras = {
 const SNAP_KEY = "last-valid-snapshot";
 const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, palavras );
 
+
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
     console.warn("⚠️ tickers inválidos ou vazios");
