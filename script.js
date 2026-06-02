@@ -14,8 +14,12 @@ const getQuotes = async () => {
 const hamburger = document.getElementById("hamburger");
 const navMenu = document.getElementById("nav-menu");
 if (hamburger && navMenu) {
-    hamburger.addEventListener("pointerdown", () => {
+    hamburger.addEventListener("click", (e) => {
         e.stopPropagation();
+
+        // Teste temporario
+        console.log("hamburger clicado");
+        console.log(navMenu.classList);
         navMenu.classList.toggle("active");
     });
 }
