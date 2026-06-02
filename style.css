@@ -292,7 +292,6 @@ table thead th:first-child {
     width: 38px;
 }
 
-
 table td {
     white-space: nowrap;
 }
@@ -597,22 +596,27 @@ table tbody tr:hover td {
         left: 0;
         width: 100%;
         height: auto;
-        padding: 15px 0;
-        gap: 8px;
+        padding: 6px 0;
+        gap: 1px;
         border-top: 1px solid #1f2937;
         z-index: 999;
         border-bottom: 2px solid #00ff88;
+        transform: translateY(-10px);
+        opacity: 0;
+        transition: all 0.25s ease;
     }
 
     .nav-center.active {
         display: flex;
+        transform: translateY(0);
+        opacity: 1;
     }
 
      .nav-center a {
-        font-size: clamp(20px, 5vw, 24px);
+        font-size: 16px;
         width: 100%;
         text-align: center;
-        padding: 12px 0;
+        padding: 6px 0;
     }
 
     .dropdown {
@@ -640,7 +644,7 @@ table tbody tr:hover td {
     }
 
     .submenu a {
-        font-size: clamp(16px, 3.5vw, 20px);
+        font-size: clamp(13px, 3.1vw, 17px);
         /* Fonte do submenu um pouco menor que o principal */
     }
 
