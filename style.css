@@ -38,8 +38,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;            /* ocupa toda largura da tela que é 99.9% (100% do body) */
-    padding: 12px 30px;     /* Ajuste o padding interno para respiro dos itens */
+    width: 100%;     /* ocupa toda largura da tela que é 99.9% (100% do body) */
+    padding: 12px 30px;  /* Ajuste o padding interno para respiro dos itens */
     background: #0f1115;
     border-bottom: 1px solid #1f2937;
     position: sticky;
@@ -592,17 +592,19 @@ table tbody tr:hover td {
         display: none;
         flex-direction: column;
         background: #0f1115;
-        position: fixed;
-        top: 60px;
-        width: 100%;
+        position: absolute;
+        top: 100%;
         left: 0;
-        padding: 30px 0;
-        gap: 20px;
+        width: 100%;
+        height: auto;
+        min-height: 100dvh;
+
+        padding: 15px 0;
+        gap: 8px;
         border-top: 1px solid #1f2937;
         z-index: 999;
         border-bottom: 2px solid #00ff88;
-        height: auto;
-        min-height: 100dvh;
+
     }
 
     .nav-center.active {

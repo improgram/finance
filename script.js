@@ -16,10 +16,6 @@ const navMenu = document.getElementById("nav-menu");
 if (hamburger && navMenu) {
     hamburger.addEventListener("click", (e) => {
         e.stopPropagation();
-
-        // Teste temporario
-        console.log("hamburger clicado");
-        console.log(navMenu.classList);
         navMenu.classList.toggle("active");
     });
 }
@@ -122,9 +118,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     fetchQuotes();          // 1ª execução assim que a página carrega
 
-    // Configura a atualização automática (2.5 minutos = 366000ms)
+    // Configura att automática (2.0 minutos => mais ou menos 300.000 ms)
     // Executa logo após o intervalo de folga planejado para o backend (xx min)
-    const REFRESH_INTERVAL = 2.5 * 60 * 1000;
+    const REFRESH_INTERVAL = 2.0 * 60 * 1000;
 
     const scheduleNextFetch = () => {
         setTimeout(async () => {
