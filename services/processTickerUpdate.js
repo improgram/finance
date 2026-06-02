@@ -40,9 +40,9 @@ import {
 //-----  ✅ cache estático (executa 1 vez no load do module)
 const palavras = {
   inflação: "#ff5722",
-  Pré: "#76b900",
-  fixado: "#76b900",
-  Selic: "#00c853",
+  Pré: "#34495e",
+  fixado: "#34495e",
+  Selic: "#a47864",
   Curto: "#fe7c8c",
   Medio: "#a66bff",
   Longo: "#a43679",
