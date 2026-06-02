@@ -17,6 +17,11 @@ if (hamburger && navMenu) {
     hamburger.addEventListener("click", (e) => {
         e.stopPropagation();
         navMenu.classList.toggle("active");
+
+        hamburger.textContent =
+        navMenu.classList.contains("active")
+            ? "✕"
+            : "☰";
     });
 }
 
@@ -34,6 +39,7 @@ if (projetos && submenu) {
 // Nao deixa quebrar se DOM mudar dinamicamente
 document.addEventListener("click", (e) => {
     const target = e.target;
+
     // Evitar quebrar se navMenu ou hamburger forem null
     if (!submenu || !navMenu || !hamburger) return;
 
@@ -43,6 +49,7 @@ document.addEventListener("click", (e) => {
         !hamburger.contains(target)
     ) {
         navMenu.classList.remove("active");
+        hamburger.textContent = "☰";
     }
 });
 
@@ -52,6 +59,15 @@ if (submenu) {
     submenu.classList.remove('open');
     });
 }
+
+// fechar automaticamente o menu quando o usuário escolher uma opção
+document.querySelectorAll("#nav-menu a").forEach(link => {
+    link.addEventListener("click", () => {
+        navMenu.classList.remove("active");
+        // fechar hamburguer quando clicando fora
+        hamburger.textContent = "☰";
+    });
+});
 
 
 // applyFilters chama state
