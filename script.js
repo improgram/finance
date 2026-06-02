@@ -88,6 +88,16 @@ const state = {
 }
 
 
+// UI STATE (estado efêmero de interface)
+const uiState = {
+    tooltip: {
+        timer: null,
+        symbol: null,
+        row: null
+    }
+};
+
+
 const filterRows = (data, map, termo) => {
     const normalizeTerm = termo?.trim().toLowerCase() || '';
     data.forEach(item => {
@@ -356,6 +366,12 @@ const updateTimestamp = (meta) => {
             : `Atualizado em ${new Date().toLocaleTimeString()}`;
 };
 
+// cria tooltip DOM
+const bbTooltip = document.createElement("div");
+        bbTooltip.className = "bb-tooltip hidden";
+        document.body.appendChild(bbTooltip);
+
+
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
 // duração do flash = 20 minutos
@@ -378,7 +394,12 @@ const applyFlashEffect = (el, direction) => {
     el.classList.add('flash-gold');
 
     // limpa timeout antigo
-    if (el.flashTimeout) { clearTimeout(el.flashTimeout); }
+    if (el.flashTimeout) {
+        clearTimeout(el.flashTimeout);
+    }
+    if (el.flashRemoveTimeout) {
+        clearTimeout(el.flashRemoveTimeout);
+    }
 
     // PASSO 2 → troca para verde/vermelho
     el.flashTimeout = setTimeout(() => {
@@ -507,6 +528,82 @@ const updateAcaoRow = (row, acao) => {
 };
 
 
+// monta o mini-card (ETF_INFO + data backend)
+const renderTooltip = (symbol, data, event) => {
+    const info = typeof ETF_INFO !== "undefined" ? ETF_INFO[symbol] : {};
+    const price = data?.regularMarketPrice;
+    const change = data?.regularMarketChangePercent ?? data?.changePercent;
+    bbTooltip.innerHTML = `
+        <div class="title">
+            ${symbol}
+        </div>
+        <div class="price">
+            R$ ${formatNumber(price)}
+        </div>
+        <div class="change" style="color:${change >= 0 ? '#00d084' : '#ff4d4d'}">
+            ${formatPercent(change)}
+        </div>
+        <div class="desc">
+            ${info.description || data.longName || "Sem descrição"}
+        </div>
+    `;
+    bbTooltip.classList.add("show");
+    bbTooltip.classList.remove("hidden");
+    moveTooltip(event);
+};
+
+// Seguir Mouse (fixo estilo Bloomberg)
+const moveTooltip = (event) => {
+    const offset = 15;
+    let x = event.clientX + offset;
+    let y = event.clientY + offset;
+    const rect = bbTooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) {
+        x = event.clientX - rect.width - offset;
+    }
+    if (y + rect.height > window.innerHeight) {
+        y = event.clientY - rect.height - offset;
+    }
+    bbTooltip.style.left = `${x}px`;
+    bbTooltip.style.top = `${y}px`;
+};
+
+// FUNÇÃO PRINCIPAL (hover control)
+const attachTooltip = (row, symbol, getDataFn) => {
+    if (row.dataset.tooltipBound === "true") return;
+        row.dataset.tooltipBound = "true";
+
+    row.addEventListener("mouseenter", (e) => {
+        // cancela qualquer tooltip anterior
+        uiState.tooltip.symbol = symbol;
+        uiState.tooltip.row = row;
+        uiState.tooltip.timer = setTimeout(() => {
+            const data = getDataFn(symbol);
+            // segurança: evita tooltip “fantasma”
+            if (!data || uiState.tooltip.symbol !== symbol) return;
+            renderTooltip(symbol, data, e);
+        }, 400); // delay Bloomberg
+    });
+
+    row.addEventListener("mouseleave", () => {
+        clearTimeout(uiState.tooltip.timer);
+        uiState.tooltip.timer = null;
+        if (uiState.tooltip.symbol === symbol) {
+            bbTooltip.classList.remove("show");
+            bbTooltip.classList.add("hidden");
+            bbTooltip.innerHTML = "";
+
+            uiState.tooltip.symbol = null;
+            uiState.tooltip.row = null;
+        }
+    });
+    row.addEventListener("mousemove", (e) => {
+        if (bbTooltip.classList.contains("show")) {
+            moveTooltip(e);
+        }
+    });
+};
+
 // CAMADA 7 — CONTROLLER (orquestradores) → DECIDE criar ou atualizar
 // somente Main
 // decidem quando limpar, reaproveitar e chamar a view
@@ -608,6 +705,9 @@ const renderOrUpdateEtfs = (data, container, map) => {
             fragment.appendChild(row);
         }
         updateEtfRow(row, etf);
+        attachTooltip(row, etf.symbol, (symbol) =>
+            state.etfs.find(e => e.symbol === symbol)
+        );
     });
     if (container) {
         container.appendChild(fragment);
@@ -625,11 +725,16 @@ const renderOrUpdateAcoes = (data, container, map) => {
             fragment.appendChild(row);
         }
         updateAcaoRow(row, acao);
+        attachTooltip(row, acao.symbol, (symbol) =>
+            state.acoes.find(a => a.symbol === symbol)
+        );
     });
     if (container) {
         container.appendChild(fragment);
     }
 };
+
+
 
 
 // Estado final da arquitetura => separação por camadas
