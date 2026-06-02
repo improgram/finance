@@ -597,14 +597,11 @@ table tbody tr:hover td {
         left: 0;
         width: 100%;
         height: auto;
-        min-height: 100dvh;
-
         padding: 15px 0;
         gap: 8px;
         border-top: 1px solid #1f2937;
         z-index: 999;
         border-bottom: 2px solid #00ff88;
-
     }
 
     .nav-center.active {
@@ -738,28 +735,7 @@ table tbody tr:hover td {
 }
 
 
-/*--------MOBILE RESPONSIVO-------------------*/
-@media (max-width: 600px) {
-    .nav-center {
-        gap: 12px;
-        justify-content: center;
-    }
-
-    .nav-center a {
-        font-size: 14px;
-    }
-
-    .nav-right {
-        display: none;
-    }
-
-    .nav-search {
-        width: 100%;
-        max-width: 300px;
-    }
-}
-
-/* Mobile não usa hover direito. */
+/* Mobile não usa hover corretamente */
 @media (hover: none) {
     table tbody tr:hover td {
         background-color: inherit;
