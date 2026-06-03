@@ -367,6 +367,10 @@ const updateTimestamp = (meta) => {
 };
 
 // cria tooltip DOM
+// Tooltip  usa sempre os dados presentes em state.etfs e state.acoes
+// qualquer campo que você queira exibir no tooltip precisa primeiro:
+// Backend Enviar o Json
+// function Normalize padroniza dados de um ativo
 const bbTooltip = document.createElement("div");
         bbTooltip.className = "bb-tooltip hidden";
         document.body.appendChild(bbTooltip);
@@ -734,6 +738,12 @@ const renderOrUpdateAcoes = (data, container, map) => {
     }
 };
 
+// google analytics
+window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-SYDVYX3NVZ');
 
 
 
