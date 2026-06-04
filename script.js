@@ -513,8 +513,11 @@ const updateCommonRow = (row, data) => {
         if (typeof price === 'number') {
             const belowMin7 = typeof min7 === 'number' && price <= min7;
             const belowMin30 = typeof min30 === 'number' && price <= min30;
-            const atMin1y = !!elMin1y && typeof min1y === 'number' && price <= min1y;
-            const atMax1y = typeof max1y === 'number' && price >= max1y;
+            const roundedPrice = Number(price.toFixed(2));
+            const roundedMin1y = Number(min1y?.toFixed(2));
+            const roundedMax1y = Number(max1y?.toFixed(2));
+            const atMin1y = !!elMin1y && roundedPrice <= roundedMin1y;
+            const atMax1y = roundedPrice >= roundedMax1y;
 
             if (atMax1y) {
                 elPrice.classList.add('success-price-hard');
