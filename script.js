@@ -175,6 +175,18 @@ const createEtfRow = (symbol) => {
         <td class="var30"></td>
         <td class="max"></td>
     `;
+    row.cellsRef = {
+        symbol: row.querySelector('.symbol'),
+        description: row.querySelector('.description'),
+        price: row.querySelector('.price'),
+        var: row.querySelector('.var'),
+        range: row.querySelector('.range'),
+        min7: row.querySelector('.min7'),
+        volume: row.querySelector('.volume'),
+        avgVolume: row.querySelector('.avg-volume'),
+        var30: row.querySelector('.var30'),
+        max: row.querySelector('.max')
+    };
     return row;
 };
 
@@ -194,6 +206,18 @@ const createAcaoRow = (symbol) => {
         <td class="min1y"> </td>
         <td class="max"> </td>
     `;
+    row.cellsRef = {
+        logo: row.querySelector('.logo'),
+        name: row.querySelector('.name'),
+        price: row.querySelector('.price'),
+        var: row.querySelector('.var'),
+        range: row.querySelector('.range'),
+        min7: row.querySelector('.min7'),
+        min30: row.querySelector('.min30'),
+        var30: row.querySelector('.var30'),
+        min1y: row.querySelector('.min1y'),
+        max: row.querySelector('.max')
+    };
     return row;
 };
 
@@ -306,7 +330,6 @@ const isMarketOpen = () => {
     return isWeekday && time >= open && time <= close;
 };
 
-
 // cores automáticas (verde/vermelho)
 function aplicarCor(valor) {
     if (valor > 3) return "strong-positive";
@@ -315,7 +338,6 @@ function aplicarCor(valor) {
     if (valor < 0) return "negative";
     return "neutral";
 }
-
 
 // 1° carga = limpa o DOM  /   mesmo snap = só att valores
 // ticket mudou ordem = rebuild    / preço mudou = update incremental
@@ -447,12 +469,23 @@ const updatePriceCell = (priceEl, varEl, newPriceRaw, prevPrice) => {
 }
 
 const updateCommonRow = (row, data) => {
-    const elSymbol = row.querySelector('.symbol');
-        if (elSymbol) elSymbol.textContent = data.symbol;
+    const {
+        symbol: elSymbol,
+        price: elPrice,
+        var: elVar,
+        range: elRange,
+        min7: elMin7,
+        min30: elMin30,
+        min1y: elMin1y,
+        var30: elVar30,
+        max: elMax,
+        volume: elVolume,
+        avgVolume: elAvgVolume
+    } = row.cellsRef;
+
+    if (elSymbol) elSymbol.textContent = data.symbol;
     const variacao = getVariacao(data);
     const variacao30d = getVariacao30d(data);
-    const elPrice = row.querySelector('.price');
-    const elVar = row.querySelector('.var');
     if (elVar) {
         elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
         elVar.classList.remove('positive','negative','strong-positive','strong-negative');
@@ -471,85 +504,67 @@ const updateCommonRow = (row, data) => {
         elPrice.classList.remove(
             'danger-price-soft', 'danger-price-hard', 'danger-price-year', 'success-price-hard'
         );
-        elPrice.classList.remove('danger-price-soft', 'danger-price-hard');
-        const elMin7 = row.querySelector('.min7');
-        if (elMin7) elMin7.classList.remove('danger-price-soft', 'danger-price-hard');
-        const elMin30 = row.querySelector('.min30');
-        if (elMin30) elMin30.classList.remove('danger-price-soft', 'danger-price-hard');
-        const elMin1y = row.querySelector('.min1y');
-        if (elMin1y) elMin1y.classList.remove('danger-price-year');
-        const elMax = row.querySelector('.max');
-        if (elMax) elMax.classList.remove('success-price-hard');
+
+        elMin7?.classList.remove( 'danger-price-soft', 'danger-price-hard' );
+        elMin30?.classList.remove( 'danger-price-soft', 'danger-price-hard' );
+        elMin1y?.classList.remove( 'danger-price-year' );
+        elMax?.classList.remove( 'success-price-hard' );
+
         if (typeof price === 'number') {
             const belowMin7 = typeof min7 === 'number' && price <= min7;
             const belowMin30 = typeof min30 === 'number' && price <= min30;
-            const atMin1y = typeof min1y === 'number' && price <= min1y;
+            const atMin1y = !!elMin1y && typeof min1y === 'number' && price <= min1y;
             const atMax1y = typeof max1y === 'number' && price >= max1y;
+
             if (atMax1y) {
                 elPrice.classList.add('success-price-hard');
-                if (elMax) {
-                    elMax.classList.add('success-price-hard');
-                }
+                elMax?.classList.add('success-price-hard');
             }
+
             else if (atMin1y) {
                 elPrice.classList.add('danger-price-year');
-                if (elMin1y) {
-                    elMin1y.classList.add('danger-price-year');
-                }
+                elMin1y?.classList.add('danger-price-year');
             }
+
             else if (belowMin30) {
                 elPrice.classList.add('danger-price-hard');
-                if (elMin30) {
-                    elMin30.classList.add('danger-price-hard');
-                }
+                elMin30?.classList.add('danger-price-hard');
             }
+
             else if (belowMin7) {
                 elPrice.classList.add('danger-price-soft');
-                if (elMin7) {
-                    elMin7.classList.add('danger-price-soft');
-                }
+                elMin7?.classList.add('danger-price-soft');
             }
         }
     }   // Fim da elPrice
 
-    const elRange = row.querySelector('.range');
-        if (elRange) elRange.innerHTML = getDayRange(data);
-    const elMin7 = row.querySelector('.min7');
-        if (elMin7) elMin7.textContent = formatNumber(data.min7d);
-    const elMin30 = row.querySelector('.min30');
-        if (elMin30) elMin30.textContent = formatNumber(data.min30d);
-    const elVar30 = row.querySelector('.var30');
-        if (elVar30) {
-            elVar30.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
-            elVar30.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
-        }
-    const elMax = row.querySelector('.max');
-        if(elMax) elMax.textContent = formatNumber(data.fiftyTwoWeekHigh);
-
-    const elVolume = row.querySelector('.volume');
+    if (elRange) elRange.innerHTML = getDayRange(data);
+    if (elMin7) elMin7.textContent = formatNumber(data.min7d);
+    if (elMin30) elMin30.textContent = formatNumber(data.min30d);
+    if (elVar30) {
+        elVar30.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
+        elVar30.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
+    }
+    if(elMax) elMax.textContent = formatNumber(data.fiftyTwoWeekHigh);
     if (elVolume) {elVolume.textContent = formatVolume(data.volume);}
-
-    const elAvgVolume = row.querySelector('.avg-volume');
     if (elAvgVolume) {elAvgVolume.textContent = formatVolume(data.averageVolume);}
 };
 // FiM da updateCommonRow
 
-
+// description é a coluna exclusiva da tabela ETFs
 const updateEtfRow = (row, etf) => {
     updateCommonRow(row, etf);
-    const elDescription = row.querySelector('.description');
+    const { description: elDescription } = row.cellsRef;
         // Necessario innerHTML  e nao textContent para o texto aceitar mudança da cor via script
         if (elDescription) elDescription.innerHTML = etf.description;
 };
 
-
+// Logo + nome da empresa + preço minimo de 1 ano => exclusivos da tabela açoes
 const updateAcaoRow = (row, acao) => {
     updateCommonRow(row, acao);
-    const elName = row.querySelector('.name');
+    const { name: elName, min1y: elMin1y, logo } = row.cellsRef;
         if (elName) elName.textContent = acao.longName;
-    const elMin1y = row.querySelector('.min1y');    // Minima do ultimo ano somente
         if (elMin1y) elMin1y.textContent = formatNumber(acao.fiftyTwoWeekLow);
-    const logo = row.querySelector('.logo');
         if (logo) {logo.src = acao.logourl || `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;}
 };
 
