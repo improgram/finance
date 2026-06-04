@@ -9,7 +9,6 @@ export const getFormattedDateTime = () =>
     timeStyle: "medium"
   }).format(new Date());
 
-
 export const getCacheTTL = () => {
   const hour = Number(
     new Intl.DateTimeFormat("pt-BR", {

@@ -232,7 +232,7 @@ export const fetchBrapi = async (symbol, token, store ) => {
   }
 };
 
-// ----4. fetchAlphaVantage = não é boa pra histórico intraday BR e
+// ---- 4. fetchAlphaVantage = não é boa pra histórico intraday BR e
 // ---- ❌ tem rate limit MUITO agressivo (5 req/min free)
 export const fetchAlphaVantage = async (symbol, apiKey, store) => {
   try {

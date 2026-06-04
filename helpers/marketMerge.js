@@ -8,11 +8,7 @@
  // => entra o MERGE
 
 
-import {
-    formatLongName,
-    getValidHist
-} from "./helpers.js";
-
+import { formatLongName, getValidHist } from "./helpers.js";
 
 // Função que normaliza e padroniza dados de um ativo
 export const normalizeMarketData = ({ symbol, data }) => {

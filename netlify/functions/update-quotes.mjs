@@ -5,6 +5,8 @@
 // Coletor Roda via CRON, busca no Yahoo + Brapi + Alpha Vantage + real-time-finance-data
 // CRON funciona em: Netlify Functions (Node) e ❌ NÃO funciona em: Edge Functions
 // e salva cada ticker individualmente no Blobs
+// functions/ → sobe 1 nível (../)
+// depois sobe mais 1 (../../) até raiz
 
 // update-quotes.js => o orquestrador
 // ---------------- CONFIG ----------------
@@ -16,19 +18,11 @@ if (typeof getStore !== "function") {
   throw new Error("❌ Netlify Blobs SDK inválido ou incompatível");
 }
 
-import {
-  STORE_NAME, LOCK_KEY, LOCK_TTL, MAX_ITEMS
-} from "../../helpers/constants.js";
-// functions/ → sobe 1 nível (../)
-// depois sobe mais 1 (../../) até raiz
-
-import { sleep, shouldRunNow, getTickers, safeSet, safeGet
-} from "../../helpers/helpers.js";
-
+import { STORE_NAME, LOCK_KEY, LOCK_TTL, MAX_ITEMS } from "../../helpers/constants.js";
+import { sleep, shouldRunNow, getTickers, safeSet, safeGet } from "../../helpers/helpers.js";
 import { processTickerUpdate } from "../../services/processTickerUpdate.js";
 
 const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
-
 
 // ------ createResponse padrao para os Return Json
 const createResponse = (body, status = 200) => {
@@ -79,7 +73,6 @@ const isAdmin = (request) => {
   return Boolean(isCron || isInternal);
 };
 
-
 // ---------------- MAIN => antigo handler ----------------
 // considerar o Node 18+ e ambiente for ESM padrão de módulos ES (export default / Netlify Functions V2)
 
@@ -106,7 +99,7 @@ export default async (request, context) => {
 
   if (!runNow) {
     return createResponse({
-    skipped: "Função decidiu NÃO rodar o pipeline"
+    skipped: "Função runNow decidiu NÃO rodar o pipeline"
     });
   }
 

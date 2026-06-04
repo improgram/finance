@@ -6,17 +6,8 @@
 // cache+providers+merge+fallback+cálculo+persistência+snapshot+validação
 // Dentro do processTickerUpdate fica: fetch + fallback + seleção de fonte + histórico bruto
 
-import {
-  MAX_ITEMS,
-  COOLDOWN_429,
-  ETF_INFO
-} from "../helpers/constants.js";
-
-import {
-  normalizeMarketData,
-  mergeHistoricalData
-} from "../helpers/marketMerge.js";
-
+import { MAX_ITEMS, COOLDOWN_429, ETF_INFO } from "../helpers/constants.js";
+import { normalizeMarketData, mergeHistoricalData } from "../helpers/marketMerge.js";
 import { fetchMarketData } from "../helpers/providers.js";
 import { getGlobal429 } from "../helpers/cache.js";
 import { getNextTicker, validateTicker} from "../helpers/tickers.js";
@@ -51,7 +42,6 @@ const palavras = {
 
 const SNAP_KEY = "last-valid-snapshot";
 const etfInfoFormatado = destacarPalavraEmTodoOObjeto( ETF_INFO, palavras );
-
 
 export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
@@ -107,7 +97,6 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
 
   // ------------- Bloco do Fetch ------------------------------
   const result = await fetchMarketData(symbol, store, apiToken);
-
   let data = result?.data;
   let source = result?.source;
 
@@ -142,7 +131,7 @@ export const processTickerUpdate  = async ( { store, apiToken, tickers } ) => {
   const unchangedPrice = Number.isFinite(previousPrice) && Number.isFinite(currentPrice)
       && Math.abs(previousPrice - currentPrice) < 0.0001;
 
-  // ------ Utiliza o return do calculaMetrics
+  // ------ Utiliza o return do calculaMetrics -----------------------------------
   const calcResult = calculateMetrics({
     mergedData,
     mergedHist,

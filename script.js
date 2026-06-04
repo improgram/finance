@@ -461,35 +461,56 @@ const updateCommonRow = (row, data) => {
     }
 
     if (elPrice) {
-    updatePriceCell(elPrice, elVar, data.regularMarketPrice, data.prevPrice );
-    const price = data.regularMarketPrice;
-    const min7 = data.min7d;
-    const min30 = data.min30d;
-
-    // limpa classes
-    elPrice.classList.remove('danger-price-soft', 'danger-price-hard');
-
-    const elMin7 = row.querySelector('.min7');
-    const elMin30 = row.querySelector('.min30');
-
-    if (elMin7) elMin7.classList.remove('danger-price-soft', 'danger-price-hard');
-    if (elMin30) elMin30.classList.remove('danger-price-soft', 'danger-price-hard');
-
-    if (typeof price === 'number') {
-        const belowMin30 = typeof min30 === 'number' && price < min30;
-        const belowMin7 = typeof min7 === 'number' && price < min7;
-        // 🔴 forte (min30)
-        if (belowMin30) {
-            elPrice.classList.add('danger-price-hard');
-            if (elMin30) elMin30.classList.add('danger-price-hard');
+        updatePriceCell(elPrice, elVar, data.regularMarketPrice, data.prevPrice );
+        const price = data.regularMarketPrice;
+        const min7 = data.min7d;
+        const min30 = data.min30d;
+        const min1y = data.fiftyTwoWeekLow;
+        const max1y = data.fiftyTwoWeekHigh;
+        // limpa todas classes
+        elPrice.classList.remove(
+            'danger-price-soft', 'danger-price-hard', 'danger-price-year', 'success-price-hard'
+        );
+        elPrice.classList.remove('danger-price-soft', 'danger-price-hard');
+        const elMin7 = row.querySelector('.min7');
+        if (elMin7) elMin7.classList.remove('danger-price-soft', 'danger-price-hard');
+        const elMin30 = row.querySelector('.min30');
+        if (elMin30) elMin30.classList.remove('danger-price-soft', 'danger-price-hard');
+        const elMin1y = row.querySelector('.min1y');
+        if (elMin1y) elMin1y.classList.remove('danger-price-year');
+        const elMax = row.querySelector('.max');
+        if (elMax) elMax.classList.remove('success-price-hard');
+        if (typeof price === 'number') {
+            const belowMin7 = typeof min7 === 'number' && price <= min7;
+            const belowMin30 = typeof min30 === 'number' && price <= min30;
+            const atMin1y = typeof min1y === 'number' && price <= min1y;
+            const atMax1y = typeof max1y === 'number' && price >= max1y;
+            if (atMax1y) {
+                elPrice.classList.add('success-price-hard');
+                if (elMax) {
+                    elMax.classList.add('success-price-hard');
+                }
+            }
+            else if (atMin1y) {
+                elPrice.classList.add('danger-price-year');
+                if (elMin1y) {
+                    elMin1y.classList.add('danger-price-year');
+                }
+            }
+            else if (belowMin30) {
+                elPrice.classList.add('danger-price-hard');
+                if (elMin30) {
+                    elMin30.classList.add('danger-price-hard');
+                }
+            }
+            else if (belowMin7) {
+                elPrice.classList.add('danger-price-soft');
+                if (elMin7) {
+                    elMin7.classList.add('danger-price-soft');
+                }
+            }
         }
-        // 🟠 leve (min7)
-        else if (belowMin7) {
-            elPrice.classList.add('danger-price-soft');
-            if (elMin7) elMin7.classList.add('danger-price-soft');
-        }
-    }
-}
+    }   // Fim da elPrice
 
     const elRange = row.querySelector('.range');
         if (elRange) elRange.innerHTML = getDayRange(data);
@@ -511,6 +532,7 @@ const updateCommonRow = (row, data) => {
     const elAvgVolume = row.querySelector('.avg-volume');
     if (elAvgVolume) {elAvgVolume.textContent = formatVolume(data.averageVolume);}
 };
+// FiM da updateCommonRow
 
 
 const updateEtfRow = (row, etf) => {

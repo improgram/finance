@@ -460,6 +460,21 @@ table tbody tr:hover td {
     font-weight: 800;
 }
 
+.danger-price-year {
+    background: #7f0000;
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 0 12px rgba(127,0,0,.9);
+}
+
+.success-price-hard {
+    background: #00c853;
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 0 10px rgba(0,200,83,.8);
+}
+
+
 /* A mágica da animação: ela começa intensa e volta ao normal */
 @keyframes flash-pulse {
     0% {
@@ -496,6 +511,7 @@ table tbody tr:hover td {
         filter 0.35s ease;
         will-change: background-color, box-shadow, filter;
 }
+
 
 /* brilho verde */
 @keyframes pulseGreen {
