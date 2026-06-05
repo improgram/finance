@@ -582,9 +582,11 @@ const updateAcaoRow = (row, acao) => {
     if (elLogo) {
         elLogo.src =
             acao.logourl ||
-            elLogo.alt = acao.symbol ||
             `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;
+
+        elLogo.alt = acao.symbol || '';
     }
+
     elMin7 && (elMin7.textContent = formatNumber(acao.min7d));
     elMin30 && (elMin30.textContent = formatNumber(acao.min30d));
     elMin1y && (elMin1y.textContent = formatNumber(acao.fiftyTwoWeekLow));
