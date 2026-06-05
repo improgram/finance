@@ -468,19 +468,14 @@ const updatePriceCell = (priceEl, varEl, newPriceRaw, prevPrice) => {
     }
 }
 
+// APENAS dados comuns) Responsabilidade: símbolo+ variação + preço base
 const updateCommonRow = (row, data) => {
     const {
         symbol: elSymbol,
         price: elPrice,
         var: elVar,
         range: elRange,
-        min7: elMin7,
-        min30: elMin30,
-        min1y: elMin1y,
         var30: elVar30,
-        max: elMax,
-        volume: elVolume,
-        avgVolume: elAvgVolume
     } = row.cellsRef;
 
     if (elSymbol) elSymbol.textContent = data.symbol;
@@ -488,87 +483,112 @@ const updateCommonRow = (row, data) => {
     const variacao30d = getVariacao30d(data);
     if (elVar) {
         elVar.textContent = variacao !== null ? formatPercent(variacao) : '---';
-        elVar.classList.remove('positive','negative','strong-positive','strong-negative');
-        const cor = aplicarCor(variacao);
-        if (cor) elVar.classList.add(cor);
+        elVar.className = `var ${aplicarCor(variacao) || ''}`;
     }
-
     if (elPrice) {
         updatePriceCell(elPrice, elVar, data.regularMarketPrice, data.prevPrice );
-        const price = data.regularMarketPrice;
-        const min7 = data.min7d;
-        const min30 = data.min30d;
-        const min1y = data.fiftyTwoWeekLow;
-        const max1y = data.fiftyTwoWeekHigh;
-        // limpa todas classes
-        elPrice.classList.remove(
-            'danger-price-soft', 'danger-price-hard', 'danger-price-year', 'success-price-hard'
-        );
-
-        elMin7?.classList.remove( 'danger-price-soft', 'danger-price-hard' );
-        elMin30?.classList.remove( 'danger-price-soft', 'danger-price-hard' );
-        elMin1y?.classList.remove( 'danger-price-year' );
-        elMax?.classList.remove( 'success-price-hard' );
-
-        if (typeof price === 'number') {
-            const belowMin7 = typeof min7 === 'number' && price <= min7;
-            const belowMin30 = typeof min30 === 'number' && price <= min30;
-            const roundedPrice = Number(price.toFixed(2));
-            const roundedMin1y = Number(min1y?.toFixed(2));
-            const roundedMax1y = Number(max1y?.toFixed(2));
-            const atMin1y = !!elMin1y && roundedPrice <= roundedMin1y;
-            const atMax1y = roundedPrice >= roundedMax1y;
-
-            if (atMax1y) {
-                elPrice.classList.add('success-price-hard');
-                elMax?.classList.add('success-price-hard');
-            }
-
-            else if (atMin1y) {
-                elPrice.classList.add('danger-price-year');
-                elMin1y?.classList.add('danger-price-year');
-            }
-
-            else if (belowMin30) {
-                elPrice.classList.add('danger-price-hard');
-                elMin30?.classList.add('danger-price-hard');
-            }
-
-            else if (belowMin7) {
-                elPrice.classList.add('danger-price-soft');
-                elMin7?.classList.add('danger-price-soft');
-            }
-        }
-    }   // Fim da elPrice
-
+    }
     if (elRange) elRange.innerHTML = getDayRange(data);
-    if (elMin7) elMin7.textContent = formatNumber(data.min7d);
-    if (elMin30) elMin30.textContent = formatNumber(data.min30d);
     if (elVar30) {
         elVar30.textContent = variacao30d !== null ? formatPercent(variacao30d) : '---';
         elVar30.className = `var30 ${variacao30d !== null ? aplicarCor(variacao30d) : ''}`;
     }
-    if(elMax) elMax.textContent = formatNumber(data.fiftyTwoWeekHigh);
-    if (elVolume) {elVolume.textContent = formatVolume(data.volume);}
-    if (elAvgVolume) {elAvgVolume.textContent = formatVolume(data.averageVolume);}
 };
 // FiM da updateCommonRow
 
-// description é a coluna exclusiva da tabela ETFs
-const updateEtfRow = (row, etf) => {
-    updateCommonRow(row, etf);
-    const { description: elDescription } = row.cellsRef;
-        // Necessario innerHTML  e nao textContent para o texto aceitar mudança da cor via script
-        if (elDescription) elDescription.innerHTML = etf.description;
+// function só para regras de preço
+const applyPriceRules = (row, data) => {
+    const {
+        price: elPrice,
+        min7: elMin7,
+        min30: elMin30,
+        min1y: elMin1y,
+        max: elMax
+    } = row.cellsRef;
+
+    if (!elPrice) return;
+    const norm = v => typeof v === 'number' ? Math.round(v * 100) / 100 : null;
+    const priceN = norm(data.regularMarketPrice);
+    if (priceN === null) return;
+
+    const min7N = norm(data.min7d);
+    const min30N = norm(data.min30d);
+    const min1yN = norm(data.fiftyTwoWeekLow);
+    const max1yN = norm(data.fiftyTwoWeekHigh);
+    elPrice.classList.remove('danger-price-soft', 'danger-price-hard', 'danger-price-year', 'success-price-hard');
+    elMin7?.classList.remove('danger-price-soft', 'danger-price-hard' );
+    elMin30?.classList.remove('danger-price-soft', 'danger-price-hard' );
+    elMin1y?.classList.remove( 'danger-price-year' );
+    elMax?.classList.remove( 'success-price-hard' );
+
+    const belowMin7 = min7N !== null && priceN <= min7N;
+    const belowMin30 = min30N !== null && priceN <= min30N;
+    const atMin1y = min1yN !== null && priceN <= min1yN;
+    const atMax1y = max1yN !== null && priceN >= max1yN;
+
+    if (atMax1y) {
+        elPrice.classList.add('success-price-hard');
+        elMax?.classList.add('success-price-hard');
+    } else if (atMin1y) {
+        elPrice.classList.add('danger-price-year');
+        elMin1y?.classList.add('danger-price-year');
+    } else if (belowMin30) {
+        elPrice.classList.add('danger-price-hard');
+        elMin30?.classList.add('danger-price-hard');
+    } else if (belowMin7) {
+        elPrice.classList.add('danger-price-soft');
+        elMin7?.classList.add('danger-price-soft');
+    }
 };
 
+
+// description é a coluna exclusiva da tabela ETFs
+// chama updateCommonRow + updatePriceLogic (versão ETF)
+// innerHTML e nao textContent para o texto aceitar mudança da cor via script
+const updateEtfRow = (row, etf) => {
+    updateCommonRow(row, etf);
+    applyPriceRules(row, etf);
+
+    const {
+        description: elDescription,
+        min7: elMin7,
+        max: elMax,
+        volume: elVolume,
+        avgVolume: elAvgVolume
+    } = row.cellsRef;
+
+    if (elDescription) { elDescription.innerHTML = etf.description; };
+    elMin7 && (elMin7.textContent = formatNumber(etf.min7d));
+    elMax && (elMax.textContent = formatNumber(etf.fiftyTwoWeekHigh));
+    elVolume && (elVolume.textContent = formatVolume(etf.volume));
+    elAvgVolume && (elAvgVolume.textContent = formatVolume(etf.averageVolume));
+};
+
+
 // Logo + nome da empresa + preço minimo de 1 ano => exclusivos da tabela açoes
+// chama updateCommonRow + updatePriceLogic (versão ações)
 const updateAcaoRow = (row, acao) => {
     updateCommonRow(row, acao);
-    const { name: elName, min1y: elMin1y, logo } = row.cellsRef;
-        if (elName) elName.textContent = acao.longName;
-        if (elMin1y) elMin1y.textContent = formatNumber(acao.fiftyTwoWeekLow);
-        if (logo) {logo.src = acao.logourl || `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;}
+    applyPriceRules(row, acao);
+    const {
+        name: elName,
+        logo: elLogo,
+        min7: elMin7,
+        min30: elMin30,
+        min1y: elMin1y,
+        max: elMax
+    } = row.cellsRef;
+    elName && (elName.textContent = acao.longName);
+    if (elLogo) {
+        elLogo.src =
+            acao.logourl ||
+            elLogo.alt = acao.symbol ||
+            `https://via.placeholder.com/24?text=${acao.symbol || 'X'}`;
+    }
+    elMin7 && (elMin7.textContent = formatNumber(acao.min7d));
+    elMin30 && (elMin30.textContent = formatNumber(acao.min30d));
+    elMin1y && (elMin1y.textContent = formatNumber(acao.fiftyTwoWeekLow));
+    elMax && (elMax.textContent = formatNumber(acao.fiftyTwoWeekHigh));
 };
 
 
