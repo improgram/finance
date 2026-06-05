@@ -401,7 +401,7 @@ const bbTooltip = document.createElement("div");
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
 // duração do flash = 5 minutos
-const FLASH_DURATION = 5 * 60 * 1000;
+const FLASH_DURATION = 3 * 60 * 1000;
 
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
@@ -434,7 +434,7 @@ const applyFlashEffect = (el, direction) => {
                 'flash-down'
             );
         }, FLASH_DURATION);
-    }, 10500); // duração do gold
+    }, 15000); // duração do gold
 };
 
 // flash + otimização real
@@ -523,16 +523,12 @@ const applyPriceRules = (row, data) => {
     const atMin1y = dayLowN !== null && min1yN !== null && dayLowN <= (min1yN + TOL);
     const atMax1y = dayHighN !== null && max1yN !== null && dayHighN >= (max1yN - TOL);
     if (atMax1y) {
-        elPrice.classList.add('success-price-hard');
         elMax?.classList.add('success-price-hard');
     } else if (atMin1y) {
-        elPrice.classList.add('danger-price-year');
         elMin1y?.classList.add('danger-price-year');
     } else if (belowMin30) {
-        elPrice.classList.add('danger-price-hard');
         elMin30?.classList.add('danger-price-hard');
     } else if (belowMin7) {
-        elPrice.classList.add('danger-price-soft');
         elMin7?.classList.add('danger-price-soft');
     }
 };
