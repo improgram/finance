@@ -400,25 +400,20 @@ const bbTooltip = document.createElement("div");
 
 // CAMADA 6 - VIEW UPDATE COMPLETO (FULL SYNC) = → atualiza DOM
 
-// duração do flash = 20 minutos
-const FLASH_DURATION = 20 * 60 * 1000;
+// duração do flash = 5 minutos
+const FLASH_DURATION = 5 * 60 * 1000;
 
 // aplica/remover efeito visual prolongado
 const applyFlashEffect = (el, direction) => {
-
     if (!el) return;
     console.log('FLASH:', el, direction, el.className);
     const finalClass = direction === 'up' ? 'flash-up' : 'flash-down';
-
     // limpa classes anteriores
     el.classList.remove('flash-gold', 'flash-up', 'flash-down' );
-
     // força reflow
     void el.offsetWidth;
-
     // PASSO 1 → flash dourado curto
     el.classList.add('flash-gold');
-
     // limpa timeout antigo
     if (el.flashTimeout) {
         clearTimeout(el.flashTimeout);
@@ -426,7 +421,6 @@ const applyFlashEffect = (el, direction) => {
     if (el.flashRemoveTimeout) {
         clearTimeout(el.flashRemoveTimeout);
     }
-
     // PASSO 2 → troca para verde/vermelho
     el.flashTimeout = setTimeout(() => {
         el.classList.remove('flash-gold');
