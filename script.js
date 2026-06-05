@@ -523,9 +523,11 @@ const applyPriceRules = (row, data) => {
 
     const belowMin7 = min7N !== null && priceN <= min7N;
     const belowMin30 = min30N !== null && priceN <= min30N;
-    const atMin1y = min1yN !== null && priceN <= min1yN;
-    const atMax1y = max1yN !== null && priceN >= max1yN;
-
+    const dayLowN  = norm(data.regularMarketDayLow);
+    const dayHighN = norm(data.regularMarketDayHigh);
+    const TOL = 0.05;
+    const atMin1y = dayLowN !== null && min1yN !== null && dayLowN <= (min1yN + TOL);
+    const atMax1y = dayHighN !== null && max1yN !== null && dayHighN >= (max1yN - TOL);
     if (atMax1y) {
         elPrice.classList.add('success-price-hard');
         elMax?.classList.add('success-price-hard');
