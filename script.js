@@ -519,7 +519,8 @@ const applyPriceRules = (row, data) => {
     const belowMin30 = min30N !== null && priceN <= min30N;
     const dayLowN  = norm(data.regularMarketDayLow);
     const dayHighN = norm(data.regularMarketDayHigh);
-    const TOL = 0.05;
+ 
+    const TOL = priceN * 0.002; // 0,2%
     const atMin1y = dayLowN !== null && min1yN !== null && dayLowN <= (min1yN + TOL);
     const atMax1y = dayHighN !== null && max1yN !== null && dayHighN >= (max1yN - TOL);
     if (atMax1y) {
