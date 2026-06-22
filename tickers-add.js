@@ -14,6 +14,8 @@
 // 👉 então use só para manutenção => no bash comando manual :
 
 // node tickers-add.js
+// OU
+// netlify dev:exec node tickers-add.js
 
 
 import * as netlifyBlobs from "@netlify/blobs";
@@ -51,7 +53,8 @@ const run = async () => {
   const store = getStore({
   name: "quotes-blobs",
   siteID: process.env.NETLIFY_SITE_ID,
-  token: process.env.NETLIFY_TOKEN
+  // Tenta pegar o token padrão ou o token injetado pela CLI do Netlify
+  token: process.env.NETLIFY_TOKEN || process.env.NETLIFY_BLOBS_TOKEN
 });
 
   await updateTickersList(store, [
@@ -64,3 +67,11 @@ const run = async () => {
 };
 
 run().catch(console.error);
+
+
+// Return esperado:
+/*
+⬥ AI Gateway is disabled for this account
+⬥ Injected project settings env vars: ALPHA_VANTAGE_API_KEY, BRAPI_TOKEN, NETLIFY_BLOBS_TOKEN, NETLIFY_SITE_ID, REAL_TIME_KEY
+✅ tickers atualizados: ...
+*/
