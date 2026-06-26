@@ -1,4 +1,4 @@
-    // Quando usar esse script:
+// Quando usar esse script:
 
 // ✔ adicionar tickers novos rápido
 // ✔ corrigir lista quebrada
@@ -15,20 +15,19 @@
 
 // node tickers-add.js
 // OU
+// netlify login
 // netlify dev:exec node tickers-add.js
-
 
 import * as netlifyBlobs from "@netlify/blobs";
 const getStore = netlifyBlobs.getStore;
 
-// mesma lógica do seu sistema
 const safeSet = async (store, key, value) => {
   return await store.set(key, JSON.stringify(value));
 };
 
 const updateTickersList = async (store, tickers) => {
   if (!Array.isArray(tickers) || tickers.length === 0) {
-    throw new Error("Lista inválida");
+    throw new Error("❌ Lista enviada é inválida ou vazia");
   }
 
   const clean = [...new Set(
@@ -36,38 +35,51 @@ const updateTickersList = async (store, tickers) => {
   )].filter(Boolean);
 
   if (!clean.length) {
-    throw new Error("Lista vazia após limpeza");
+    throw new Error("❌ Lista vazia após a limpeza dos dados");
   }
 
+  console.log("💾 Gravando 'tickers-list' no Netlify Blobs...");
   await safeSet(store, "tickers-list", clean);
 
-  // 🔥 opcional (recomendado)
+  console.log("🔄 Resetando o 'ticker-index' para 0...");
   await safeSet(store, "ticker-index", { value: 0 });
 
-  console.log("✅ tickers atualizados:", clean);
+  console.log("✅ Tickers atualizados com sucesso:", clean);
 };
 
-// 🔥 EXECUÇÃO MANUAL
 const run = async () => {
-  // const store = getStore({ name: "quotes-blobs" });
-  const store = getStore({
-  name: "quotes-blobs",
-  siteID: process.env.NETLIFY_SITE_ID,
-  // Tenta pegar o token padrão ou o token injetado pela CLI do Netlify
-  token: process.env.NETLIFY_TOKEN || process.env.NETLIFY_BLOBS_TOKEN
-});
+  const siteID = process.env.NETLIFY_SITE_ID;
+  const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_TOKEN || process.env.NETLIFY_BLOBS_TOKEN;
 
-  await updateTickersList(store, [
+  // Diagnóstico de ambiente local
+  if (!siteID) {
+    console.warn("⚠️ NETLIFY_SITE_ID não encontrado no ambiente.");
+  }
+  if (!token) {
+    console.warn("⚠️ Token do Netlify não encontrado no ambiente.");
+  }
+
+  const store = getStore({
+    name: "quotes-blobs",
+    siteID: siteID,
+    token: token
+  });
+
+  const listaTickers = [
     "ALPA4", "ASAI3", "AUPO11", "BBDC4", "BOVA11", "B5P211",
     "CAML3", "CHIP11", "CMIN3", "DXCO3", "GRND3", "GOAT11",
     "HAPV3", "IMAB11", "IRFM11", "IVVB11", "JALL3", "KLBN4",
     "NASD11", "NBIT11", "PACB11", "RAIL3", "RAIZ4", "ROXO34",
     "SIMH3", "SLCE3", "SMAL11", "USDB11", "VIVT3", "5PRE11"
-  ]);
+  ];
+
+  await updateTickersList(store, listaTickers);
 };
 
-run().catch(console.error);
-
+run().catch((err) => {
+  console.error("❌ ERRO COMPLETO NA EXECUÇÃO:");
+  console.error(err);
+});
 
 // Return esperado:
 /*
