@@ -19,7 +19,7 @@ export const ETF_INFO = {
     IMAB11: { description: "Inflação (NTN-B) Prazo Medio e Longo" },
     IRFM11: { description: "Pré-fixado LTN 2026/29/31 e NTN-B" },
     IVVB11: { description: "S&P 500 maiores empresas dos EUA" },
-    LFTB11: { description: "Tesouro Selic LFT 2027/28/29/30/2060"},
+    /*LFTB11: { description: "Tesouro Selic LFT 2027/28/29/30/2060"},*/
     NASD11: { description: "Apple, Amazon, Google, Meta, Microsoft, Nvidia, Testa, Netflix "},
     NBIT11: { description: "Bitcoin contratos Futuros" },
     PACB11: { description: "Inflação (NTN-B) prazo Longo 2050 / 2060" },
