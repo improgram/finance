@@ -168,6 +168,7 @@ export const fetchYahoo = async (symbol, store) => {
     }
     const resultYahoo = jsonYahoo?.chart?.result?.[0];
     const meta = resultYahoo?.meta;
+    console.log(meta);
     if (!meta) return null;
     const timestamps = resultYahoo?.timestamp || [];
     const closes = resultYahoo?.indicators?.quote?.[0]?.close || [];
@@ -181,6 +182,8 @@ export const fetchYahoo = async (symbol, store) => {
       longName: meta.longName ?? null,
       regularMarketPrice: meta.regularMarketPrice,
       previousClose: meta.previousClose,
+      fiftyTwoWeekLow: meta.fiftyTwoWeekLow ?? null,
+      fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ?? null,
       changePercent: typeof meta.regularMarketChangePercent === "number" ? meta.regularMarketChangePercent : null,
       volume: meta.regularMarketVolume ?? null,
       averageVolume: meta.averageDailyVolume3Month ?? meta.averageDailyVolume10Day ?? null,

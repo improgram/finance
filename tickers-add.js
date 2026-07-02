@@ -82,8 +82,11 @@ run().catch((err) => {
 });
 
 // Return esperado:
-/*
-⬥ AI Gateway is disabled for this account
-⬥ Injected project settings env vars: ALPHA_VANTAGE_API_KEY, BRAPI_TOKEN, NETLIFY_BLOBS_TOKEN, NETLIFY_SITE_ID, REAL_TIME_KEY
-✅ tickers atualizados: ...
+// ✅ tickers atualizados: ...
+
+/* Quando você rodou o tickers-add.js, você alterou a lista de tarefas que o orquestrador (update-quotes.js) vai seguir nas próximas execuções.
+Porém, o arquivo "last-valid-snapshot" ainda contém a fotografia antiga do mercado com os tickers antigos armazenados nele.
+O snapshot só muda quando o orquestrador roda com sucesso e subscreve essa chave.
+Para resolver isso e fazer a página web atualizar imediatamente (limpando o snapshot antigo ou forçando o novo),
+você precisa fazer um Delete/Reset do snapshot no Netlify Blobs.
 */

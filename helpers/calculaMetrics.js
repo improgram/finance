@@ -79,6 +79,15 @@ export function calculateMetrics({
     ?? null;
 
   const week52Calc = get52WeekRangeFromHist(mergedHist);
+  console.log({
+    symbol: mergedData.symbol,
+    candles: mergedHist.length,
+    apiLow: data?.fiftyTwoWeekLow,
+    apiHigh: data?.fiftyTwoWeekHigh,
+    histLow: week52Calc.low,
+    histHigh: week52Calc.high
+  });
+  
   const fiftyTwoWeekLow = safeValue(data?.fiftyTwoWeekLow ?? week52Calc.low);
   const fiftyTwoWeekHigh = safeValue(data?.fiftyTwoWeekHigh ?? week52Calc.high);
   const changeSource = usingCalculated ? "CALCULATED" : "YAHOO";
